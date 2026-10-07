@@ -1,8 +1,9 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Stand: **0.2.0-photo**. Rückseitige 1×-Kamera mit Live-Vorschau und
-JPEG-Aufnahme sowie separate HID-Diagnose. SeaFrogs-Tastenbelegung und
+Aktueller Quelltext: **0.3.0-lenses**. Live-Vorschau, JPEG-Aufnahme und
+Kamerawechsel 1× → Macro → 0,5× sowie separate HID-Diagnose.
+Der letzte erfolgreiche Build betrifft 0.2.0-photo; 0.3.0 ist noch nicht gebaut. SeaFrogs-Tastenbelegung und
 Pixel-8-Hardwaretest sind noch nicht bestätigt.
 
 ## Öffnen und bauen
@@ -43,8 +44,25 @@ im Statusbereich. „Erneut starten“ initialisiert die Kamera neu.
 
 [Erster Kameratest](docs/CAMERA-TEST.md): Vorschau, AF, JPEGs, Orientierung,
 Berechtigungen und Freigabe nach Lifecycle-Wechsel auf dem Pixel 8 prüfen.
-Mausadapter, Ultraweitwinkel, Macro, Video, Zoom-/EV-Zyklen, RAW und
+Mausadapter, Video, Zoom-/EV-Zyklen, RAW und
 Weißabgleichprofile folgen nach separater Abstimmung.
+
+## Kamerawechsel und Macro
+
+Die große KAMERA-Taste schaltet 1× → Macro → 0,5× → 1×.
+Während Aufnahme, Initialisierung und Macro-Fokusstart ist sie gesperrt.
+Macro verwendet eine zur Laufzeit ermittelte Ultraweitwinkelkamera mit
+kontinuierlichem Foto-AF und stößt mittigen Autofokus neu an. Anschließend
+wird die kurzzeitige Fokussperre wieder aufgehoben. Beide Ultraweitwinkelmodi
+verwenden momentan das volle Sensorfeld, ohne digitalen Crop.
+
+Fehlende Kameras werden gemeldet; der nächste Tastendruck fährt im Zyklus fort.
+Bei einem fehlgeschlagenen Bind versucht die App, die vorherige Kamera erneut
+zu öffnen. Rückkehr aus der Diagnose bewahrt den gewählten Modus im selben
+Activity-Exemplar; eine neue Activity startet mit 1×.
+
+[Kameraerkennung und Grenzen](docs/LENS-MODES.md) sowie
+[Geräteprüfung](docs/CAMERA-TEST.md) beschreiben die noch offene Abnahme.
 
 ## Diagnose
 
@@ -88,7 +106,7 @@ Hardwaretest muss der Export beide Werte als 0 melden.
 
 ## Nächster Meilenstein
 
-Build mit Lint, danach [Kameratest](docs/CAMERA-TEST.md) und getrennt
+Nach Ergänzung von Zoom und EV: Build mit Lint, danach [Kameratest](docs/CAMERA-TEST.md) und getrennt
 [HID-Hardwaretest](docs/PIXEL8-TEST.md). Die Kamera funktioniert unabhängig von
 der späteren Input-Abstraktion. Beide Ansichten verwenden native Android Views.
 Build-Ergebnisse stehen in [BUILD-STATUS.md](docs/BUILD-STATUS.md).
@@ -96,7 +114,7 @@ Build-Ergebnisse stehen in [BUILD-STATUS.md](docs/BUILD-STATUS.md).
 Geplante Bedienung: Links Macro/0,5×/1×, Hoch Zoom oder Macro-Crop, Runter
 Foto/Video, Klick Auslöser beziehungsweise Video Start/Stop, Rechts EV-Zyklus.
 RAW, Video-FPS, Weißabgleich und Kameraauswahl erfordern Capability-Prüfungen
-am realen Gerät. Diese erweiterten Funktionen sind in Version 0.2.0 noch nicht implementiert.
+am realen Gerät. Diese erweiterten Funktionen sind in Version 0.3.0 noch nicht implementiert.
 
 ## Lizenz und Quellen
 

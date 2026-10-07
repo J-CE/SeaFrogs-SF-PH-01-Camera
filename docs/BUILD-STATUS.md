@@ -25,3 +25,10 @@ Erneuter lokaler Meilenstein bei Bedarf:
 ```
 
 GitHub-Schreibzugriff bestätigt. Source auf main übertragen.
+
+## Quelltext 0.3.0-lenses
+
+Kamerawechsel und Macro-AF wurden nach dem obigen Build ergänzt.
+Für diese Version wurde vereinbarungsgemäß kein weiterer Build/Lint- oder
+Gerätetest ausgeführt. Die vorhandene 0.2.0-APK enthält diese Änderungen nicht.
+Nächster gemeinsamer Testmeilenstein: nach Zoom- und EV-Zyklen.

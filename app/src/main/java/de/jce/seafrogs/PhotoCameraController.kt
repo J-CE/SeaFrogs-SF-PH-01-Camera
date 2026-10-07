@@ -6,7 +6,9 @@ import android.os.Build
 import android.provider.MediaStore
 import android.view.Surface
 import androidx.camera.core.Camera
-import androidx.camera.core.CameraSelector
+import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.CameraState
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -19,8 +21,10 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 data class PhotoCameraState(
+    val lens: PhotoLens = PhotoLens.MAIN,
     val ready: Boolean = false,
     val capturing: Boolean = false,
     val message: String = "Kamera startet",
@@ -33,6 +37,7 @@ data class PhotoCameraState(
  * Each start/stop advances a generation, so old async callbacks cannot rebind
  * the camera or update a newer session after Activity focus/lifecycle changes.
  */
+@androidx.annotation.OptIn(markerClass = [ExperimentalCamera2Interop::class])
 class PhotoCameraController(
     context: Context,
     private val publish: (PhotoCameraState) -> Unit
@@ -49,15 +54,43 @@ class PhotoCameraController(
     private var cameraOpen = false
     private var streaming = false
     private var busy = false
+    private var catalog: CameraLensCatalog? = null
+    private var activeLens = PhotoLens.MAIN
+    private var cyclePosition = PhotoLens.MAIN
+    private var zoomReady = false
+    private var focusPending = false
+    private var focusTriggered = false
     private var rotation = Surface.ROTATION_0
     private var message = "Kamera startet"
 
     fun start(lifecycleOwner: LifecycleOwner, view: PreviewView) {
         stop()
-        val token = generation
         owner = lifecycleOwner
         previewView = view
-        message = "Kamera startet"
+        open(activeLens)
+    }
+
+    /** The later HID adapter calls the same command as the large UI button. */
+    fun cycleLens() {
+        if (!isReady()) return
+        cyclePosition = cyclePosition.next()
+        val target = cyclePosition
+        if (catalog?.routeFor(target) == null) {
+            message = if (target == PhotoLens.MACRO)
+                "Macro nicht verfügbar: keine Ultraweitwinkelkamera mit Foto-AF"
+            else "Ultraweitwinkelkamera nicht verfügbar"
+            emit()
+            return
+        }
+        open(target, activeLens)
+    }
+
+    private fun open(target: PhotoLens, fallback: PhotoLens? = null, notice: String? = null) {
+        val lifecycleOwner = owner ?: return
+        val view = previewView ?: return
+        clearSession()
+        val token = generation
+        message = notice ?: "Kamerawechsel: ${target.label}"
         emit()
         val future = ProcessCameraProvider.getInstance(appContext)
         future.addListener({
@@ -65,75 +98,143 @@ class PhotoCameraController(
             try {
                 val availableProvider = future.get()
                 provider = availableProvider
-                check(availableProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
-                    "Keine rückseitige Kamera verfügbar"
+                val lenses = catalog ?: CameraLensCatalog(appContext, availableProvider).also {
+                    catalog = it
                 }
-                bind(availableProvider, lifecycleOwner, view)
+                val route = checkNotNull(lenses.routeFor(target)) {
+                    "Keine geeignete Kamera für ${target.label}"
+                }
+                bind(availableProvider, lifecycleOwner, view, route)
+                activeLens = target
+                val boundCamera = checkNotNull(camera)
                 view.previewStreamState.observe(lifecycleOwner) { stream ->
                     if (generation == token) {
                         streaming = stream == PreviewView.StreamState.STREAMING
+                        maybeRestartMacroFocus(token)
                         emit()
                     }
                 }
-                camera?.cameraInfo?.cameraState?.observe(lifecycleOwner) { state ->
+                boundCamera.cameraInfo.cameraState.observe(lifecycleOwner) { state ->
                     if (generation == token) {
                         cameraOpen = state.type == CameraState.Type.OPEN && state.error == null
                         message = when {
                             state.error != null -> cameraErrorMessage(state.error!!.code)
-                            cameraOpen -> "Bereit"
+                            cameraOpen -> notice ?: "Bereit"
                             else -> "Warte auf Kamera"
                         }
+                        maybeRestartMacroFocus(token)
                         emit()
                     }
                 }
-                // Reset the logical rear camera to its normal 1x field of view.
-                // CameraX's normal photo session uses continuous picture AF.
-                camera?.cameraControl?.setZoomRatio(1f)?.let { zoom ->
-                    zoom.addListener({
-                        if (generation == token) {
-                            try { zoom.get() }
-                            catch (error: Exception) {
-                                cameraOpen = false
-                                message = "1× konnte nicht eingestellt werden: ${error.cause?.message ?: error.message}"
-                                emit()
-                            }
+                val zoom = boundCamera.cameraControl.setZoomRatio(1f)
+                zoom.addListener({
+                    if (generation == token) {
+                        try {
+                            zoom.get()
+                            zoomReady = true
+                            maybeRestartMacroFocus(token)
+                            emit()
+                        } catch (error: Exception) {
+                            recover(target, fallback, error)
                         }
-                    }, mainExecutor)
-                }
+                    }
+                }, mainExecutor)
             } catch (error: Exception) {
-                releaseUseCases()
-                message = "Kamera nicht verfügbar: ${error.cause?.message ?: error.message}"
-                emit()
+                recover(target, fallback, error)
             }
         }, mainExecutor)
+    }
+
+    private fun recover(target: PhotoLens, fallback: PhotoLens?, error: Exception) {
+        val detail = error.cause?.message ?: error.message
+        if (fallback != null) {
+            open(fallback, notice = "${target.label} fehlgeschlagen. Zurück zu ${fallback.label}: $detail")
+        } else {
+            clearSession()
+            message = "Kamera nicht verfügbar: $detail. Erneut starten."
+            emit()
+        }
     }
 
     private fun bind(
         availableProvider: ProcessCameraProvider,
         lifecycleOwner: LifecycleOwner,
-        view: PreviewView
+        view: PreviewView,
+        route: CameraLensRoute
     ) {
-        preview = Preview.Builder()
+        val previewBuilder = Preview.Builder()
             .setResolutionSelector(ResolutionSelector.Builder()
                 .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
                 .build())
-            .build().also { it.setSurfaceProvider(view.surfaceProvider) }
         val resolutionSelector = ResolutionSelector.Builder()
             .setAllowedResolutionMode(ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE)
             .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
             .build()
-        imageCapture = ImageCapture.Builder()
+        val captureBuilder = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setJpegQuality(100)
             .setTargetRotation(rotation)
             .setResolutionSelector(resolutionSelector)
-            .build()
-        // ResolutionSelector allows CameraX to negotiate the largest supported
-        // 4:3 photo size alongside preview. Never claim an unexposed 50 MP mode.
+        // Both output streams must use the same physical sensor. The logical
+        // parent supplies CameraX controls; their effect needs device validation.
+        if (Build.VERSION.SDK_INT >= 28) route.physicalId?.let { physicalId ->
+            Camera2Interop.Extender(previewBuilder).setPhysicalCameraId(physicalId)
+            Camera2Interop.Extender(captureBuilder).setPhysicalCameraId(physicalId)
+        }
+        preview = previewBuilder.build().also { it.setSurfaceProvider(view.surfaceProvider) }
+        imageCapture = captureBuilder.build()
         camera = availableProvider.bindToLifecycle(
-            lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview!!, imageCapture!!
+            lifecycleOwner, route.selector(), preview!!, imageCapture!!
         )
     }
+
+    private fun maybeRestartMacroFocus(token: Int) {
+        if (activeLens != PhotoLens.MACRO || focusTriggered ||
+            !cameraOpen || !streaming || !zoomReady) return
+        focusTriggered = true
+        val boundCamera = camera ?: return
+        val view = previewView ?: return
+        val point = view.meteringPointFactory.createPoint(view.width / 2f, view.height / 2f)
+        val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
+            .setAutoCancelDuration(2, TimeUnit.SECONDS).build()
+        if (!boundCamera.cameraInfo.isFocusMeteringSupported(action)) {
+            message = "Macro: kontinuierlicher AF; Fokus-Neustart nicht verfügbar"
+            return
+        }
+        focusPending = true
+        message = "Macro fokussiert …"
+        try {
+            val focus = boundCamera.cameraControl.startFocusAndMetering(action)
+            focus.addListener({
+                if (generation != token) return@addListener
+                val focused = runCatching { focus.get().isFocusSuccessful }.getOrDefault(false)
+                // A one-shot AF trigger temporarily locks focus. Cancel it so
+                // subsequent near subjects continue to receive continuous AF.
+                try {
+                    val cancel = boundCamera.cameraControl.cancelFocusAndMetering()
+                    cancel.addListener({
+                        if (generation == token) {
+                            focusPending = false
+                            message = if (runCatching { cancel.get() }.isFailure)
+                                "Macro: AF-Rücksetzung nicht bestätigt. Erneut starten."
+                            else if (focused) "Macro: kontinuierlicher AF aktiv"
+                            else "Macro: Fokus nicht bestätigt; kontinuierlicher AF aktiv"
+                            emit()
+                        }
+                    }, mainExecutor)
+                } catch (error: Exception) {
+                    focusPending = false
+                    message = "Macro: AF-Rücksetzung fehlgeschlagen: ${error.message}"
+                    emit()
+                }
+            }, mainExecutor)
+        } catch (error: Exception) {
+            focusPending = false
+            message = "Macro: Fokus-Neustart fehlgeschlagen: ${error.message}"
+        }
+    }
+
+    private fun isReady() = cameraOpen && streaming && zoomReady && !busy && !focusPending
 
     fun setRotation(targetRotation: Int) {
         rotation = targetRotation
@@ -142,7 +243,7 @@ class PhotoCameraController(
 
     fun capturePhoto() {
         val capture = imageCapture ?: return
-        if (!cameraOpen || !streaming || busy) return
+        if (!isReady()) return
         busy = true
         message = "Foto wird aufgenommen"
         emit()
@@ -196,14 +297,18 @@ class PhotoCameraController(
     }
 
     fun stop() {
+        clearSession()
+        owner = null
+        previewView = null
+    }
+
+    private fun clearSession() {
         generation++
         owner?.let { lifecycleOwner ->
             camera?.cameraInfo?.cameraState?.removeObservers(lifecycleOwner)
             previewView?.previewStreamState?.removeObservers(lifecycleOwner)
         }
         releaseUseCases()
-        owner = null
-        previewView = null
     }
 
     private fun releaseUseCases() {
@@ -215,12 +320,16 @@ class PhotoCameraController(
         cameraOpen = false
         streaming = false
         busy = false
+        zoomReady = false
+        focusPending = false
+        focusTriggered = false
     }
 
     private fun emit() {
         val size = imageCapture?.resolutionInfo?.resolution
         publish(PhotoCameraState(
-            ready = cameraOpen && streaming && !busy,
+            lens = activeLens,
+            ready = isReady(),
             capturing = busy,
             message = message,
             resolution = size?.let { "${it.width} × ${it.height}" } ?: ""

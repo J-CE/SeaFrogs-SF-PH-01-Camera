@@ -37,3 +37,30 @@ Ergebnis. Die tatsächliche Größe im JPEG prüfen.
 
 Der spätere HID-Adapter ruft PhotoCameraController.capturePhoto() auf.
 Eine Gehäusetaste kann in dieser Version noch kein Foto auslösen.
+
+## Nächster gemeinsamer Meilenstein: Objektive, Zoom und EV
+
+Der Objektivcode liegt in 0.3.0-lenses vor, ist aber noch nicht gebaut oder
+am Gerät getestet. Die folgenden Prüfungen werden nach Zoom/EV ergänzt und
+zusammen ausgeführt:
+
+1. KAMERA mehrfach drücken: 1× → Macro → 0,5× → 1×. Bei jedem Modus JPEG
+   aufnehmen und den tatsächlichen Bildausschnitt von Vorschau und JPEG vergleichen.
+2. Reale Sensorauswahl kontrollieren, etwa durch vorsichtiges Abdecken jeweils
+   einer Linse im trockenen Test. Macro und 0,5× müssen dieselbe UW-Linse verwenden.
+   Keine Aufnahme wird allein aufgrund eines Statuslabels als Macro bestätigt.
+3. Nahes Motiv mittig platzieren, in Macro wechseln, Fokus-Neustart beobachten.
+   Danach ohne weiteren Tastendruck zwischen zwei Nahmotiven wechseln: AF muss
+   wieder kontinuierlich nachführen. Mindestabstand messen und dokumentieren.
+4. Bei nicht bestätigtem Fokus muss die Meldung sichtbar sein. AF-Unterstützung
+   in Metadaten ersetzt keine Prüfung der tatsächlichen Nahfokussierung.
+5. Beim Wechsel und AF-Neustart dürfen keine Fotos ausgelöst werden; während
+   Aufnahme darf keine Kamera gewechselt werden.
+6. Aus Macro die Diagnose öffnen und zurückkehren; Macro muss wieder aktiv sein.
+7. Fehler bei Kamera-Bind/Zoom prüfen: Rückkehr zum vorherigen Modus oder klare
+   Fehlermeldung mit Möglichkeit zum Neustart. Nicht unterstützte Modi melden.
+8. Bei physisch gepinnten Streams AF-Wirkung sowie gleiche Kamera in Vorschau
+   und JPEG ausdrücklich prüfen. Logische CameraX-Kontrollen sind HAL-abhängig.
+
+Protokollieren: Android-Build, gewählte logische/physische IDs (Debugger),
+JPEG-Größen je Modus, Fokusabstände, Ausschnitt und Fehler. Noch keine Messwerte.

@@ -19,11 +19,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 
-/** First camera milestone: rear 1x, preview and JPEG. No HID interpretation. */
+/** Photo UI and lens commands, independent of the future HID adapter. */
 class CameraActivity : ComponentActivity() {
     private lateinit var controller: PhotoCameraController
     private lateinit var preview: PreviewView
     private lateinit var status: TextView
+    private lateinit var lensSwitch: Button
     private lateinit var shutter: Button
     private lateinit var diagnosis: Button
     private lateinit var restart: Button
@@ -64,6 +65,14 @@ class CameraActivity : ComponentActivity() {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         }
         root.addView(preview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        lensSwitch = Button(this).apply {
+            text = "KAMERA: 1×"
+            textSize = 24f
+            minHeight = dp(64)
+            isEnabled = false
+            setOnClickListener { controller.cycleLens() }
+        }
+        root.addView(lensSwitch)
         shutter = Button(this).apply {
             text = "FOTO"
             textSize = 28f
@@ -94,8 +103,10 @@ class CameraActivity : ComponentActivity() {
         setContentView(root)
         controller = PhotoCameraController(this) { state ->
             if (!isDestroyed && active) {
-                status.text = "PHOTO | 1× | JPEG\n" +
+                status.text = "PHOTO | ${state.lens.label} | JPEG\n" +
                     state.resolution + "\n" + state.message
+                lensSwitch.isEnabled = state.ready
+                lensSwitch.text = "KAMERA: ${state.lens.label}"
                 shutter.isEnabled = state.ready
                 shutter.text = if (state.capturing) "AUFNAHME …" else "FOTO"
                 diagnosis.isEnabled = !state.capturing
@@ -152,6 +163,7 @@ class CameraActivity : ComponentActivity() {
     }
 
     private fun showPermissionRequired() {
+        lensSwitch.isEnabled = false
         shutter.isEnabled = false
         status.text = "KAMERAZUGRIFF FEHLT\nBerechtigung freigeben. HID-Diagnose bleibt verfügbar."
         restart.text = "Zugriff freigeben"
@@ -172,6 +184,7 @@ class CameraActivity : ComponentActivity() {
     override fun onStop() {
         active = false
         sessionStarted = false
+        lensSwitch.isEnabled = false
         shutter.isEnabled = false
         orientation.disable()
         controller.stop()
