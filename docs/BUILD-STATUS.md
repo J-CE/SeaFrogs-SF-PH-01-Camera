@@ -145,3 +145,29 @@ Kein nativer RAW-Hardwaretest ausgeführt. Die tatsächlichen DNG-Dateien,
 Farbdaten und Kameraübergaben prüft der nächste Meilenstein RAW-0.6.3.md.
 
 APK-SHA256: ee414178fda53fc4eedbe24b9896f3500e4c99879db37cf25fe58642ac284bff
+
+## Meilenstein 0.6.4-iso-limits, 2026-10-07
+
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich. 23 Tests bestanden,
+0 Fehler/übersprungen: 17 bestehende, 5 Belichtungsrechenfälle und 1 ISO-
+Vergleichsplan. Lint: 0 Fehler, 70 Warnungen. Der abschließende Build umfasst
+die ergänzte Unterscheidung von Vorschau-ISO und tatsächlichen Fotowerten.
+APK versionCode 11, versionName 0.6.4-iso-limits. Unveränderter Debug-Schlüssel,
+Installation als Update möglich. Projekt-/CameraX-Versionen unverändert.
+
+Gespeicherte ISO-Grenzen Auto/400/800/1600 und Zeitgrenzen 1/30, 1/60, 1/125 s.
+ISO-begrenzte JPEG-/RAW+JPEG-Aufnahmen nutzen die bestätigte AE-Messung als
+Ausgangspunkt für eine manuelle Sensorbelichtung. Grenzen, tatsächliche ISO/
+Zeit, Post-RAW-Gain und eventuelle reduzierte Sensorbelichtung stehen im
+CaptureResult-Bericht und in den Dateimetadaten. Keine Extensions bei aktiver
+Grenze. ISO-TEST fotografiert sechs ungecroppte STANDARD-JPEGs auf demselben
+nativen Aufnahmeweg; ISO ZIP lässt ältere RAW-/Normal-/Macro-Fotos weg.
+Portrait-Steuerbereich scrollt, damit alle zusätzlichen Testtasten erreichbar
+bleiben. Auto ist erste Startvorgabe, gespeicherte Setup-Werte bleiben erhalten.
+
+Die drei DNG-Dateien aus 0.6.3 sind nun vollständig gelesen und mit LibRaw
+entwickelt: Hauptkamera 4080 × 3072, UW/Macro 4032 × 3016, passende CFA/
+Farbmatrizen und Aufnahmemetadaten. ISO-Grenzen brauchen noch den realen
+Pixel-8-Vergleich gemäß ISO-0.6.4.md; der Build ersetzt diese Abnahme nicht.
+
+APK-SHA256: 2328a76efb9ee12e1eff19130071ffda9d19afef202aa5e00d00f6b05df212ac

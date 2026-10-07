@@ -3,6 +3,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AutoTestPlanTest {
+    @Test fun isoComparisonUsesSameBackendAndUncroppedEvZeroPairs() {
+        val steps = AutoTestPlan.iso(8_000_000L)
+        assertEquals(6, steps.size)
+        for (lens in listOf(PhotoLens.MAIN, PhotoLens.ULTRAWIDE)) {
+            assertEquals(listOf(0, 800, 400), steps.filter { it.lens == lens }.map { it.isoCap })
+        }
+        assertTrue(steps.all { it.nativeCapture && !it.raw && it.zoom == 1f && it.ev == 0f &&
+            it.quality == "STANDARD" && it.longestTimeNs == 8_000_000L })
+        assertEquals(steps.size, steps.map { it.id }.toSet().size)
+    }
     @Test fun normalTestStartsEachLensWithoutCropAndCoversAllEvValues() {
         val steps = AutoTestPlan.create(false)
         for (lens in listOf(PhotoLens.MAIN, PhotoLens.ULTRAWIDE)) {

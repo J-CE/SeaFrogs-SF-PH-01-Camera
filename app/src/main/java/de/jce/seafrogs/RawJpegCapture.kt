@@ -21,7 +21,7 @@ import java.util.UUID
 
 data class RawPairOutcome(val jpeg: Uri?, val dng: Uri?, val evidence: String, val error: String?)
 
-/** One Camera2 exposure with JPEG and RAW targets. CameraX must be unbound first.
+/** One Camera2 exposure with JPEG and optional RAW targets. CameraX must be unbound first.
  * All camera/image state lives on one worker. Match sensor timestamps before
  * writing DNG; pinned outputs require the matching physical CaptureResult.
  */
@@ -43,6 +43,11 @@ class RawJpegCapture(context: Context) {
     private var zoom = 1f
     private var ev = 0f
     private var orientation = 0
+    private var limits = ExposureLimits()
+    private var manualExposure: LimitedExposure? = null
+    private var meterIso = 0
+    private var meterTimeNs = 0L
+    private var requestedBoost: Int? = null
     private var description = ""
     private var shotRequested = false
     private var finished = false
@@ -52,28 +57,37 @@ class RawJpegCapture(context: Context) {
     private val focus = AutofocusStability()
     private var savedJpeg: Uri? = null
     private var savedDng: Uri? = null
-    private val evidence = JSONObject().put("backend", "Camera2RawJpeg")
+    private val evidence = JSONObject()
     private var finishedOutcome: RawPairOutcome? = null
     private var delivered = false
     private var opening = false
 
-    fun start(selected: CameraLensRoute, jpegSize: Size, rawSize: Size, zoomRatio: Float,
+    fun start(selected: CameraLensRoute, jpegSize: Size, rawSize: Size?, zoomRatio: Float,
               exposureEv: Float, jpegOrientation: Int, metadata: String,
+              exposureLimits: ExposureLimits = ExposureLimits(),
               complete: (RawPairOutcome) -> Unit) {
         worker.post {
             if (finished) return@post
             callback = complete
             route = selected; zoom = zoomRatio; ev = exposureEv
-            orientation = jpegOrientation; description = metadata
+            orientation = jpegOrientation; description = metadata; limits = exposureLimits
+            evidence.put("backend", if (rawSize == null) "Camera2Jpeg" else "Camera2RawJpeg")
+                .put("isoCapRequested", limits.isoCap)
+                .put("longestTimeNsRequested", if (limits.enabled) limits.longestTimeNs else JSONObject.NULL)
             evidence.put("logicalId", route.logicalId).put("physicalId", route.physicalId ?: JSONObject.NULL)
-                .put("jpegRequestedSize", jpegSize.toString()).put("rawRequestedSize", rawSize.toString())
+                .put("jpegRequestedSize", jpegSize.toString()).put("rawRequestedSize", rawSize?.toString() ?: JSONObject.NULL)
                 .put("zoomRequested", zoom.toDouble()).put("evRequested", ev.toDouble())
             try {
                 val manager = app.getSystemService(CameraManager::class.java)
                 characteristics = manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
                 logicalCharacteristics = manager.getCameraCharacteristics(route.logicalId)
                 jpegReader = ImageReader.newInstance(jpegSize.width, jpegSize.height, ImageFormat.JPEG, 3)
-                rawReader = ImageReader.newInstance(rawSize.width, rawSize.height, ImageFormat.RAW_SENSOR, 2)
+                rawReader = rawSize?.let { ImageReader.newInstance(it.width, it.height, ImageFormat.RAW_SENSOR, 2) }
+                if (limits.enabled) {
+                    val c = checkNotNull(characteristics)
+                    check(c[CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES]?.contains(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR) == true) { "Manuelle Belichtung auf dieser Route nicht verfügbar" }
+                }
                 jpegReader!!.setOnImageAvailableListener({ reader ->
                     val image = reader.acquireNextImage() ?: return@setOnImageAvailableListener
                     try {
@@ -85,7 +99,7 @@ class RawJpegCapture(context: Context) {
                     } finally { image.close() }
                     trySave()
                 }, worker)
-                rawReader!!.setOnImageAvailableListener({ reader ->
+                rawReader?.setOnImageAvailableListener({ reader ->
                     val image = reader.acquireNextImage() ?: return@setOnImageAvailableListener
                     if (finished || rawImage != null) image.close()
                     else { rawImage = image; trySave() }
@@ -106,7 +120,7 @@ class RawJpegCapture(context: Context) {
                 if (finished) { camera.close(); return }
                 device = camera
                 try {
-                    val surfaces = listOf(jpegReader!!.surface, rawReader!!.surface)
+                    val surfaces = listOfNotNull(jpegReader!!.surface, rawReader?.surface)
                     val state = object : CameraCaptureSession.StateCallback() {
                         override fun onConfigured(value: CameraCaptureSession) {
                             if (finished) { value.close(); return }
@@ -177,7 +191,7 @@ class RawJpegCapture(context: Context) {
     private val captureCallback = object : CameraCaptureSession.CaptureCallback() {
         override fun onCaptureCompleted(value: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
             if (finished) return
-            if (request.tag == "RAW_JPEG_PAIR") { stillResult = result; trySave(); return }
+            if (request.tag == "SENSOR_PHOTO") { stillResult = result; trySave(); return }
             val now = SystemClock.uptimeMillis()
             if (firstFrameAt == 0L) firstFrameAt = now
             val sensor = sensorResult(result)
@@ -193,8 +207,10 @@ class RawJpegCapture(context: Context) {
                     evidence.put("preCaptureAfState", af ?: JSONObject.NULL).put("preCaptureAeState", ae)
                     value.stopRepeating()
                     val still = this@RawJpegCapture.request(CameraDevice.TEMPLATE_STILL_CAPTURE)
-                    still.setTag("RAW_JPEG_PAIR")
-                    still.addTarget(jpegReader!!.surface); still.addTarget(rawReader!!.surface)
+                    if (limits.enabled) applyExposureLimit(still, checkNotNull(sensor))
+                    still.setTag("SENSOR_PHOTO")
+                    still.addTarget(jpegReader!!.surface)
+                    rawReader?.surface?.let { still.addTarget(it) }
                     value.capture(still.build(), this, worker)
                 } catch (error: Exception) { finish(error.toString()) }
             } else if (!shotRequested && now - openedAt > 15000) finish("RAW: AF/AE nicht rechtzeitig bestätigt")
@@ -206,32 +222,101 @@ class RawJpegCapture(context: Context) {
 
     private fun trySave() {
         if (finished) return
-        val raw = rawImage ?: return
+        val raw = rawImage
+        if (rawReader != null && raw == null) return
         val total = stillResult ?: return
         val sensor = sensorResult(total) ?: run { finish("Physische RAW-CaptureResult-Metadaten fehlen"); return }
         val timestamp = sensor[CaptureResult.SENSOR_TIMESTAMP] ?: run { finish("RAW-Sensorzeitstempel fehlt"); return }
-        if (timestamp != raw.timestamp) { finish("RAW-Bild und Sensor-Metadaten haben unterschiedliche Zeitstempel"); return }
+        if (raw != null && timestamp != raw.timestamp) { finish("RAW-Bild und Sensor-Metadaten haben unterschiedliche Zeitstempel"); return }
         val jpeg = jpegFrames[timestamp] ?: return
         try {
             val c = checkNotNull(characteristics)
-            val sizes = c[CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP]?.getOutputSizes(ImageFormat.RAW_SENSOR)
-            check(sizes?.any { it.width == raw.width && it.height == raw.height } == true) { "RAW-Größe passt nicht zum Sensor" }
+            if (raw != null) {
+                val sizes = c[CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP]?.getOutputSizes(ImageFormat.RAW_SENSOR)
+                check(sizes?.any { it.width == raw.width && it.height == raw.height } == true) { "RAW-Größe passt nicht zum Sensor" }
+            }
             evidence.put("sensorTimestampNs", timestamp).put("jpegTimestampNs", timestamp)
-                .put("rawTimestampNs", raw.timestamp).put("sameExposureVerified", true)
-                .put("rawWidth", raw.width).put("rawHeight", raw.height)
+                .put("rawTimestampNs", raw?.timestamp ?: JSONObject.NULL).put("sameExposureVerified", true)
+                .put("rawWidth", raw?.width ?: JSONObject.NULL).put("rawHeight", raw?.height ?: JSONObject.NULL)
                 .put("iso", sensor[CaptureResult.SENSOR_SENSITIVITY] ?: JSONObject.NULL)
                 .put("exposureTimeNs", sensor[CaptureResult.SENSOR_EXPOSURE_TIME] ?: JSONObject.NULL)
                 .put("afState", sensor[CaptureResult.CONTROL_AF_STATE] ?: JSONObject.NULL)
                 .put("focalLengthMm", sensor[CaptureResult.LENS_FOCAL_LENGTH]?.toDouble() ?: JSONObject.NULL)
+            val exposureError = validateExposure(sensor)
             val prefix = "SeaFrogs_${System.currentTimeMillis()}_${UUID.randomUUID()}"
             savedJpeg = save("$prefix.jpg", "image/jpeg") { it.write(jpeg) }
-            DngCreator(c, sensor).use { creator ->
+            if (raw != null) DngCreator(c, sensor).use { creator ->
                 creator.setOrientation(when (orientation) { 90 -> 6; 180 -> 3; 270 -> 8; else -> 1 })
                 creator.setDescription(JSONObject(description).put("rawCapture", JSONObject(evidence.toString())).toString())
                 savedDng = save("$prefix.dng", "image/x-adobe-dng") { creator.writeImage(it, raw) }
             }
-            finish(null)
+            finish(exposureError)
         } catch (error: Exception) { finish(error.toString()) }
+    }
+
+    /** AE meters the current scene/EV. Disable only AE for the final exposure;
+     * CAF and AWB remain active. Pinned sensors receive supported per-camera
+     * keys explicitly; applied physical results, never logical guesses, verify
+     * that the HAL respected the ceiling.
+     */
+    private fun applyExposureLimit(builder: CaptureRequest.Builder, sensor: CaptureResult) {
+        val c = checkNotNull(characteristics)
+        meterIso = checkNotNull(sensor[CaptureResult.SENSOR_SENSITIVITY]) { "ISO-Messwert fehlt" }
+        meterTimeNs = checkNotNull(sensor[CaptureResult.SENSOR_EXPOSURE_TIME]) { "Zeit-Messwert fehlt" }
+        val isoRange = checkNotNull(c[CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE])
+        val timeRange = checkNotNull(c[CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE])
+        val selected = ExposureLimitCalculator.calculate(meterIso, meterTimeNs, limits,
+            isoRange.lower, isoRange.upper, timeRange.lower, timeRange.upper)
+        manualExposure = selected
+        setSensorKey(builder, CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+        setSensorKey(builder, CaptureRequest.SENSOR_SENSITIVITY, selected.iso)
+        setSensorKey(builder, CaptureRequest.SENSOR_EXPOSURE_TIME, selected.timeNs)
+        val maxFrame = checkNotNull(c[CameraCharacteristics.SENSOR_INFO_MAX_FRAME_DURATION])
+        val frame = maxOf(selected.timeNs, sensor[CaptureResult.SENSOR_FRAME_DURATION] ?: selected.timeNs)
+            .coerceAtMost(maxFrame)
+        setSensorKey(builder, CaptureRequest.SENSOR_FRAME_DURATION, frame)
+        // Preserve the meter's JPEG gain, rather than silently changing brightness
+        // when switching AE off. RAW remains the unboosted sensor exposure.
+        val boostRange = c[CameraCharacteristics.CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE]
+        val boost = sensor[CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST]
+        if (boost != null && boostRange != null && boost in boostRange &&
+            checkNotNull(logicalCharacteristics).availableCaptureRequestKeys.contains(CaptureRequest.CONTROL_POST_RAW_SENSITIVITY_BOOST)) {
+            requestedBoost = boost
+            setSensorKey(builder, CaptureRequest.CONTROL_POST_RAW_SENSITIVITY_BOOST, boost)
+        } else if (boost != null && boost != 100) {
+            error("JPEG-Verstärkung der Messung lässt sich nicht übernehmen")
+        }
+        evidence.put("meterIso", meterIso).put("meterTimeNs", meterTimeNs)
+            .put("isoRequested", selected.iso).put("timeNsRequested", selected.timeNs)
+            .put("brightnessDifferenceEvPlanned", selected.brightnessDifferenceEv)
+            .put("postRawBoostRequested", requestedBoost ?: JSONObject.NULL)
+    }
+
+    private fun <T> setSensorKey(builder: CaptureRequest.Builder, key: CaptureRequest.Key<T>, value: T) {
+        builder.set(key, value)
+        if (Build.VERSION.SDK_INT >= 28 && route.physicalId != null &&
+            logicalCharacteristics?.availablePhysicalCameraRequestKeys?.contains(key) == true)
+            builder.setPhysicalCameraKey(key, value, checkNotNull(route.physicalId))
+    }
+
+    private fun validateExposure(sensor: CaptureResult): String? {
+        if (manualExposure == null) return null
+        val iso = sensor[CaptureResult.SENSOR_SENSITIVITY]
+        val time = sensor[CaptureResult.SENSOR_EXPOSURE_TIME]
+        val boost = sensor[CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST]
+        val honored = iso != null && time != null && iso <= limits.isoCap &&
+            time <= limits.longestTimeNs && sensor[CaptureResult.CONTROL_AE_MODE] == CaptureResult.CONTROL_AE_MODE_OFF
+        val gainHonored = requestedBoost == null || boost == requestedBoost
+        evidence.put("limitsVerified", honored).put("postRawBoostActual", boost ?: JSONObject.NULL)
+            .put("postRawBoostVerified", gainHonored)
+        if (iso != null && time != null) {
+            val difference = ExposureLimitCalculator.differenceEv(meterIso, meterTimeNs, iso, time)
+            evidence.put("brightnessDifferenceEvSensor", difference)
+                .put("underexposedByLimits", difference < -0.1)
+        }
+        if (!honored) return "Foto gespeichert, aber Kamera hat ISO-/Zeitgrenzen nicht bestätigt"
+        if (!gainHonored) return "Foto gespeichert, aber JPEG-Verstärkung weicht vom Messwert ab"
+        return null
     }
 
     private fun save(name: String, mime: String, write: (java.io.OutputStream) -> Unit): Uri {

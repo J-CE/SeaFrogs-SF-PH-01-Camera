@@ -1,7 +1,8 @@
 package de.jce.seafrogs
 
 data class AutoTestStep(val id: String, val lens: PhotoLens, val zoom: Float = 1f,
-    val ev: Float = 0f, val quality: String = "STANDARD", val raw: Boolean = false)
+    val ev: Float = 0f, val quality: String = "STANDARD", val raw: Boolean = false,
+    val nativeCapture: Boolean = false, val isoCap: Int = 0, val longestTimeNs: Long = 33_333_333L)
 
 /** Stable order and settings keep the comparison reproducible. */
 object AutoTestPlan {
@@ -20,6 +21,12 @@ object AutoTestPlan {
             }
         }
     }
+
+    fun iso(longestTimeNs: Long): List<AutoTestStep> = listOf(PhotoLens.MAIN, PhotoLens.ULTRAWIDE)
+        .flatMap { lens -> listOf(0, 800, 400).map { cap ->
+            AutoTestStep("ISO_${lens.name}_${if (cap == 0) "AUTO" else cap.toString()}", lens,
+                nativeCapture = true, isoCap = cap, longestTimeNs = longestTimeNs)
+        } }
 
     fun raw(): List<AutoTestStep> = listOf(PhotoLens.MAIN, PhotoLens.ULTRAWIDE, PhotoLens.MACRO)
         .map { AutoTestStep("RAW_${it.name}", it, raw = true) }

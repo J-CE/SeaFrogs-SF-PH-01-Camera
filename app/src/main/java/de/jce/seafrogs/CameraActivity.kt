@@ -47,6 +47,10 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var macroTest: Button
     private lateinit var rawTest: Button
     private lateinit var format: Button
+    private lateinit var exposureSetup: Button
+    private lateinit var isoTest: Button
+    private lateinit var isoExport: Button
+    private var exportIsoOnly = false
     private var autoStatus = ""
     private var lastCameraState = PhotoCameraState()
     private lateinit var testCase: Button
@@ -66,7 +70,9 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private var downCount = 0
     private val finishBurst = Runnable { finishInput() }
     private val exportRequest = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) recorder.export(uri, automated.photos(), automated.report(), capabilityReport)
+        val isoOnly = exportIsoOnly
+        exportIsoOnly = false
+        if (uri != null) recorder.export(uri, automated.photos(isoOnly), automated.report(isoOnly), capabilityReport)
     }
     private var active = false
     private var sessionStarted = false
@@ -87,7 +93,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.3-raw-jpeg")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.4-iso-limits")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -178,6 +184,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             setOnClickListener {
                 preview.releasePointerCapture()
                 resetInput("export")
+                exportIsoOnly = false
                 exportRequest.launch("seafrogs-test-${System.currentTimeMillis()}.zip")
             }
         }
@@ -215,6 +222,28 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             rawControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
         buttonsPanel.addView(rawControls)
+        val isoControls = LinearLayout(this)
+        exposureSetup = Button(this).apply {
+            text = "ISO: AUTO"
+            setOnClickListener { chooseExposureLimits() }
+        }
+        isoTest = Button(this).apply {
+            text = "ISO-TEST"
+            setOnClickListener { beginAutomated(false, iso = true) }
+        }
+        isoExport = Button(this).apply {
+            text = "ISO ZIP"
+            setOnClickListener {
+                preview.releasePointerCapture()
+                resetInput("isoExport")
+                exportIsoOnly = true
+                exportRequest.launch("seafrogs-iso-${System.currentTimeMillis()}.zip")
+            }
+        }
+        listOf(exposureSetup, isoTest, isoExport).forEach {
+            isoControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        buttonsPanel.addView(isoControls)
         val autoControls = LinearLayout(this)
         normalTest = Button(this).apply {
             text = "NORMALTEST"
@@ -232,12 +261,10 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         root.addView(cameraPanel, if (landscape)
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
         else LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        val buttonsView = if (landscape) android.widget.ScrollView(this).apply {
-            addView(buttonsPanel)
-        } else buttonsPanel
+        val buttonsView = android.widget.ScrollView(this).apply { addView(buttonsPanel) }
         root.addView(buttonsView, LinearLayout.LayoutParams(
             if (landscape) dp(244) else LinearLayout.LayoutParams.MATCH_PARENT,
-            if (landscape) LinearLayout.LayoutParams.MATCH_PARENT else LinearLayout.LayoutParams.WRAP_CONTENT))
+            if (landscape) LinearLayout.LayoutParams.MATCH_PARENT else dp(320)))
         setContentView(root)
         controller = PhotoCameraController(this, { recorder.record(it) }) { state ->
             lastCameraState = state
@@ -344,12 +371,21 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         val testing = automated.running
         status.text = (if (autoStatus.isBlank()) "" else "$autoStatus\n") +
             "PHOTO | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | ${state.quality} | ${state.photoFormat}\n" +
-            state.resolution + "\n" + state.message + "\n" + state.diagnostics + "\n" + hidStatus
+            state.resolution + (if (state.exposureLimits.enabled)
+                " | ISO ≤ ${state.exposureLimits.isoCap} | Zeit ≤ ${when (state.exposureLimits.longestTimeNs) {
+                    8_000_000L -> "1/125 s"
+                    16_666_666L -> "1/60 s"
+                    else -> "1/30 s"
+                }}" else "") + "\n" + state.message + "\n" + state.diagnostics + "\n" + hidStatus
         quality.text = state.quality
-        quality.isEnabled = state.ready && !testing && state.photoFormat == "JPEG"
+        quality.isEnabled = state.ready && !testing && state.photoFormat == "JPEG" && !state.exposureLimits.enabled
         format.text = "FORMAT: ${state.photoFormat}"
         format.isEnabled = state.ready && !testing
         rawTest.isEnabled = state.ready && !testing
+        exposureSetup.isEnabled = state.ready && !testing
+        exposureSetup.text = if (state.exposureLimits.enabled) "ISO ≤ ${state.exposureLimits.isoCap}" else "ISO: AUTO"
+        isoTest.isEnabled = state.ready && !testing
+        isoExport.isEnabled = capabilityReport != null && !state.capturing && !testing
         testCase.isEnabled = !state.capturing && !testing
         export.text = if (capabilityReport == null) "KAMERADATEN …" else "TEST ZIP"
         export.isEnabled = capabilityReport != null && !state.capturing && !testing
@@ -369,18 +405,51 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         macroTest.isEnabled = state.ready && !testing
     }
 
-    private fun beginAutomated(macro: Boolean, raw: Boolean = false) {
-        val message = if (raw)
+    private fun beginAutomated(macro: Boolean, raw: Boolean = false, iso: Boolean = false) {
+        val message = if (iso)
+            "Stütze das Handy ab. Stelle ein bedrucktes Motiv etwa 50 cm vor die Linse und halte das Licht konstant.\n\nDie App fotografiert automatisch mit Hauptkamera und UW: jeweils Auto, maximal ISO 800 und maximal ISO 400. Die Zeitgrenze aus dem ISO-Setup gilt bei den beiden begrenzten Aufnahmen. Auto bleibt unbeschränkt. Alle sechs Fotos nutzen denselben Aufnahmeweg; die Vorschau pausiert während der Aufnahme.\n\nDanach ISO ZIP exportieren."
+        else if (raw)
             "Lege eine bedruckte Seite etwa 50 cm vor die Kameralinse. Stütze das Handy ab, halte Motiv und Licht konstant.\n\nDie App nimmt je ein RAW+JPEG-Paar mit Hauptkamera, UW und Macro auf. Dieser Test prüft Dateiformat und Sensorzuordnung. Während jeder RAW-Aufnahme pausiert die Vorschau."
         else if (macro)
             "Lege eine bedruckte Seite etwa 5 cm vor die Kameralinse. Stütze das Handy ab und halte das Licht konstant.\n\nDie App übernimmt Kamera, Fokusversuch, Crop-Stufen und Aufnahmen. Während des Tests nichts bewegen."
         else "Lege eine bedruckte Seite etwa 50 cm vor die Kameralinse. Stütze das Handy ab und halte das Licht konstant.\n\nDie App übernimmt Kamera, Zoom, EV, verfügbare Bildverarbeitung und Aufnahmen. Während des Tests nichts bewegen."
-        AlertDialog.Builder(this).setTitle(if (raw) "Automatischer RAW-Test" else if (macro) "Automatischer Macrotest" else "Automatischer Normaltest")
+        AlertDialog.Builder(this).setTitle(if (iso) "Automatischer ISO-Vergleich" else if (raw) "Automatischer RAW-Test" else if (macro) "Automatischer Macrotest" else "Automatischer Normaltest")
             .setMessage(message).setNegativeButton("Zurück", null)
             .setPositiveButton("Test starten") { _, _ ->
                 preview.releasePointerCapture()
                 resetInput("autoTestStart")
-                automated.start(macro, raw)
+                automated.start(macro, raw, iso)
+            }.show()
+    }
+
+    private fun chooseExposureLimits() {
+        val settings = controller.savedExposureLimits()
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(8))
+        }
+        panel.addView(TextView(this).apply { text = "ISO-Obergrenze" })
+        val iso = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@CameraActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                listOf("Auto (unbegrenzt)", "Maximal ISO 400", "Maximal ISO 800", "Maximal ISO 1600"))
+            setSelection(ExposureLimits.isoChoices.indexOf(settings.isoCap))
+        }
+        panel.addView(iso)
+        panel.addView(TextView(this).apply { text = "Längste Belichtungszeit bei aktiver ISO-Grenze" })
+        val time = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@CameraActivity,
+                android.R.layout.simple_spinner_dropdown_item, listOf("1/30 s", "1/60 s", "1/125 s"))
+            setSelection(ExposureLimits.timeChoices.indexOf(settings.longestTimeNs))
+        }
+        panel.addView(time)
+        panel.addView(TextView(this).apply {
+            text = "Auto begrenzt weder ISO noch Zeit. Bei aktiver Grenze fotografiert die App ohne Extensions und pausiert die Vorschau kurz. Reichen ISO und Zeit nicht für die gemessene Helligkeit, bleibt das Foto dunkler. Niedrigere ISO garantiert keine bessere Aufnahme bei Bewegung."
+        })
+        AlertDialog.Builder(this).setTitle("Belichtung vor dem Tauchgang").setView(panel)
+            .setNegativeButton("Zurück", null).setPositiveButton("Speichern") { _, _ ->
+                controller.setExposureLimits(ExposureLimits(ExposureLimits.isoChoices[iso.selectedItemPosition],
+                    ExposureLimits.timeChoices[time.selectedItemPosition]))
             }.show()
     }
 

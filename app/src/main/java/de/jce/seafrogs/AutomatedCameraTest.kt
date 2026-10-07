@@ -27,17 +27,17 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         private set
     private val results = runCatching { JSONArray(preferences.getString("results", "[]")) }.getOrDefault(JSONArray())
 
-    fun start(macro: Boolean, raw: Boolean = false) {
+    fun start(macro: Boolean, raw: Boolean = false, iso: Boolean = false) {
         if (running || !controller.readyForCommand()) { display("Kamera noch nicht bereit", false); return }
         token++
         running = true
-        group = if (raw) "RAW" else if (macro) "MACRO" else "NORMAL"
+        group = if (iso) "ISO" else if (raw) "RAW" else if (macro) "MACRO" else "NORMAL"
         runId = System.currentTimeMillis().toString()
         // Replace only the previous run of this group. Keep the other group for
         // the joint ZIP; JPEGs remain in MediaStore and are never deleted here.
         for (i in results.length() - 1 downTo 0) if (results.getJSONObject(i).optString("group") == group) results.remove(i)
         persist()
-        steps = if (raw) AutoTestPlan.raw() else AutoTestPlan.create(macro)
+        steps = if (iso) AutoTestPlan.iso(controller.savedExposureLimits().longestTimeNs) else if (raw) AutoTestPlan.raw() else AutoTestPlan.create(macro)
         index = 0
         record(JSONObject().put("kind", "autoTestStart").put("group", group).put("runId", runId))
         next(token)
@@ -108,7 +108,8 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
             if (!running || token != run) return@capturePhoto
             val rawOutcome = controller.rawOutcome()
             val status = when {
-                uri == null || (step.raw && (rawOutcome?.dng == null || rawOutcome.error != null)) -> "FAILED"
+                uri == null || (step.raw && rawOutcome?.dng == null) ||
+                    ((step.raw || step.nativeCapture) && rawOutcome?.error != null) -> "FAILED"
                 error != null -> "EXIF_WARNING"
                 else -> "SAVED"
             }
@@ -125,11 +126,12 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
             .put("lens", step.lens.name).put("zoomRequested", step.zoom.toDouble())
             .put("evRequested", step.ev.toDouble()).put("qualityRequested", step.quality)
             .put("preCaptureFocus", preCaptureFocus)
+            .put("isoCapRequested", step.isoCap).put("longestTimeNsRequested", if (step.isoCap > 0) step.longestTimeNs else JSONObject.NULL)
             .put("formatRequested", if (step.raw) "RAW+JPEG" else "JPEG")
             .put("status", status).put("uri", uri ?: JSONObject.NULL).put("error", error ?: JSONObject.NULL)
-        if (step.raw && uri != null) controller.rawOutcome()?.let { outcome ->
+        if ((step.raw || step.nativeCapture) && uri != null) controller.rawOutcome()?.let { outcome ->
             value.put("dngUri", outcome.dng?.toString() ?: JSONObject.NULL)
-                .put("rawCapture", JSONObject(outcome.evidence))
+                .put(if (step.raw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence))
         }
         results.put(value)
         persist()
@@ -146,16 +148,24 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         display(reason, false)
     }
 
-    fun report(): String = JSONObject().put("version", "0.6.3-raw-jpeg")
+    fun report(isoOnly: Boolean = false): String = JSONObject().put("version", "0.6.4-iso-limits")
         .put("device", android.os.Build.MODEL).put("androidBuild", android.os.Build.FINGERPRINT)
         .put("note", "Original JPEGs; requested settings in report, applied settings and latest preview telemetry in EXIF. No automated sharpness score.")
-        .put("results", results).toString(2)
+        .put("results", selectedResults(isoOnly)).toString(2)
 
-    fun photos(): List<Pair<String, String>> = (0 until results.length()).flatMap { i ->
+    fun photos(isoOnly: Boolean = false): List<Pair<String, String>> = (0 until results.length()).flatMap { i ->
         val value = results.getJSONObject(i)
+        if (isoOnly && value.optString("group") != "ISO") return@flatMap emptyList()
         listOf("uri" to "jpg", "dngUri" to "dng").mapNotNull { (key, suffix) ->
             val uri = value.optString(key)
             if (uri.isBlank() || uri == "null") null else "photos/${value.getString("id")}.$suffix" to uri
+        }
+    }
+
+    private fun selectedResults(isoOnly: Boolean) = JSONArray().apply {
+        for (i in 0 until results.length()) {
+            val value = results.getJSONObject(i)
+            if (!isoOnly || value.optString("group") == "ISO") put(value)
         }
     }
 
