@@ -1,0 +1,448 @@
+{
+  "MAIN": {
+    "method": "Median high-pass standard deviation in 32 independently selected flat green-plane tiles; strong-edge gradient ratio relative to raw reference; not ground-truth SNR/MTF",
+    "tiles": [
+      [
+        1360,
+        272,
+        64,
+        64
+      ],
+      [
+        1424,
+        144,
+        64,
+        64
+      ],
+      [
+        1424,
+        272,
+        64,
+        64
+      ],
+      [
+        1296,
+        272,
+        64,
+        64
+      ],
+      [
+        272,
+        912,
+        64,
+        64
+      ],
+      [
+        1360,
+        208,
+        64,
+        64
+      ],
+      [
+        1424,
+        336,
+        64,
+        64
+      ],
+      [
+        1360,
+        80,
+        64,
+        64
+      ],
+      [
+        336,
+        912,
+        64,
+        64
+      ],
+      [
+        1488,
+        144,
+        64,
+        64
+      ],
+      [
+        208,
+        912,
+        64,
+        64
+      ],
+      [
+        1488,
+        272,
+        64,
+        64
+      ],
+      [
+        1488,
+        208,
+        64,
+        64
+      ],
+      [
+        400,
+        912,
+        64,
+        64
+      ],
+      [
+        1424,
+        80,
+        64,
+        64
+      ],
+      [
+        144,
+        912,
+        64,
+        64
+      ],
+      [
+        464,
+        912,
+        64,
+        64
+      ],
+      [
+        1360,
+        144,
+        64,
+        64
+      ],
+      [
+        1360,
+        400,
+        64,
+        64
+      ],
+      [
+        1296,
+        400,
+        64,
+        64
+      ],
+      [
+        336,
+        848,
+        64,
+        64
+      ],
+      [
+        272,
+        848,
+        64,
+        64
+      ],
+      [
+        528,
+        912,
+        64,
+        64
+      ],
+      [
+        1296,
+        336,
+        64,
+        64
+      ],
+      [
+        80,
+        912,
+        64,
+        64
+      ],
+      [
+        1232,
+        80,
+        64,
+        64
+      ],
+      [
+        1296,
+        144,
+        64,
+        64
+      ],
+      [
+        1360,
+        464,
+        64,
+        64
+      ],
+      [
+        400,
+        848,
+        64,
+        64
+      ],
+      [
+        1296,
+        208,
+        64,
+        64
+      ],
+      [
+        464,
+        848,
+        64,
+        64
+      ],
+      [
+        1296,
+        80,
+        64,
+        64
+      ]
+    ],
+    "metrics": {
+      "SINGLE": {
+        "flatResidualStdDN": 3.9793996810913086,
+        "strongEdgeGradientRelative": 1.0,
+        "meanBiasDN": 0.0,
+        "flatResidualReductionPercent": 0.0
+      },
+      "HDR": {
+        "flatResidualStdDN": 1.8027706146240234,
+        "strongEdgeGradientRelative": 0.9840415716171265,
+        "meanBiasDN": 0.0,
+        "flatResidualReductionPercent": 54.69742274971403
+      },
+      "MOTION_TEMPORAL": {
+        "flatResidualStdDN": 2.0380958318710327,
+        "strongEdgeGradientRelative": 0.9827138185501099,
+        "meanBiasDN": 0.015625,
+        "flatResidualReductionPercent": 48.78383687983544
+      },
+      "MOTION_SPATIAL": {
+        "flatResidualStdDN": 1.08596533536911,
+        "strongEdgeGradientRelative": 0.9519940614700317,
+        "meanBiasDN": -0.0703125,
+        "flatResidualReductionPercent": 72.71032260144084
+      }
+    }
+  },
+  "ULTRAWIDE": {
+    "method": "Median high-pass standard deviation in 32 independently selected flat green-plane tiles; strong-edge gradient ratio relative to raw reference; not ground-truth SNR/MTF",
+    "tiles": [
+      [
+        80,
+        592,
+        64,
+        64
+      ],
+      [
+        80,
+        272,
+        64,
+        64
+      ],
+      [
+        144,
+        720,
+        64,
+        64
+      ],
+      [
+        144,
+        784,
+        64,
+        64
+      ],
+      [
+        80,
+        848,
+        64,
+        64
+      ],
+      [
+        592,
+        784,
+        64,
+        64
+      ],
+      [
+        656,
+        784,
+        64,
+        64
+      ],
+      [
+        144,
+        80,
+        64,
+        64
+      ],
+      [
+        720,
+        784,
+        64,
+        64
+      ],
+      [
+        1808,
+        1360,
+        64,
+        64
+      ],
+      [
+        336,
+        784,
+        64,
+        64
+      ],
+      [
+        80,
+        1360,
+        64,
+        64
+      ],
+      [
+        80,
+        912,
+        64,
+        64
+      ],
+      [
+        144,
+        848,
+        64,
+        64
+      ],
+      [
+        144,
+        656,
+        64,
+        64
+      ],
+      [
+        80,
+        1296,
+        64,
+        64
+      ],
+      [
+        80,
+        1232,
+        64,
+        64
+      ],
+      [
+        80,
+        976,
+        64,
+        64
+      ],
+      [
+        80,
+        336,
+        64,
+        64
+      ],
+      [
+        1168,
+        208,
+        64,
+        64
+      ],
+      [
+        144,
+        1360,
+        64,
+        64
+      ],
+      [
+        208,
+        80,
+        64,
+        64
+      ],
+      [
+        1232,
+        464,
+        64,
+        64
+      ],
+      [
+        1744,
+        1360,
+        64,
+        64
+      ],
+      [
+        1808,
+        1296,
+        64,
+        64
+      ],
+      [
+        80,
+        720,
+        64,
+        64
+      ],
+      [
+        144,
+        144,
+        64,
+        64
+      ],
+      [
+        144,
+        1296,
+        64,
+        64
+      ],
+      [
+        80,
+        1040,
+        64,
+        64
+      ],
+      [
+        80,
+        1104,
+        64,
+        64
+      ],
+      [
+        208,
+        784,
+        64,
+        64
+      ],
+      [
+        1232,
+        144,
+        64,
+        64
+      ]
+    ],
+    "metrics": {
+      "SINGLE": {
+        "flatResidualStdDN": 9.968700408935547,
+        "strongEdgeGradientRelative": 1.0,
+        "meanBiasDN": 0.0,
+        "flatResidualReductionPercent": 0.0
+      },
+      "HDR": {
+        "flatResidualStdDN": 4.202365398406982,
+        "strongEdgeGradientRelative": 0.9563825726509094,
+        "meanBiasDN": 0.0,
+        "flatResidualReductionPercent": 57.84440071405748
+      },
+      "MOTION_TEMPORAL": {
+        "flatResidualStdDN": 5.544787406921387,
+        "strongEdgeGradientRelative": 0.9697645902633667,
+        "meanBiasDN": 0.08984375,
+        "flatResidualReductionPercent": 44.37803144378519
+      },
+      "MOTION_SPATIAL": {
+        "flatResidualStdDN": 2.924682140350342,
+        "strongEdgeGradientRelative": 0.9124841094017029,
+        "meanBiasDN": -0.05859375,
+        "flatResidualReductionPercent": 70.66134982119863
+      }
+    }
+  }
+}

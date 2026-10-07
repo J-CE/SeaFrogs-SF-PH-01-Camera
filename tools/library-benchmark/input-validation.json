@@ -1,0 +1,395 @@
+{
+  "zip": "seafrogs-library-1791409700620.zip",
+  "status": "VALID_INPUTS_NOT_A_QUALITY_RESULT",
+  "series": [
+    {
+      "id": "LIBRARY_MAIN_RAW_SERIES",
+      "lens": "MAIN",
+      "logicalId": "0",
+      "physicalId": null,
+      "frameCount": 5,
+      "spanSeconds": 1.633386713,
+      "medianIntervalMs": 383.345864,
+      "rawLayout": [
+        [
+          3072,
+          4080
+        ],
+        [
+          [
+            3,
+            2
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          63,
+          63,
+          63,
+          63
+        ],
+        1023
+      ],
+      "frames": [
+        {
+          "index": 0,
+          "dng": "photos/LIBRARY_MAIN_RAW_SERIES/frame_00.dng",
+          "sha256": "ceb98980b1a50a4a3a3a6629af9ef6fe29b0dfe0976116b7357efa0dcb75f79b",
+          "sensorTimestampNs": 395223955651951,
+          "settings": {
+            "iso": 667,
+            "timeNs": 29997374,
+            "frameNs": 33336482,
+            "postRawBoost": 139,
+            "focusDiopters": 2.546111583709717,
+            "noiseReduction": 2,
+            "edge": 2,
+            "wbGains": [
+              1.2227818965911865,
+              1,
+              1,
+              2.757732629776001
+            ],
+            "wbTransform": [
+              2.0703125,
+              -0.74609375,
+              -0.3203125,
+              -0.296875,
+              1.28125,
+              0.01171875,
+              -0.14453125,
+              -1.0703125,
+              2.21484375
+            ]
+          }
+        },
+        {
+          "index": 1,
+          "dng": "photos/LIBRARY_MAIN_RAW_SERIES/frame_01.dng",
+          "sha256": "124667a4b4c98f1a5872545c99f95db5bbd84655ffa179f38ccbcde2d37e5a15",
+          "sensorTimestampNs": 395224455668307,
+          "settings": {
+            "iso": 667,
+            "timeNs": 29997374,
+            "frameNs": 33336482,
+            "postRawBoost": 139,
+            "focusDiopters": 2.546111583709717,
+            "noiseReduction": 2,
+            "edge": 2,
+            "wbGains": [
+              1.2227818965911865,
+              1,
+              1,
+              2.757732629776001
+            ],
+            "wbTransform": [
+              2.0703125,
+              -0.74609375,
+              -0.3203125,
+              -0.296875,
+              1.28125,
+              0.01171875,
+              -0.14453125,
+              -1.0703125,
+              2.21484375
+            ]
+          }
+        },
+        {
+          "index": 2,
+          "dng": "photos/LIBRARY_MAIN_RAW_SERIES/frame_02.dng",
+          "sha256": "c871f24deb23b3d0b1cf09568fba18a9d232d3fd28d8e716f83039c86a4d2d04",
+          "sensorTimestampNs": 395224822346976,
+          "settings": {
+            "iso": 667,
+            "timeNs": 29997374,
+            "frameNs": 33336482,
+            "postRawBoost": 139,
+            "focusDiopters": 2.546111583709717,
+            "noiseReduction": 2,
+            "edge": 2,
+            "wbGains": [
+              1.2227818965911865,
+              1,
+              1,
+              2.757732629776001
+            ],
+            "wbTransform": [
+              2.0703125,
+              -0.74609375,
+              -0.3203125,
+              -0.296875,
+              1.28125,
+              0.01171875,
+              -0.14453125,
+              -1.0703125,
+              2.21484375
+            ]
+          }
+        },
+        {
+          "index": 3,
+          "dng": "photos/LIBRARY_MAIN_RAW_SERIES/frame_03.dng",
+          "sha256": "abd0e62f2807582afe92afc2640fe3ea9b62e32fb48d1ed4d0898abca464e2e6",
+          "sensorTimestampNs": 395225222360035,
+          "settings": {
+            "iso": 667,
+            "timeNs": 29997374,
+            "frameNs": 33336482,
+            "postRawBoost": 139,
+            "focusDiopters": 2.546111583709717,
+            "noiseReduction": 2,
+            "edge": 2,
+            "wbGains": [
+              1.2227818965911865,
+              1,
+              1,
+              2.757732629776001
+            ],
+            "wbTransform": [
+              2.0703125,
+              -0.74609375,
+              -0.3203125,
+              -0.296875,
+              1.28125,
+              0.01171875,
+              -0.14453125,
+              -1.0703125,
+              2.21484375
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "dng": "photos/LIBRARY_MAIN_RAW_SERIES/frame_04.dng",
+          "sha256": "2739132749449a988bab0e22110ee8b917a0ec5902f002b553d5300ce97b9bdb",
+          "sensorTimestampNs": 395225589038664,
+          "settings": {
+            "iso": 667,
+            "timeNs": 29997374,
+            "frameNs": 33336482,
+            "postRawBoost": 139,
+            "focusDiopters": 2.546111583709717,
+            "noiseReduction": 2,
+            "edge": 2,
+            "wbGains": [
+              1.2227818965911865,
+              1,
+              1,
+              2.757732629776001
+            ],
+            "wbTransform": [
+              2.0703125,
+              -0.74609375,
+              -0.3203125,
+              -0.296875,
+              1.28125,
+              0.01171875,
+              -0.14453125,
+              -1.0703125,
+              2.21484375
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "LIBRARY_ULTRAWIDE_RAW_SERIES",
+      "lens": "ULTRAWIDE",
+      "logicalId": "0",
+      "physicalId": "3",
+      "frameCount": 5,
+      "spanSeconds": 1.63330835,
+      "medianIntervalMs": 399.9836225,
+      "rawLayout": [
+        [
+          3016,
+          4032
+        ],
+        [
+          [
+            0,
+            1
+          ],
+          [
+            3,
+            2
+          ]
+        ],
+        [
+          63,
+          63,
+          63,
+          63
+        ],
+        1023
+      ],
+      "frames": [
+        {
+          "index": 0,
+          "dng": "photos/LIBRARY_ULTRAWIDE_RAW_SERIES/frame_00.dng",
+          "sha256": "1295aab58c9cabc2c0e81f6bc3c59ce234b0d80b740a32e4072a0ec433565292",
+          "sensorTimestampNs": 395232605808294,
+          "settings": {
+            "iso": 762,
+            "timeNs": 29986825,
+            "frameNs": 33340292,
+            "postRawBoost": 145,
+            "focusDiopters": 3.076321840286255,
+            "noiseReduction": 2,
+            "edge": 2,
+            "wbGains": [
+              1.4575022459030151,
+              1,
+              1,
+              3.2569668292999268
+            ],
+            "wbTransform": [
+              2.08984375,
+              -1.01953125,
+              -0.06640625,
+              -0.17578125,
+              1.1171875,
+              0.05859375,
+              0.0546875,
+              -0.984375,
+              1.92578125
+            ]
+          }
+        },
+        {
+          "index": 1,
+          "dng": "photos/LIBRARY_ULTRAWIDE_RAW_SERIES/frame_01.dng",
+          "sha256": "c256ed62d3c9da30c6cf888b98ad185d4376c0c43c20ba0ab58a98494cbdefd3",
+          "sensorTimestampNs": 395233005785223,
+          "settings": {
+            "iso": 762,
+            "timeNs": 29986825,
+            "frameNs": 33340292,
+            "postRawBoost": 145,
+            "focusDiopters": 3.076321840286255,
+            "noiseReduction": 2,
+            "edge": 2,
+            "wbGains": [
+              1.4575022459030151,
+              1,
+              1,
+              3.2569668292999268
+            ],
+            "wbTransform": [
+              2.08984375,
+              -1.01953125,
+              -0.06640625,
+              -0.17578125,
+              1.1171875,
+              0.05859375,
+              0.0546875,
+              -0.984375,
+              1.92578125
+            ]
+          }
+        },
+        {
+          "index": 2,
+          "dng": "photos/LIBRARY_ULTRAWIDE_RAW_SERIES/frame_02.dng",
+          "sha256": "a93542677aec45fbc6d27825a9dd02e0bb12f6fce3184ea9bc0647a79b8c711f",
+          "sensorTimestampNs": 395233372453721,
+          "settings": {
+            "iso": 762,
+            "timeNs": 29986825,
+            "frameNs": 33340292,
+            "postRawBoost": 145,
+            "focusDiopters": 3.076321840286255,
+            "noiseReduction": 2,
+            "edge": 2,
+            "wbGains": [
+              1.4575022459030151,
+              1,
+              1,
+              3.2569668292999268
+            ],
+            "wbTransform": [
+              2.08984375,
+              -1.01953125,
+              -0.06640625,
+              -0.17578125,
+              1.1171875,
+              0.05859375,
+              0.0546875,
+              -0.984375,
+              1.92578125
+            ]
+          }
+        },
+        {
+          "index": 3,
+          "dng": "photos/LIBRARY_ULTRAWIDE_RAW_SERIES/frame_03.dng",
+          "sha256": "a3a7a10bc888559232433bc4af18cbee6835ff0eeeca1b08dd803f3a99621bdf",
+          "sensorTimestampNs": 395233839126328,
+          "settings": {
+            "iso": 762,
+            "timeNs": 29986825,
+            "frameNs": 33340292,
+            "postRawBoost": 145,
+            "focusDiopters": 3.076321840286255,
+            "noiseReduction": 2,
+            "edge": 2,
+            "wbGains": [
+              1.4575022459030151,
+              1,
+              1,
+              3.2569668292999268
+            ],
+            "wbTransform": [
+              2.08984375,
+              -1.01953125,
+              -0.06640625,
+              -0.17578125,
+              1.1171875,
+              0.05859375,
+              0.0546875,
+              -0.984375,
+              1.92578125
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "dng": "photos/LIBRARY_ULTRAWIDE_RAW_SERIES/frame_04.dng",
+          "sha256": "6ff62d9169096596c5455bd43e617406a5f421f70f3854ddd6ea1add88e4d9f0",
+          "sensorTimestampNs": 395234239116644,
+          "settings": {
+            "iso": 762,
+            "timeNs": 29986825,
+            "frameNs": 33340292,
+            "postRawBoost": 145,
+            "focusDiopters": 3.076321840286255,
+            "noiseReduction": 2,
+            "edge": 2,
+            "wbGains": [
+              1.4575022459030151,
+              1,
+              1,
+              3.2569668292999268
+            ],
+            "wbTransform": [
+              2.08984375,
+              -1.01953125,
+              -0.06640625,
+              -0.17578125,
+              1.1171875,
+              0.05859375,
+              0.0546875,
+              -0.984375,
+              1.92578125
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

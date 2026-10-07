@@ -6,6 +6,15 @@ Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate 
 Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
 Pixel-8-Testbefunde und offene Punkte stehen im [Fähigkeitsbericht](docs/CAPABILITIES-0.6.1.md).
 
+Der native [Bibliotheksvergleich](docs/LIBRARY-RESULTS-2026-10-08.md) mit den
+Pixel-RAW-Serien ist abgeschlossen. Für die nächste App-Integration wählen wir
+den MIT-HDR+-Mehrbildkern. Er mindert den Rausch-Proxy um 55–58 % bei besserem
+Kantenerhalt als MotionCam mit zusätzlicher Wavelet-Entrauschung. Der Vergleich
+umfasst Host-Ausgaben und ARM64-Codegenerierung; Pixel-Laufzeit/JNI sind offen.
+Die aktuelle APK enthält weiterhin keine dieser Engines. Der separate Host-
+Testaufbau in tools/library-benchmark steht unter GPL-3.0-only und gehört nicht
+zum Android-Build; dessen App-Lizenz bleibt Apache 2.0.
+
 0.6.8 stellt das ZIP zuerst intern fertig, prüft jeden Eintrag auf Länge und CRC
 und kopiert es anschließend ins gewählte Ziel. Der Status zeigt Packen, Prüfung,
 Kopierfortschritt und dauerhafte Fehlermeldungen. Bereits komprimierte Fotos

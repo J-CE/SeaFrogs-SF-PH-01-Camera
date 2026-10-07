@@ -272,3 +272,21 @@ Lint: 0 Fehler, 68 Warnungen. APK-Signatur geprüft; gleicher Debug-Schlüssel
 wie 0.6.7.
 
 APK-SHA256: 648f737888f9a5a265c73461b394577b3d2fccaf0aadfe5e4faff5bc391b63ad
+
+## Nativer Bibliotheksvergleich, 2026-10-08
+
+Beide Host-Pipelines verarbeiten die validierten fünf RAWs je Kamera tatsächlich.
+HDR+ align/merge/finish und MotionCam fuse/forward/inverse/postprocess wurden
+als Halide-AOT-Kerne gebaut. MotionCam braucht die dokumentierte API-Anpassung
+an Halide 24. Der portable Standalone-Aufbau lädt fixierte Quellen; alle
+C++-/Header-Dateien stimmen mit den anfangs geprüften Quellen überein. Ein
+erneuter vollständiger Build aller Generatoren/Brücke und MAIN-HDR-Aufruf
+reproduziert RAW-NPY und beide MAIN-JPEGs bitidentisch. Synthetische globale
+Translationen prüfen die Ausrichtung zusätzlich. Beide Fusionkerne lassen
+sich als Android-ARM64-AOT-Archive erzeugen.
+
+Entscheidung: MIT-HDR+-Fusion als Grundlage für die nächste Integration.
+Messungen/Methodik/Grenzen in LIBRARY-RESULTS-2026-10-08.md. Standalone-Testcode
+unter tools/library-benchmark ist GPL-3.0-only; die App bindet ihn nicht ein.
+Keine neue APK, keine Änderung am Android-Kameracode. ARM64-Codegenerierung
+ist kein JNI-/Gerätetest. Neue Bildpipeline braucht die Pixel-Abnahme.

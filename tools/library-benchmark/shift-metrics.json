@@ -1,0 +1,10 @@
+{
+  "HDR": {
+    "staticStrongEdgeRmseDN": 0.9472737908363342,
+    "translatedStrongEdgeRmseDN": 1.1711490154266357
+  },
+  "MOTION": {
+    "staticStrongEdgeRmseDN": 1.024356722831726,
+    "translatedStrongEdgeRmseDN": 1.160833477973938
+  }
+}

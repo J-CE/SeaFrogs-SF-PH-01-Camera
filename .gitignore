@@ -6,3 +6,13 @@ local.properties
 *.jks
 *.keystore
 captures/
+tools/library-benchmark/upstream/
+tools/library-benchmark/inputs/
+tools/library-benchmark/input-report.json
+tools/library-benchmark/results*/
+tools/library-benchmark/generated/
+tools/library-benchmark/generators/
+tools/library-benchmark/*.log
+tools/library-benchmark/*-generator
+tools/library-benchmark/*.so
+**/__pycache__/
