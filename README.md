@@ -1,10 +1,16 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.6.0-autotest**. Live-Vorschau, JPEG-Aufnahme und
+Aktueller Quelltext: **0.6.1-capabilities**. Live-Vorschau, JPEG-Aufnahme und
 Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate HID-Diagnose.
 Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
-Pixel-8-Hardwaretest sind noch nicht bestätigt.
+Pixel-8-Testbefunde und offene Punkte stehen im [Fähigkeitsbericht](docs/CAPABILITIES-0.6.1.md).
+
+0.6.1 fragt automatisch angebotene JPEG-/RAW-Auflösungen, Sensorflächen,
+ISO-Grenzen sowie AF-/AWB-Fähigkeiten aller öffentlichen und zugehörigen
+physischen Kameras ab. TEST ZIP enthält dafür `camera-capabilities.json`.
+Für diesen Bericht müssen keine Fototests wiederholt werden. RAW/DNG-Aufnahme
+ist noch nicht implementiert; angebotene Größen sind keine getesteten Aufnahmen.
 
 ## Öffnen und bauen
 
@@ -33,7 +39,8 @@ Der separate PhotoCameraController besitzt Vorschau und Aufnahme-Use-Case,
 setzt die rückseitige logische Kamera auf 1× und nutzt CameraXs kontinuierlichen
 Foto-Autofokus. Er verhandelt die höchste unterstützte 4:3-JPEG-Auflösung
 einschließlich High-Resolution-Ausgabegrößen zusammen mit der Vorschau. Die
-Statusanzeige zeigt die tatsächliche Größe. Zusätzliche Ultra-High-Resolution-
+Statusanzeige zeigt die von CameraX konfigurierte Größe; der UW/Macro-Test
+zeigte eine Abweichung zur tatsächlichen JPEG-Dateigröße. Zusätzliche Ultra-High-Resolution-
 Sensormodi und die proprietäre Pixel-Bildverarbeitung gehören nicht dazu.
 
 Die Vorschau zeigt den vollständigen Ausschnitt mit FIT_CENTER. JPEG-Orientierung

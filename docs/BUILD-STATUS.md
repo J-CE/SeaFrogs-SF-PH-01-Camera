@@ -88,3 +88,21 @@ Bildverarbeitung. RAW, Video und die längere HID-Kombinationssperre fehlen weit
 Hardware-Ablauf und ZIP-Export benötigen den Pixel-8-Test gemäß AUTOTEST-0.6.md.
 APK versionCode 7, versionName 0.6.0-autotest, gleicher Debug-Schlüssel wie 0.4/0.5.
 APK-SHA256: c9f25f8037588183297a9853eb23a608d6b060f8864bc63a7f59dd9f483770ca
+
+## Meilenstein 0.6.1-capabilities, 2026-10-07
+
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich. 12 bestehende
+Tests bestanden, 0 Fehler/übersprungen. Lint: 0 Fehler, 57 Warnungen.
+APK versionCode 8, versionName 0.6.1-capabilities; Signatur mit demselben
+Debug-Schlüssel wie 0.4/0.5/0.6.0 geprüft. Installation als Update möglich.
+
+Die neue Hintergrundabfrage sammelt Camera2-Metadaten öffentlicher und
+physischer Kameras einschließlich normaler, High-Resolution- und
+Maximum-Resolution-JPEG-/RAW-Ausgabegrößen. TEST ZIP enthält automatisch
+camera-capabilities.json. Kein RAW-Aufnahmeweg und keine Änderung der
+Kamera- oder HID-Steuerung außer den zusätzlichen Diagnosedaten.
+Die Metadatenabfrage und der neue ZIP-Eintrag brauchen noch den Gerätetest;
+die bestehenden Unit-Tests prüfen Zyklen, HID-Gate und Auto-Testplanung.
+Sie ersetzen keine Pixel-Hardwareprüfung. Ablauf: CAPABILITIES-0.6.1.md.
+
+APK-SHA256: 226f44d70cdbf319f8f32de7c1a2b8d2199478a42695dda3c94827148788694d

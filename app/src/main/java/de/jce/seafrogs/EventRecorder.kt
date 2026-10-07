@@ -45,10 +45,11 @@ class EventRecorder(private val context: Context, private val report: (String) -
     }
 
     /** All earlier writes finish before this snapshot; later input is not included. */
-    fun export(uri: Uri, photos: List<Pair<String, String>> = emptyList(), testReport: String? = null) {
+    fun export(uri: Uri, photos: List<Pair<String, String>> = emptyList(), testReport: String? = null,
+               capabilityReport: String? = null) {
         val photoSnapshot = photos.toList()
         val summary = """
-            SeaFrogs Kamera/HID Test 0.6.0
+            SeaFrogs Kamera/HID Test 0.6.1
             Android-App-Ereignisse, keine rohen Bluetooth-HID-Reports.
             Datensatznummer am Export: $sequence
             Verlorene Datensätze durch Warteschlangenlimit: ${dropped.get()}
@@ -84,6 +85,11 @@ class EventRecorder(private val context: Context, private val report: (String) -
                         if (testReport != null) {
                             zip.putNextEntry(ZipEntry("camera-test-report.json"))
                             zip.write(testReport.toByteArray())
+                            zip.closeEntry()
+                        }
+                        if (capabilityReport != null) {
+                            zip.putNextEntry(ZipEntry("camera-capabilities.json"))
+                            zip.write(capabilityReport.toByteArray())
                             zip.closeEntry()
                         }
                         zip.putNextEntry(ZipEntry("export-errors.json"))

@@ -51,6 +51,9 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var quality: Button
     private lateinit var mouse: Button
     private lateinit var export: Button
+    private val capabilityWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private var capabilityReport: String? = null
+    private var capabilityQueryStarted = false
     private val handler = Handler(Looper.getMainLooper())
     private val gate = HidCommandGate()
     private var mouseDescriptor: String? = null
@@ -61,7 +64,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private var downCount = 0
     private val finishBurst = Runnable { finishInput() }
     private val exportRequest = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) recorder.export(uri, automated.photos(), automated.report())
+        if (uri != null) recorder.export(uri, automated.photos(), automated.report(), capabilityReport)
     }
     private var active = false
     private var sessionStarted = false
@@ -82,7 +85,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.0-autotest")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.1-capabilities")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -168,7 +171,8 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         quality = Button(this).apply { text = "STANDARD"; setOnClickListener { controller.cycleQuality() } }
         mouse = Button(this).apply { text = "MAUS AUS"; setOnClickListener { chooseMouse() } }
         export = Button(this).apply {
-            text = "TEST ZIP"
+            text = "KAMERADATEN …"
+            isEnabled = false
             setOnClickListener {
                 preview.releasePointerCapture()
                 resetInput("export")
@@ -265,10 +269,28 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
 
     private fun startCamera() {
         if (!active || sessionStarted) return
+        readCapabilities()
         sessionStarted = true
         restart.text = "Erneut starten"
         controller.setRotation(preview.display?.rotation ?: Surface.ROTATION_0)
         controller.start(this, preview)
+    }
+
+    private fun readCapabilities() {
+        if (capabilityQueryStarted) return
+        capabilityQueryStarted = true
+        capabilityWorker.execute {
+            val snapshot = CameraCapabilityReport.collect(applicationContext)
+            val encoded = snapshot.toString(2)
+            handler.post {
+                if (isDestroyed) return@post
+                capabilityReport = encoded
+                recorder.record(JSONObject().put("kind", "cameraCapabilityQueryFinished")
+                    .put("cameraCount", snapshot.optJSONArray("cameras")?.length() ?: 0)
+                    .put("errors", snapshot.optJSONArray("errors")))
+                renderState()
+            }
+        }
     }
 
     private fun hasPermissions() = permissions.all {
@@ -306,7 +328,8 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         quality.text = state.quality
         quality.isEnabled = state.ready && !testing
         testCase.isEnabled = !state.capturing && !testing
-        export.isEnabled = !state.capturing && !testing
+        export.text = if (capabilityReport == null) "KAMERADATEN …" else "TEST ZIP"
+        export.isEnabled = capabilityReport != null && !state.capturing && !testing
         mouse.isEnabled = !state.capturing && !testing
         zoom.isEnabled = state.ready && !testing
         zoom.text = "ZOOM: ${state.zoomLabel}"
@@ -478,6 +501,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         initialized = false
         inputManager.unregisterInputDeviceListener(this)
         handler.removeCallbacksAndMessages(null)
+        capabilityWorker.shutdownNow()
         recorder.close()
         super.onDestroy()
     }
