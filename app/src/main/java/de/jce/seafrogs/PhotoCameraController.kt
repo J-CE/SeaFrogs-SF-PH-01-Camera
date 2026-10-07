@@ -3,6 +3,12 @@ package de.jce.seafrogs
 import android.content.ContentValues
 import android.content.Context
 import android.os.Build
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
+import androidx.camera.extensions.ExtensionsManager
+import androidx.camera.extensions.ExtensionMode
 import android.provider.MediaStore
 import android.view.Surface
 import androidx.camera.core.Camera
@@ -33,11 +39,13 @@ data class PhotoCameraState(
     val ready: Boolean = false,
     val capturing: Boolean = false,
     val message: String = "Kamera startet",
-    val resolution: String = ""
+    val resolution: String = "",
+    val quality: String = "STANDARD",
+    val diagnostics: String = ""
 )
 
 /**
- * UI and the future HID adapter share capturePhoto(). Neither needs camera APIs.
+ * UI and the HID adapter share camera commands; neither needs camera APIs.
  * All public calls and callbacks use the main thread. CameraX handles image I/O.
  * Each start/stop advances a generation, so old async callbacks cannot rebind
  * the camera or update a newer session after Activity focus/lifecycle changes.
@@ -45,10 +53,25 @@ data class PhotoCameraState(
 @androidx.annotation.OptIn(markerClass = [ExperimentalCamera2Interop::class])
 class PhotoCameraController(
     context: Context,
+    private val log: (JSONObject) -> Unit,
     private val publish: (PhotoCameraState) -> Unit
 ) {
     private val appContext = context.applicationContext
     private val exifWriter = PhotoExifWriter(appContext)
+    private var testCase = "FREI"
+    private var extensions: ExtensionsManager? = null
+    private var extensionsAttempted = false
+    private var qualityMode = ExtensionMode.NONE
+    private var extensionSummary = "Erweiterungen werden geprüft"
+    @Volatile private var latestResult: String = "{}"
+    private var lastTelemetry = 0L
+    private val qualityModes = listOf(ExtensionMode.NONE, ExtensionMode.AUTO, ExtensionMode.HDR, ExtensionMode.NIGHT)
+    private fun qualityName(mode: Int) = when (mode) {
+        ExtensionMode.AUTO -> "AUTO"
+        ExtensionMode.HDR -> "HDR"
+        ExtensionMode.NIGHT -> "NIGHT"
+        else -> "STANDARD"
+    }
     private var activeRoute: CameraLensRoute? = null
     private var macroEntryFocusResult = "not_requested"
     private val mainExecutor = ContextCompat.getMainExecutor(appContext)
@@ -82,7 +105,7 @@ class PhotoCameraController(
         open(activeLens)
     }
 
-    /** The later HID adapter calls the same command as the large UI button. */
+    /** Touch and HID share the same lens command and readiness guard. */
     fun cycleLens() {
         if (!isReady()) return
         cyclePosition = cyclePosition.next()
@@ -111,12 +134,34 @@ class PhotoCameraController(
             try {
                 val availableProvider = future.get()
                 provider = availableProvider
+                if (!extensionsAttempted) {
+                    extensionsAttempted = true
+                    val extensionFuture = ExtensionsManager.getInstanceAsync(appContext, availableProvider)
+                    extensionFuture.addListener({
+                        if (generation != token) { extensionsAttempted = false; return@addListener }
+                        extensions = runCatching { extensionFuture.get() }.getOrNull()
+                        extensionSummary = if (extensions == null) "Extensions-Initialisierung fehlgeschlagen" else "Extensions bereit"
+                        open(target, fallback, notice)
+                    }, mainExecutor)
+                    return@addListener
+                }
                 val lenses = catalog ?: CameraLensCatalog(appContext, availableProvider).also {
                     catalog = it
                 }
                 val route = checkNotNull(lenses.routeFor(target)) {
                     "Keine geeignete Kamera für ${target.label}"
                 }
+                val modes = qualityModes.drop(1).filter { mode ->
+                    runCatching { extensions?.isExtensionAvailable(route.selector(), mode) == true }.getOrDefault(false)
+                }
+                extensionSummary = if (route.physicalId != null)
+                    "Physischer Sensor: Extensions nicht sicher zuordenbar"
+                else "Verfügbar: " + (modes.map(::qualityName).joinToString().ifBlank { "keine" })
+                log(JSONObject().put("kind", "cameraCapabilities").put("lens", target.name)
+                    .put("logicalId", route.logicalId).put("physicalId", route.physicalId ?: JSONObject.NULL)
+                    .put("extensionsOnLogicalSelector", org.json.JSONArray(modes.map(::qualityName)))
+                    .put("extensionsAllowedOnRoute", route.physicalId == null))
+                if (route.physicalId != null || qualityMode !in modes) qualityMode = ExtensionMode.NONE
                 bind(availableProvider, lifecycleOwner, view, route)
                 activeRoute = route
                 activeLens = target
@@ -160,6 +205,12 @@ class PhotoCameraController(
 
     private fun recover(target: PhotoLens, fallback: PhotoLens?, error: Exception) {
         val detail = error.cause?.message ?: error.message
+        log(JSONObject().put("kind", "cameraFailure").put("message", detail))
+        if (qualityMode != ExtensionMode.NONE) {
+            qualityMode = ExtensionMode.NONE
+            open(target, fallback, "Extension fehlgeschlagen; STANDARD: $detail")
+            return
+        }
         if (fallback != null) {
             open(fallback, notice = "${target.label} fehlgeschlagen. Zurück zu ${fallback.label}: $detail")
         } else {
@@ -194,10 +245,50 @@ class PhotoCameraController(
             Camera2Interop.Extender(previewBuilder).setPhysicalCameraId(physicalId)
             Camera2Interop.Extender(captureBuilder).setPhysicalCameraId(physicalId)
         }
+        val token = generation
+        latestResult = "{}"
+        lastTelemetry = 0L
+        val callback = object : CameraCaptureSession.CaptureCallback() {
+            override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
+                val value = JSONObject().put("kind", "cameraResult")
+                    .put("sensorTimestampNs", result.get(CaptureResult.SENSOR_TIMESTAMP) ?: JSONObject.NULL)
+                    .put("iso", result.get(CaptureResult.SENSOR_SENSITIVITY) ?: JSONObject.NULL)
+                    .put("exposureTimeNs", result.get(CaptureResult.SENSOR_EXPOSURE_TIME) ?: JSONObject.NULL)
+                    .put("focalLengthMm", result.get(CaptureResult.LENS_FOCAL_LENGTH)?.toDouble() ?: JSONObject.NULL)
+                    .put("focusDistanceDiopters", result.get(CaptureResult.LENS_FOCUS_DISTANCE)?.toDouble() ?: JSONObject.NULL)
+                    .put("afState", result.get(CaptureResult.CONTROL_AF_STATE) ?: JSONObject.NULL)
+                    .put("afMode", result.get(CaptureResult.CONTROL_AF_MODE) ?: JSONObject.NULL)
+                    .put("cropRegion", result.get(CaptureResult.SCALER_CROP_REGION)?.toShortString() ?: JSONObject.NULL)
+                    .put("activePhysicalId", if (Build.VERSION.SDK_INT >= 29)
+                        result.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID) ?: JSONObject.NULL else JSONObject.NULL)
+                    .put("physicalResults", org.json.JSONArray().apply {
+                        if (Build.VERSION.SDK_INT >= 28) result.physicalCameraResults.forEach { (id, physical) ->
+                            put(JSONObject().put("id", id)
+                                .put("afState", physical.get(CaptureResult.CONTROL_AF_STATE) ?: JSONObject.NULL)
+                                .put("afMode", physical.get(CaptureResult.CONTROL_AF_MODE) ?: JSONObject.NULL)
+                                .put("focusDistanceDiopters", physical.get(CaptureResult.LENS_FOCUS_DISTANCE)?.toDouble() ?: JSONObject.NULL)
+                                .put("focalLengthMm", physical.get(CaptureResult.LENS_FOCAL_LENGTH)?.toDouble() ?: JSONObject.NULL)
+                                .put("iso", physical.get(CaptureResult.SENSOR_SENSITIVITY) ?: JSONObject.NULL)
+                                .put("exposureTimeNs", physical.get(CaptureResult.SENSOR_EXPOSURE_TIME) ?: JSONObject.NULL))
+                        }
+                    })
+                mainExecutor.execute {
+                    if (generation != token) return@execute
+                    latestResult = value.toString()
+                    val now = android.os.SystemClock.uptimeMillis()
+                    if (now - lastTelemetry >= 1000) { lastTelemetry = now; log(value); emit() }
+                }
+            }
+        }
+        // OEM extensions own their sessions; do not inject interop callbacks there.
+        if (qualityMode == ExtensionMode.NONE) Camera2Interop.Extender(previewBuilder)
+            .setSessionCaptureCallback(callback)
+        val selector = if (qualityMode == ExtensionMode.NONE) route.selector()
+            else checkNotNull(extensions).getExtensionEnabledCameraSelector(route.selector(), qualityMode)
         preview = previewBuilder.build().also { it.setSurfaceProvider(view.surfaceProvider) }
         imageCapture = captureBuilder.build()
         camera = availableProvider.bindToLifecycle(
-            lifecycleOwner, route.selector(), preview!!, imageCapture!!
+            lifecycleOwner, selector, preview!!, imageCapture!!
         )
     }
 
@@ -292,6 +383,28 @@ class PhotoCameraController(
             recover(target, fallback, error)
         }
     }
+
+    fun cycleQuality() {
+        if (!isReady()) return
+        val route = activeRoute ?: return
+        if (route.physicalId != null) {
+            message = "Extensions nur ohne erzwungenen physischen Sensor testen"
+            emit(); return
+        }
+        val supported = qualityModes.filter { it == ExtensionMode.NONE ||
+            runCatching { extensions?.isExtensionAvailable(route.selector(), it) == true }.getOrDefault(false) }
+        qualityMode = supported[(supported.indexOf(qualityMode) + 1) % supported.size]
+        zoomRatio = 1f
+        exposureEv = 0f
+        open(activeLens)
+    }
+
+    fun setTestCase(value: String) {
+        testCase = value
+        log(JSONObject().put("kind", "testCase").put("label", value))
+    }
+
+    fun readyForCommand() = isReady()
 
     fun cycleZoom() {
         if (!isReady()) return
@@ -391,6 +504,7 @@ class PhotoCameraController(
         emit()
         val token = generation
         val metadata = exifSnapshot()
+        log(JSONObject(metadata).put("kind", "shutterRequest"))
         val name = "SeaFrogs_${System.currentTimeMillis()}_${UUID.randomUUID()}.jpg"
         try {
             val values = ContentValues().apply {
@@ -422,6 +536,8 @@ class PhotoCameraController(
                 override fun onImageSaved(result: ImageCapture.OutputFileResults) {
                     // Finish metadata even when this session has stopped. Only
                     // UI updates depend on its generation; the JPEG still exists.
+                    log(JSONObject().put("kind", "photoSaved").put("fileName", name)
+                        .put("uri", result.savedUri?.toString() ?: JSONObject.NULL))
                     exifWriter.write(result.savedUri, metadata) { failure ->
                         mainExecutor.execute {
                             if (generation == token) {
@@ -453,8 +569,11 @@ class PhotoCameraController(
         val size = imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.4.1-exif")
+            .put("version", "0.5.0-quality-hid")
             .put("mode", "PHOTO")
+            .put("testCase", testCase)
+            .put("qualityMode", qualityName(qualityMode))
+            .put("latestPreviewResultNotPhotoResult", JSONObject(latestResult))
             .put("lensMode", activeLens.name)
             .put("logicalCameraId", activeRoute?.logicalId ?: JSONObject.NULL)
             .put("requestedPhysicalCameraId", activeRoute?.physicalId ?: JSONObject.NULL)
@@ -519,8 +638,26 @@ class PhotoCameraController(
             ready = isReady(),
             capturing = busy,
             message = message,
-            resolution = size?.let { "${it.width} × ${it.height}" } ?: ""
+            resolution = size?.let { "${it.width} × ${it.height}" } ?: "",
+            quality = qualityName(qualityMode),
+            diagnostics = extensionSummary + "\n" + resultSummary()
         ))
+    }
+
+    private fun resultSummary(): String {
+        val logical = JSONObject(latestResult)
+        if (logical.length() == 0) return "CaptureResult nicht verfügbar"
+        val requested = activeRoute?.physicalId
+        val physical = logical.optJSONArray("physicalResults")
+        val matching = physical?.let { values ->
+            (0 until values.length()).map { values.getJSONObject(it) }
+                .firstOrNull { it.optString("id") == requested }
+        }
+        val result = matching ?: logical
+        val source = if (matching != null) "PHYS ${matching.optString("id")}" else
+            "LOG ${logical.optString("activePhysicalId", "?")}"
+        return "$source | AF ${result.optString("afState", "?")} | " +
+            "Fokus ${result.optString("focusDistanceDiopters", "?")} dpt | ISO ${result.optString("iso", "?")}"
     }
 
     private fun cameraErrorMessage(code: Int): String = when (code) {

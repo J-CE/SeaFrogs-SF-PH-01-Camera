@@ -47,12 +47,12 @@ class EventRecorder(private val context: Context, private val report: (String) -
     /** All earlier writes finish before this snapshot; later input is not included. */
     fun export(uri: Uri) {
         val summary = """
-            SeaFrogs HID Diagnose 0.1.0
+            SeaFrogs Kamera/HID Test 0.5.0
             Android-App-Ereignisse, keine rohen Bluetooth-HID-Reports.
             Datensatznummer am Export: $sequence
             Verlorene Datensätze durch Warteschlangenlimit: ${dropped.get()}
             Geräte und Markierungen stehen chronologisch in events.jsonl.
-            Kein Mapping der Gehäusetasten bestätigt.
+            Mapping für Einzelrichtungen anhand capture.zip/normal.zip; Kombinationen offen.
             Koordinaten im normalen Modus sind Positionen, keine Rohdeltas.
             Im captured-Modus sind X/Y relative Bewegungen.
         """.trimIndent()

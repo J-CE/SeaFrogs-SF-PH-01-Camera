@@ -62,3 +62,16 @@ weiterhin an unterstützte Schrittweite und Grenzen angepasst. JPEGs erhalten
 ergänzende EXIF-Diagnosedaten ohne erneute Bildkompression.
 APK versionCode 5, versionName 0.4.1-exif. APK-SHA256: da100a0a948292623366abb8570dae9ead23d1f418238c84d058fdf1efb5cdd4
 EXIF-Schreiben und Bildqualität auf Pixel 8 noch nicht geprüft.
+
+## Gemeinsamer Meilenstein 0.5.0-quality-hid, 2026-10-07
+
+assembleDebug und lintDebug erfolgreich. 10 Unit-Tests bestanden (4 Kamera-
+zyklen, 6 HID-Burst-/Kombinationsfälle), 0 Fehler, 0 übersprungen. Nach der
+abschließenden Layoutkorrektur nur Build/Lint wiederholt; Logik unverändert.
+Lint: 0 Fehler, 54 Warnungen (vorwiegend Textlokalisierung, vorhandene
+Ressourcen-/KTX-Hinweise). APK versionCode 6, versionName 0.5.0-quality-hid.
+Kamera-Hardware, Extensions-Bildqualität und reale kombinierte Gehäuseeingaben
+noch nicht getestet. TESTPROGRAMM-0.5.md legt diese Abnahme fest.
+Video/RAW fehlen; DOWN bestätigt in dieser Version nur einen Diagnosebefehl.
+CameraX einschließlich camera-extensions unverändert 1.4.2.
+APK-SHA256: 9e5d7cb7608b46a549f4253ea6e638cb88983b869c02ed577cb1e8e1c87a7d52

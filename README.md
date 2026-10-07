@@ -1,7 +1,7 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.4.1-exif**. Live-Vorschau, JPEG-Aufnahme und
+Aktueller Quelltext: **0.5.0-quality-hid**. Live-Vorschau, JPEG-Aufnahme und
 Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate HID-Diagnose.
 Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
 Pixel-8-Hardwaretest sind noch nicht bestätigt.
@@ -164,3 +164,16 @@ Die EXIF-Ergänzung komprimiert die Bilddaten nicht erneut.
 Für die Auswertung Original-JPEGs als Datei oder ZIP senden. Screenshots und
 verkleinerte Bild-Anhänge können EXIF verlieren. Die Version enthält noch keine
 neue HDR-/Mehrbild-Verarbeitung oder Änderung der Crop-Stufen.
+
+## Gemeinsamer Testmeilenstein 0.5
+
+[Testprogramm für Kamera und Maus](docs/TESTPROGRAMM-0.5.md). Die App ergänzt
+CaptureResult-Diagnose, Laufzeitabfrage von AUTO/HDR/NIGHT, auswählbare unterstützte
+Extensions auf nicht physisch gepinnten Kamerarouten und eine gerätebezogene
+Pointer-Capture-Maussteuerung. TESTFALL markiert Aufnahmen und TEST ZIP exportiert
+Kamera-/Mausprotokolle. Der HID-Rohdiagnosemodus bietet alle zehn Tastenpaare.
+Runter protokolliert den Befehl; Videoaufnahme und Foto/Video-Wechsel fehlen noch.
+Extensions bieten keine Garantie auf die vollständige Pixel-Kamera-Pipeline.
+CameraX 1.4.2 bleibt für diesen Vergleich erhalten. Vor November 2026 muss ein
+separater CameraX-Update-Meilenstein die angekündigte Änderung des Extensions-
+Backends berücksichtigen: https://developer.android.com/media/camera/camerax/extensions-api

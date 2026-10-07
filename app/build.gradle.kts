@@ -6,8 +6,8 @@ android {
         applicationId = "de.jce.seafrogs"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.4.1-exif"
+        versionCode = 6
+        versionName = "0.5.0-quality-hid"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -17,6 +17,7 @@ android {
 }
 dependencies {
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+    implementation("androidx.camera:camera-extensions:1.4.2")
     testImplementation("junit:junit:4.13.2")
     implementation("androidx.activity:activity:1.10.1")
     implementation("androidx.camera:camera-camera2:1.4.2")

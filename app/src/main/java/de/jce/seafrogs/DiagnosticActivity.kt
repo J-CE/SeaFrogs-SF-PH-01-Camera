@@ -91,12 +91,17 @@ class DiagnosticActivity : Activity(), InputManager.InputDeviceListener {
         row(root, listOf("Runter" to { mark("DOWN") }, "Klick" to { mark("CLICK") },
             "Loslassen" to { mark("RELEASE") }))
         row(root, listOf("Neutral" to { mark("NEUTRAL") }, "Export ZIP" to { export() }))
+        row(root, listOf("Links+Hoch" to { mark("LEFT+UP") }, "Rechts+Hoch" to { mark("RIGHT+UP") }))
+        row(root, listOf("Links+Runter" to { mark("LEFT+DOWN") }, "Rechts+Runter" to { mark("RIGHT+DOWN") }))
+        row(root, listOf("Links+Rechts" to { mark("LEFT+RIGHT") }, "Hoch+Runter" to { mark("UP+DOWN") }))
+        row(root, listOf("Links+Klick" to { mark("LEFT+CLICK") }, "Rechts+Klick" to { mark("RIGHT+CLICK") }))
+        row(root, listOf("Hoch+Klick" to { mark("UP+CLICK") }, "Runter+Klick" to { mark("DOWN+CLICK") }))
         deviceText = text("", 14f); root.addView(deviceText)
         eventText = text("", 13f).apply { typeface = android.graphics.Typeface.MONOSPACE }
         root.addView(eventText)
         initialized = true
         recorder.record(JSONObject().put("kind", "session")
-            .put("appVersion", "0.4.1-exif").put("manufacturer", Build.MANUFACTURER)
+            .put("appVersion", "0.5.0-quality-hid").put("manufacturer", Build.MANUFACTURER)
             .put("model", Build.MODEL).put("sdk", Build.VERSION.SDK_INT)
             .put("androidRelease", Build.VERSION.RELEASE).put("buildFingerprint", Build.FINGERPRINT))
         devices("initial")
