@@ -88,6 +88,21 @@ class CameraLensCatalog(context: Context, provider: ProcessCameraProvider) {
         PhotoLens.MACRO -> widerRoutes.firstOrNull { it.supportsPhotoAutofocus }
     }
 
+    /** CameraX negotiates through the logical parent, so pinned outputs must
+     * use sizes advertised by both parent and physical sensor. No fixed IDs/sizes. */
+    fun commonOutputSizes(route: CameraLensRoute, format: Int): Set<android.util.Size> {
+        fun sizes(id: String): Set<android.util.Size> {
+            val map = manager.getCameraCharacteristics(id)
+                .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) ?: return emptySet()
+            val normal = map.getOutputSizes(format)?.toList() ?: emptyList()
+            val high = if (format == ImageFormat.JPEG)
+                map.getHighResolutionOutputSizes(format)?.toList() ?: emptyList() else emptyList()
+            return (normal + high).toSet()
+        }
+        val logical = sizes(route.logicalId)
+        return route.physicalId?.let { logical.intersect(sizes(it)) } ?: logical
+    }
+
     private fun route(
         logicalId: String, physicalId: String?, characteristics: CameraCharacteristics
     ): CameraLensRoute? {

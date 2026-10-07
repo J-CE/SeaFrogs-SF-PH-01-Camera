@@ -106,3 +106,20 @@ die bestehenden Unit-Tests prüfen Zyklen, HID-Gate und Auto-Testplanung.
 Sie ersetzen keine Pixel-Hardwareprüfung. Ablauf: CAPABILITIES-0.6.1.md.
 
 APK-SHA256: 226f44d70cdbf319f8f32de7c1a2b8d2199478a42695dda3c94827148788694d
+
+## Meilenstein 0.6.2-resolution-af, 2026-10-07
+
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich. 16 Tests bestanden
+(12 bestehende, 4 neue Fokus-Frische/Stabilitätsfälle), 0 Fehler/übersprungen.
+Lint: 0 Fehler, 57 Warnungen. APK versionCode 9, versionName
+0.6.2-resolution-af. Signatur mit unverändertem Debug-Schlüssel geprüft.
+
+UW/Macro verhandelt JPEG/Vorschau nur aus gemeinsamen logischen/physischen
+Größen. Der automatische STANDARD-Test verlangt frischen stabilen AF vom
+gewählten Sensor und überspringt die Aufnahme bei AF-Timeout. Extensions
+kennzeichnen fehlende AF-Prüfbarkeit explizit. Macro-Fokus-AutoCancel 5 s.
+Keine Änderung der HID-Belegung. Kein RAW-/Video-/ISO-Limit-Aufnahmeweg.
+Die tatsächliche JPEG-Größe und Bildschärfe brauchen den Gerätetest gemäß
+QUALITY-0.6.2.md; der Build beweist keine Pixel-Hardwarefunktion.
+
+APK-SHA256: 027c41ad3840ffd5453aa09062b77c63b99a96c57ab23959003d06437d69c5fc

@@ -1,12 +1,16 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.6.1-capabilities**. Live-Vorschau, JPEG-Aufnahme und
+Aktueller Quelltext: **0.6.2-resolution-af**. Live-Vorschau, JPEG-Aufnahme und
 Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate HID-Diagnose.
 Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
 Pixel-8-Testbefunde und offene Punkte stehen im [Fähigkeitsbericht](docs/CAPABILITIES-0.6.1.md).
 
-0.6.1 fragt automatisch angebotene JPEG-/RAW-Auflösungen, Sensorflächen,
+0.6.2 korrigiert die Auflösungswahl physisch gepinnter UW-/Macro-Ausgaben und
+wartet im automatischen Test auf frischen stabilen Vorschau-AF.
+Ablauf und Aussagegrenzen: [QUALITY-0.6.2.md](docs/QUALITY-0.6.2.md).
+
+Seit 0.6.1 fragt die App automatisch angebotene JPEG-/RAW-Auflösungen, Sensorflächen,
 ISO-Grenzen sowie AF-/AWB-Fähigkeiten aller öffentlichen und zugehörigen
 physischen Kameras ab. TEST ZIP enthält dafür `camera-capabilities.json`.
 Für diesen Bericht müssen keine Fototests wiederholt werden. RAW/DNG-Aufnahme

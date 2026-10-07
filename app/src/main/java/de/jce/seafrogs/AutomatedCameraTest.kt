@@ -22,6 +22,7 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
     private var settledAt = 0L
     private var group = ""
     private var runId = ""
+    private var preCaptureFocus = "NOT_CHECKED"
     var running = false
         private set
     private val results = runCatching { JSONArray(preferences.getString("results", "[]")) }.getOrDefault(JSONArray())
@@ -51,6 +52,7 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
             return
         }
         val step = steps[index]
+        preCaptureFocus = "NOT_CHECKED"
         display("$group ${index + 1}/${steps.size}: ${step.id}", true)
         record(JSONObject().put("kind", "autoTestStep").put("id", step.id).put("runId", runId))
         if (step.quality !in controller.autoTestQualities(step.lens) || !controller.configureAutoTest(step)) {
@@ -81,6 +83,18 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
             handler.postDelayed({ awaitReady(run, step) }, 250)
             return
         }
+        preCaptureFocus = controller.autoTestFocusStatus()
+        if (preCaptureFocus == "WAITING_FOR_PREVIEW_AF") {
+            if (now - settledAt >= 11000) {
+                save(step, null, "FAILED", "Kein stabiler Vorschau-AF innerhalb von 8 Sekunden nach Beruhigungszeit; keine Aufnahme")
+                index++; next(run); return
+            }
+            display("$group ${index + 1}/${steps.size}: Warte auf stabilen Fokus", true)
+            handler.postDelayed({ awaitReady(run, step) }, 250)
+            return
+        }
+        record(JSONObject().put("kind", "autoTestFocusBeforeCapture").put("id", step.id)
+            .put("runId", runId).put("focusEvidence", preCaptureFocus))
         display("$group ${index + 1}/${steps.size}: Aufnahme ${step.id}", true)
         // Night processing may take substantially longer than standard JPEG.
         handler.postDelayed({
@@ -103,6 +117,7 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         val value = JSONObject().put("group", group).put("runId", runId).put("id", step.id)
             .put("lens", step.lens.name).put("zoomRequested", step.zoom.toDouble())
             .put("evRequested", step.ev.toDouble()).put("qualityRequested", step.quality)
+            .put("preCaptureFocus", preCaptureFocus)
             .put("status", status).put("uri", uri ?: JSONObject.NULL).put("error", error ?: JSONObject.NULL)
         results.put(value)
         persist()
@@ -118,7 +133,7 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         display(reason, false)
     }
 
-    fun report(): String = JSONObject().put("version", "0.6.1-capabilities")
+    fun report(): String = JSONObject().put("version", "0.6.2-resolution-af")
         .put("device", android.os.Build.MODEL).put("androidBuild", android.os.Build.FINGERPRINT)
         .put("note", "Original JPEGs; requested settings in report, applied settings and latest preview telemetry in EXIF. No automated sharpness score.")
         .put("results", results).toString(2)

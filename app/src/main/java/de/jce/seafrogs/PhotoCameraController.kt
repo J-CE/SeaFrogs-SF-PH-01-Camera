@@ -65,6 +65,7 @@ class PhotoCameraController(
     private var extensionSummary = "Erweiterungen werden geprüft"
     @Volatile private var latestResult: String = "{}"
     private var lastTelemetry = 0L
+    private val autofocusStability = AutofocusStability()
     private val qualityModes = listOf(ExtensionMode.NONE, ExtensionMode.AUTO, ExtensionMode.HDR, ExtensionMode.NIGHT)
     private fun qualityName(mode: Int) = when (mode) {
         ExtensionMode.AUTO -> "AUTO"
@@ -226,19 +227,34 @@ class PhotoCameraController(
         view: PreviewView,
         route: CameraLensRoute
     ) {
-        val previewBuilder = Preview.Builder()
-            .setResolutionSelector(ResolutionSelector.Builder()
-                .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
-                .build())
-        val resolutionSelector = ResolutionSelector.Builder()
+        val previewResolution = ResolutionSelector.Builder()
+            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+        val captureResolution = ResolutionSelector.Builder()
             .setAllowedResolutionMode(ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE)
+            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
             .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
-            .build()
+        if (route.physicalId != null) {
+            val routes = checkNotNull(catalog)
+            val jpegSizes = routes.commonOutputSizes(route, android.graphics.ImageFormat.JPEG)
+                .filter { kotlin.math.abs(it.width.toDouble() / it.height - 4.0 / 3.0) < 0.02 }.toSet()
+            val previewSizes = routes.commonOutputSizes(route, android.graphics.ImageFormat.PRIVATE)
+            check(jpegSizes.isNotEmpty()) { "Keine gemeinsame 4:3-JPEG-Größe für UW/Macro" }
+            check(previewSizes.isNotEmpty()) { "Keine gemeinsame Vorschaugröße für UW/Macro" }
+            captureResolution.setResolutionFilter { supported, _ ->
+                supported.filter { it in jpegSizes }.sortedByDescending { it.width.toLong() * it.height }
+            }
+            previewResolution.setResolutionFilter { supported, _ -> supported.filter { it in previewSizes } }
+            log(JSONObject().put("kind", "physicalStreamResolutionCandidates")
+                .put("logicalId", route.logicalId).put("physicalId", route.physicalId)
+                .put("jpegSizes", org.json.JSONArray(jpegSizes.sortedByDescending { it.width.toLong() * it.height }.map { it.toString() }))
+                .put("previewSizes", org.json.JSONArray(previewSizes.map { it.toString() })))
+        }
+        val previewBuilder = Preview.Builder().setResolutionSelector(previewResolution.build())
         val captureBuilder = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setJpegQuality(100)
             .setTargetRotation(rotation)
-            .setResolutionSelector(resolutionSelector)
+            .setResolutionSelector(captureResolution.build())
         // Both output streams must use the same physical sensor. The logical
         // parent supplies CameraX controls; their effect needs device validation.
         if (Build.VERSION.SDK_INT >= 28) route.physicalId?.let { physicalId ->
@@ -248,6 +264,7 @@ class PhotoCameraController(
         val token = generation
         latestResult = "{}"
         lastTelemetry = 0L
+        autofocusStability.reset()
         val callback = object : CameraCaptureSession.CaptureCallback() {
             override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
                 val value = JSONObject().put("kind", "cameraResult")
@@ -276,6 +293,13 @@ class PhotoCameraController(
                     if (generation != token) return@execute
                     latestResult = value.toString()
                     val now = android.os.SystemClock.uptimeMillis()
+                    // A logical AF result cannot confirm focus on a pinned sensor.
+                    val focusResult: CaptureResult? = if (Build.VERSION.SDK_INT >= 28 && route.physicalId != null)
+                        result.physicalCameraResults[route.physicalId] else result
+                    val af = focusResult?.get(CaptureResult.CONTROL_AF_STATE)
+                    val focused = af?.let { it == CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED ||
+                        it == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED }
+                    autofocusStability.frame(focused, result.get(CaptureResult.SENSOR_TIMESTAMP), now)
                     if (now - lastTelemetry >= 1000) { lastTelemetry = now; log(value); emit() }
                 }
             }
@@ -301,7 +325,7 @@ class PhotoCameraController(
         val view = previewView ?: return
         val point = view.meteringPointFactory.createPoint(view.width / 2f, view.height / 2f)
         val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
-            .setAutoCancelDuration(2, TimeUnit.SECONDS).build()
+            .setAutoCancelDuration(5, TimeUnit.SECONDS).build()
         if (!boundCamera.cameraInfo.isFocusMeteringSupported(action)) {
             macroEntryFocusResult = "unsupported"
             message = "Macro: kontinuierlicher AF; Fokus-Neustart nicht verfügbar"
@@ -428,6 +452,13 @@ class PhotoCameraController(
         kotlin.math.abs(zoomRatio - step.zoom) < 0.01f && qualityName(qualityMode) == step.quality
 
     fun readyForCommand() = isReady()
+
+    fun autoTestFocusStatus(): String = when {
+        qualityMode != ExtensionMode.NONE -> "UNVERIFIED_EXTENSION"
+        activeRoute?.supportsPhotoAutofocus != true -> "NOT_REQUIRED_FIXED_FOCUS"
+        autofocusStability.stable(android.os.SystemClock.uptimeMillis()) -> "STABLE_PREVIEW_AF"
+        else -> "WAITING_FOR_PREVIEW_AF"
+    }
 
     fun cycleZoom() {
         if (!isReady()) return
@@ -599,7 +630,7 @@ class PhotoCameraController(
         val size = imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.6.1-capabilities")
+            .put("version", "0.6.2-resolution-af")
             .put("mode", "PHOTO")
             .put("testCase", testCase)
             .put("qualityMode", qualityName(qualityMode))
@@ -656,6 +687,7 @@ class PhotoCameraController(
         controlPending = false
         focusPending = false
         focusTriggered = false
+        autofocusStability.reset()
     }
 
     private fun emit() {
