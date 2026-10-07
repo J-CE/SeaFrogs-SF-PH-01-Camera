@@ -75,3 +75,16 @@ noch nicht getestet. TESTPROGRAMM-0.5.md legt diese Abnahme fest.
 Video/RAW fehlen; DOWN bestätigt in dieser Version nur einen Diagnosebefehl.
 CameraX einschließlich camera-extensions unverändert 1.4.2.
 APK-SHA256: 9e5d7cb7608b46a549f4253ea6e638cb88983b869c02ed577cb1e8e1c87a7d52
+
+## Meilenstein 0.6.0-autotest, 2026-10-07
+
+assembleDebug, lintDebug, testDebugUnitTest erfolgreich. 12 Tests bestanden;
+Lint 0 Fehler und 56 Warnungen. Automatischer Normal-/Macro-Test
+mit Bereitschaftswartezeit, Original-JPEGs, EXIF, persistentem Ergebnisbericht
+und gemeinsamem ZIP-Export. Hauptkamera-Zoom 1/1,5/3/5×.
+Physisch gepinnte UW/Macro-Routen behalten STANDARD; Extensions werden im
+Testbericht als nicht sicher zuordenbar übersprungen. Keine neue Standard-
+Bildverarbeitung. RAW, Video und die längere HID-Kombinationssperre fehlen weiterhin.
+Hardware-Ablauf und ZIP-Export benötigen den Pixel-8-Test gemäß AUTOTEST-0.6.md.
+APK versionCode 7, versionName 0.6.0-autotest, gleicher Debug-Schlüssel wie 0.4/0.5.
+APK-SHA256: c9f25f8037588183297a9853eb23a608d6b060f8864bc63a7f59dd9f483770ca

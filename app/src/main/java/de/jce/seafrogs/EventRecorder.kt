@@ -45,9 +45,10 @@ class EventRecorder(private val context: Context, private val report: (String) -
     }
 
     /** All earlier writes finish before this snapshot; later input is not included. */
-    fun export(uri: Uri) {
+    fun export(uri: Uri, photos: List<Pair<String, String>> = emptyList(), testReport: String? = null) {
+        val photoSnapshot = photos.toList()
         val summary = """
-            SeaFrogs Kamera/HID Test 0.5.0
+            SeaFrogs Kamera/HID Test 0.6.0
             Android-App-Ereignisse, keine rohen Bluetooth-HID-Reports.
             Datensatznummer am Export: $sequence
             Verlorene Datensätze durch Warteschlangenlimit: ${dropped.get()}
@@ -66,11 +67,33 @@ class EventRecorder(private val context: Context, private val report: (String) -
                         zip.putNextEntry(ZipEntry("events.jsonl"))
                         file.inputStream().use { it.copyTo(zip) }
                         zip.closeEntry()
+                        val exportErrors = org.json.JSONArray()
+                        for ((name, photoUri) in photoSnapshot) {
+                            try {
+                                val input = context.contentResolver.openInputStream(Uri.parse(photoUri))
+                                    ?: error("Originalfoto nicht mehr verfügbar")
+                                input.use {
+                                    zip.putNextEntry(ZipEntry(name))
+                                    it.copyTo(zip)
+                                    zip.closeEntry()
+                                }
+                            } catch (error: Exception) {
+                                exportErrors.put(JSONObject().put("file", name).put("error", error.message))
+                            }
+                        }
+                        if (testReport != null) {
+                            zip.putNextEntry(ZipEntry("camera-test-report.json"))
+                            zip.write(testReport.toByteArray())
+                            zip.closeEntry()
+                        }
+                        zip.putNextEntry(ZipEntry("export-errors.json"))
+                        zip.write(exportErrors.toString(2).toByteArray())
+                        zip.closeEntry()
                         zip.putNextEntry(ZipEntry("summary.txt"))
                         zip.write((summary + "\nSchreibfehler: ${failures.get()}\n").toByteArray())
                         zip.closeEntry()
                     }
-                    report("Export gespeichert")
+                    report("Export gespeichert. Originalfotos und mögliche Exportfehler stehen im ZIP.")
                 } catch (error: Exception) { report("Exportfehler: ${error.message}") }
             }
         } catch (_: java.util.concurrent.RejectedExecutionException) {

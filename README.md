@@ -1,7 +1,7 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.5.0-quality-hid**. Live-Vorschau, JPEG-Aufnahme und
+Aktueller Quelltext: **0.6.0-autotest**. Live-Vorschau, JPEG-Aufnahme und
 Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate HID-Diagnose.
 Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
 Pixel-8-Hardwaretest sind noch nicht bestätigt.
@@ -66,8 +66,8 @@ Activity-Exemplar; eine neue Activity startet mit 1×.
 
 ## Zoom, Macro-Crop und EV
 
-ZOOM schaltet außerhalb von Macro 1× → 1,5× → 2× → 3× → 1×,
-bezogen auf das jeweilige Objektiv. Im Macro-Modus schaltet die Taste
+ZOOM schaltet auf der Hauptkamera 1× → 1,5× → 3× → 5× → 1×.
+UW behält 1× → 1,5× → 2× → 3× → 1×, sensorrelativ. Im Macro-Modus schaltet die Taste
 0,5× → 1× Crop → 2× Crop → 0,5×. Das entspricht Faktoren 1/2/4 auf dem
 Ultraweitwinkelsensor. Die Bezeichnungen beziehen sich nominal auf die Hauptkamera.
 Die App überspringt Faktoren außerhalb der aktuellen CameraX-Zoomgrenzen.
@@ -177,3 +177,11 @@ Extensions bieten keine Garantie auf die vollständige Pixel-Kamera-Pipeline.
 CameraX 1.4.2 bleibt für diesen Vergleich erhalten. Vor November 2026 muss ein
 separater CameraX-Update-Meilenstein die angekündigte Änderung des Extensions-
 Backends berücksichtigen: https://developer.android.com/media/camera/camerax/extensions-api
+
+## Automatischer Kameratest 0.6
+
+[Nur zwei Starts und ein ZIP-Export](docs/AUTOTEST-0.6.md). NORMALTEST verwendet
+50 cm Motivabstand, MACROTEST etwa 5 cm. Die App übernimmt Kamera, Zoom, EV,
+verfügbare Erweiterungen, Bereitschaftswartezeit und Fotoaufnahme. TEST ZIP
+enthält Originalfotos, EXIF, Ergebnistabelle und Sitzungsprotokoll.
+Hauptkamera-Zoomfolge jetzt 1/1,5/3/5×; UW und Macro behalten ihre Folgen.

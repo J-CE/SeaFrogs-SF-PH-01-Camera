@@ -404,6 +404,29 @@ class PhotoCameraController(
         log(JSONObject().put("kind", "testCase").put("label", value))
     }
 
+    fun autoTestQualities(lens: PhotoLens): List<String> {
+        val route = catalog?.routeFor(lens) ?: return emptyList()
+        return qualityModes.filter { it == ExtensionMode.NONE || (route.physicalId == null &&
+            runCatching { extensions?.isExtensionAvailable(route.selector(), it) == true }.getOrDefault(false)) }
+            .map(::qualityName)
+    }
+
+    fun configureAutoTest(step: AutoTestStep): Boolean {
+        if (busy || owner == null || catalog?.routeFor(step.lens) == null) return false
+        val mode = qualityModes.firstOrNull { qualityName(it) == step.quality } ?: return false
+        if (step.quality !in autoTestQualities(step.lens)) return false
+        testCase = step.id
+        zoomRatio = step.zoom
+        exposureEv = step.ev
+        qualityMode = mode
+        cyclePosition = step.lens
+        open(step.lens)
+        return true
+    }
+
+    fun autoTestMatches(step: AutoTestStep) = isReady() && activeLens == step.lens &&
+        kotlin.math.abs(zoomRatio - step.zoom) < 0.01f && qualityName(qualityMode) == step.quality
+
     fun readyForCommand() = isReady()
 
     fun cycleZoom() {
@@ -411,7 +434,7 @@ class PhotoCameraController(
         val boundCamera = camera ?: return
         val zoomState = boundCamera.cameraInfo.zoomState.value ?: return
         val next = CameraControlCycles.nextZoom(zoomRatio, activeLens == PhotoLens.MACRO,
-            zoomState.minZoomRatio, zoomState.maxZoomRatio)
+            zoomState.minZoomRatio, zoomState.maxZoomRatio, activeLens == PhotoLens.ULTRAWIDE)
         if (next == null || next == zoomRatio) {
             message = "Keine weitere Zoomstufe unterstützt"
             emit()
@@ -496,9 +519,12 @@ class PhotoCameraController(
         imageCapture?.targetRotation = targetRotation
     }
 
-    fun capturePhoto() {
-        val capture = imageCapture ?: return
-        if (!isReady()) return
+    fun capturePhoto(completed: ((android.net.Uri?, String?) -> Unit)? = null) {
+        val capture = imageCapture
+        if (capture == null || !isReady()) {
+            completed?.invoke(null, "Kamera nicht bereit")
+            return
+        }
         busy = true
         message = "Foto wird aufgenommen"
         emit()
@@ -522,6 +548,7 @@ class PhotoCameraController(
                     )
                     if (!directory.exists() && !directory.mkdirs()) {
                         busy = false
+                        completed?.invoke(null, "Speicherordner konnte nicht angelegt werden")
                         message = "Speicherordner konnte nicht angelegt werden"
                         emit()
                         return
@@ -540,6 +567,7 @@ class PhotoCameraController(
                         .put("uri", result.savedUri?.toString() ?: JSONObject.NULL))
                     exifWriter.write(result.savedUri, metadata) { failure ->
                         mainExecutor.execute {
+                            completed?.invoke(result.savedUri, failure)
                             if (generation == token) {
                                 busy = false
                                 message = if (failure == null) "JPEG mit EXIF gespeichert: Pictures/SeaFrogs"
@@ -550,6 +578,7 @@ class PhotoCameraController(
                     }
                 }
                 override fun onError(error: ImageCaptureException) {
+                    completed?.invoke(null, error.message ?: "Aufnahmefehler ${error.imageCaptureError}")
                     if (generation != token) return
                     busy = false
                     message = "Aufnahmefehler: ${error.message ?: error.imageCaptureError}"
@@ -557,6 +586,7 @@ class PhotoCameraController(
                 }
             })
         } catch (error: Exception) {
+            completed?.invoke(null, error.message ?: "Aufnahmefehler")
             busy = false
             message = "Aufnahmefehler: ${error.message}"
             emit()
@@ -569,7 +599,7 @@ class PhotoCameraController(
         val size = imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.5.0-quality-hid")
+            .put("version", "0.6.0-autotest")
             .put("mode", "PHOTO")
             .put("testCase", testCase)
             .put("qualityMode", qualityName(qualityMode))

@@ -9,7 +9,9 @@ class CameraControlCyclesTest {
         assertEquals(1.5f, CameraControlCycles.nextZoom(1f, false, 1f, 3f))
         assertEquals(1f, CameraControlCycles.nextZoom(3f, false, 1f, 3f))
         assertEquals(1f, CameraControlCycles.nextZoom(2f, false, 1f, 2f))
-        assertNull(CameraControlCycles.nextZoom(1f, false, 4f, 8f))
+        assertEquals(5f, CameraControlCycles.nextZoom(3f, false, 1f, 5f))
+        assertEquals(1f, CameraControlCycles.nextZoom(5f, false, 1f, 5f))
+        assertNull(CameraControlCycles.nextZoom(1f, false, 6f, 8f))
     }
     @Test fun macroUsesSensorRelativeFactors() {
         assertEquals(2f, CameraControlCycles.nextZoom(1f, true, 1f, 4f))
