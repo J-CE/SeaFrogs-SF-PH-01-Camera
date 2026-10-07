@@ -1,0 +1,11 @@
+SeaFrogs SF-PH-01 Camera
+Copyright 2026 J-CE
+
+This project includes the Gradle Wrapper (Gradle 8.11.1).
+Copyright the original author or authors.
+Gradle Wrapper is licensed under the Apache License, Version 2.0.
+Source: https://github.com/gradle/gradle/tree/v8.11.1
+
+The application code does not include Google Jetpack Camera App source.
+SeaFrogs and Google Pixel are product names of their respective owners.
+This project is independent of those manufacturers.
