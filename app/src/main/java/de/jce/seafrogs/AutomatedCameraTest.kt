@@ -148,7 +148,7 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         display(reason, false)
     }
 
-    fun report(isoOnly: Boolean = false): String = JSONObject().put("version", "0.6.4-iso-limits")
+    fun report(isoOnly: Boolean = false): String = JSONObject().put("version", "0.6.5-physical-iso")
         .put("device", android.os.Build.MODEL).put("androidBuild", android.os.Build.FINGERPRINT)
         .put("note", "Original JPEGs; requested settings in report, applied settings and latest preview telemetry in EXIF. No automated sharpness score.")
         .put("results", selectedResults(isoOnly)).toString(2)

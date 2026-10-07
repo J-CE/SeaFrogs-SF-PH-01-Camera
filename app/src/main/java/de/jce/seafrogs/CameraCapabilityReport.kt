@@ -17,7 +17,7 @@ import org.json.JSONObject
 object CameraCapabilityReport {
     fun collect(context: Context): JSONObject {
         val report = JSONObject()
-            .put("schemaVersion", 1).put("appVersion", "0.6.4-iso-limits")
+            .put("schemaVersion", 1).put("appVersion", "0.6.5-physical-iso")
             .put("createdWallTimeMs", System.currentTimeMillis())
             .put("device", Build.MODEL).put("androidBuild", Build.FINGERPRINT)
             .put("sdk", Build.VERSION.SDK_INT)

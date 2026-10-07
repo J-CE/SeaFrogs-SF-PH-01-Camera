@@ -1,5 +1,42 @@
 # ISO-/Zeitgrenzen und Vergleichstest 0.6.4
 
+## Gerätetest und Korrektur 0.6.5
+
+Der vollständige Export seafrogs-iso-1791404655261.zip enthält vier lesbare
+Original-JPEGs, sechs Ergebnisdatensätze, keine CRC-/Exportfehler, keine
+verlorenen Protokolleinträge und keine Schreibfehler.
+
+| Aufnahme | Sensor-ISO | Zeit | JPEG-EXIF-ISO | Ergebnis |
+| --- | ---: | ---: | ---: | --- |
+| Hauptkamera Auto | 667 | 29.997374 ms | 1827 | gespeichert |
+| Hauptkamera Grenze 800 | 667 | 29.997374 ms | 1827 | Grenzen bestätigt |
+| Hauptkamera Grenze 400 | 400 | 33.329016 ms | 1096 | Grenzen bestätigt, −0.586 EV Sensorbelichtung |
+| UW Auto | 762 | 39.998667 ms | 1737 | gespeichert |
+| UW Grenze 800 | keine Aufnahme | keine Aufnahme | fehlt | Request-Builder-Fehler |
+| UW Grenze 400 | keine Aufnahme | keine Aufnahme | fehlt | Request-Builder-Fehler |
+
+Tatsächliche Dateigrößen: Hauptkamera 4080 × 3072, UW 4000 × 3000.
+JPEG und Sensorresultate haben identische Zeitstempel; alle vier Aufnahmen
+melden AF 2 vor und bei der Aufnahme. Bei beiden begrenzten Hauptkamera-
+Fotos bestätigt der Sensor die Grenzen und den übernommenen Post-RAW-Gain
+274 Prozent. Die EXIF-ISO entspricht hier Sensor-ISO × 2.74 (gerundet).
+Die ISO-Grenze begrenzt daher die Sensorverstärkung, nicht zusätzlich die
+JPEG-Verstärkung. 0.6.5 benennt dies ausdrücklich im Setup und Status und
+liest die tatsächliche JPEG-EXIF-ISO in die Aufnahmeevidenz ein.
+
+Beide UW-Limit-Aufnahmen scheiterten mit Physical camera id: 3 is not valid.
+Der Code hatte die Ausgabe physisch gepinnt, aber den CaptureRequest.Builder
+ohne physische ID angelegt. setPhysicalCameraKey benötigt zusätzlich
+createCaptureRequest(template, physicalCameraIdSet). 0.6.5 initialisiert diesen
+Builder für begrenzte physische Still-Aufnahmen und kopiert unterstützte
+physische Einstellungen aus dem gewählten Request, bevor es nur die
+Belichtungswerte überschreibt. Unbegrenzte JPEG-/RAW-Aufnahmen behalten den
+zuvor geprüften Request-Weg. Kein stiller Fallback auf die Hauptkamera.
+
+Nach Installation von 0.6.5 den ISO-TEST mit 1/30 s wiederholen und ISO ZIP
+exportieren. Die bisherige Serie bestätigt die Hauptkamera-Sensorgrenzen,
+aber keine begrenzte UW-/Macro-Aufnahme und keinen messbaren Rauschvorteil.
+
 ## Bedienung
 
 Die ISO-Taste öffnet das Setup vor dem Tauchgang. ISO: Auto, maximal 400,

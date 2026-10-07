@@ -93,7 +93,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.4-iso-limits")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.5-physical-iso")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -372,7 +372,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         status.text = (if (autoStatus.isBlank()) "" else "$autoStatus\n") +
             "PHOTO | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | ${state.quality} | ${state.photoFormat}\n" +
             state.resolution + (if (state.exposureLimits.enabled)
-                " | ISO ≤ ${state.exposureLimits.isoCap} | Zeit ≤ ${when (state.exposureLimits.longestTimeNs) {
+                " | Sensor-ISO ≤ ${state.exposureLimits.isoCap} | Zeit ≤ ${when (state.exposureLimits.longestTimeNs) {
                     8_000_000L -> "1/125 s"
                     16_666_666L -> "1/60 s"
                     else -> "1/30 s"
@@ -383,7 +383,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         format.isEnabled = state.ready && !testing
         rawTest.isEnabled = state.ready && !testing
         exposureSetup.isEnabled = state.ready && !testing
-        exposureSetup.text = if (state.exposureLimits.enabled) "ISO ≤ ${state.exposureLimits.isoCap}" else "ISO: AUTO"
+        exposureSetup.text = if (state.exposureLimits.enabled) "Sensor ≤ ${state.exposureLimits.isoCap}" else "ISO: AUTO"
         isoTest.isEnabled = state.ready && !testing
         isoExport.isEnabled = capabilityReport != null && !state.capturing && !testing
         testCase.isEnabled = !state.capturing && !testing
@@ -428,7 +428,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(8), dp(20), dp(8))
         }
-        panel.addView(TextView(this).apply { text = "ISO-Obergrenze" })
+        panel.addView(TextView(this).apply { text = "Sensor-ISO-Obergrenze" })
         val iso = android.widget.Spinner(this).apply {
             adapter = android.widget.ArrayAdapter(this@CameraActivity,
                 android.R.layout.simple_spinner_dropdown_item,
@@ -444,7 +444,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         }
         panel.addView(time)
         panel.addView(TextView(this).apply {
-            text = "Auto begrenzt weder ISO noch Zeit. Bei aktiver Grenze fotografiert die App ohne Extensions und pausiert die Vorschau kurz. Reichen ISO und Zeit nicht für die gemessene Helligkeit, bleibt das Foto dunkler. Niedrigere ISO garantiert keine bessere Aufnahme bei Bewegung."
+            text = "Auto begrenzt weder ISO noch Zeit. Bei aktiver Grenze fotografiert die App ohne Extensions und pausiert die Vorschau kurz. Reichen ISO und Zeit nicht für die gemessene Helligkeit, bleibt das Foto dunkler. Die Grenze gilt für Sensor-ISO. Zusätzliche JPEG-Verstärkung kann einen höheren EXIF-ISO-Wert ergeben. Niedrigere Sensor-ISO garantiert keine bessere Aufnahme bei Bewegung."
         })
         AlertDialog.Builder(this).setTitle("Belichtung vor dem Tauchgang").setView(panel)
             .setNegativeButton("Zurück", null).setPositiveButton("Speichern") { _, _ ->

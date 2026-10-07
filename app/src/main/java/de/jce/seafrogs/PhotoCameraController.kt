@@ -711,7 +711,7 @@ class PhotoCameraController(
                     val result = JSONObject(outcome.evidence)
                     val difference = result.optDouble("brightnessDifferenceEvSensor", 0.0)
                     val applied = if (limits.enabled && result.has("iso") && result.has("exposureTimeNs"))
-                        "\nFOTO ISO ${result.optString("iso")} | ${number((result.optLong("exposureTimeNs") / 1_000_000.0).toFloat())} ms"
+                        "\nFOTO SENSOR-ISO ${result.optString("iso")} | ${number((result.optLong("exposureTimeNs") / 1_000_000.0).toFloat())} ms"
                         else ""
                     val warning = if (result.optBoolean("underexposedByLimits"))
                         "\nDUNKLER DURCH LIMIT: ${number(difference.toFloat())} EV" else ""
@@ -729,7 +729,7 @@ class PhotoCameraController(
         val size = imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.6.4-iso-limits")
+            .put("version", "0.6.5-physical-iso")
             .put("mode", "PHOTO")
             .put("testCase", testCase)
             .put("qualityMode", qualityName(qualityMode))
@@ -825,7 +825,7 @@ class PhotoCameraController(
         val source = if (matching != null) "PHYS ${matching.optString("id")}" else
             "LOG ${logical.optString("activePhysicalId", "?")}"
         return "$source | AF ${result.optString("afState", "?")} | " +
-            "Fokus ${result.optString("focusDistanceDiopters", "?")} dpt | Vorschau ISO ${result.optString("iso", "?")}"
+            "Fokus ${result.optString("focusDistanceDiopters", "?")} dpt | Vorschau Sensor-ISO ${result.optString("iso", "?")}"
     }
 
     private fun cameraErrorMessage(code: Int): String = when (code) {

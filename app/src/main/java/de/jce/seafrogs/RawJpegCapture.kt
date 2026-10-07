@@ -158,7 +158,14 @@ class RawJpegCapture(context: Context) {
     }
 
     private fun request(template: Int): CaptureRequest.Builder {
-        val builder = checkNotNull(device).createCaptureRequest(template)
+        val camera = checkNotNull(device)
+        // setPhysicalCameraKey requires an explicitly initialized physical-ID
+        // builder. Pinning OutputConfiguration alone does not initialize it.
+        val physical = route.physicalId?.takeIf {
+            Build.VERSION.SDK_INT >= 28 && limits.enabled && template == CameraDevice.TEMPLATE_STILL_CAPTURE
+        }
+        val builder = if (Build.VERSION.SDK_INT >= 28 && physical != null)
+            camera.createCaptureRequest(template, setOf(physical)) else camera.createCaptureRequest(template)
         builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
         builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
         builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
@@ -181,7 +188,17 @@ class RawJpegCapture(context: Context) {
         }
         builder.set(CaptureRequest.JPEG_QUALITY, 100.toByte())
         builder.set(CaptureRequest.JPEG_ORIENTATION, orientation)
+        if (Build.VERSION.SDK_INT >= 28 && physical != null) {
+            // Preserve the chosen AF/WB/zoom settings before overriding just
+            // exposure. Physical template defaults must not undo those values.
+            c.availablePhysicalCameraRequestKeys?.forEach { key -> copyPhysicalSetting(builder, key, physical) }
+        }
         return builder
+    }
+
+    @androidx.annotation.RequiresApi(28)
+    private fun <T> copyPhysicalSetting(builder: CaptureRequest.Builder, key: CaptureRequest.Key<T>, id: String) {
+        builder.get(key)?.let { builder.setPhysicalCameraKey(key, it, id) }
     }
 
     private fun sensorResult(result: TotalCaptureResult): CaptureResult? =
@@ -242,6 +259,13 @@ class RawJpegCapture(context: Context) {
                 .put("exposureTimeNs", sensor[CaptureResult.SENSOR_EXPOSURE_TIME] ?: JSONObject.NULL)
                 .put("afState", sensor[CaptureResult.CONTROL_AF_STATE] ?: JSONObject.NULL)
                 .put("focalLengthMm", sensor[CaptureResult.LENS_FOCAL_LENGTH]?.toDouble() ?: JSONObject.NULL)
+            // Read the JPEG's own ISO tag: sensor gain and JPEG post-RAW
+            // amplification are distinct and the HAL may report their product.
+            runCatching {
+                val exif = androidx.exifinterface.media.ExifInterface(java.io.ByteArrayInputStream(jpeg))
+                evidence.put("jpegExifIso", exif.getAttributeInt(
+                    androidx.exifinterface.media.ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, 0).takeIf { it > 0 } ?: JSONObject.NULL)
+            }.onFailure { evidence.put("jpegExifReadError", it.toString()) }
             val exposureError = validateExposure(sensor)
             val prefix = "SeaFrogs_${System.currentTimeMillis()}_${UUID.randomUUID()}"
             savedJpeg = save("$prefix.jpg", "image/jpeg") { it.write(jpeg) }

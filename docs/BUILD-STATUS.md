@@ -171,3 +171,27 @@ Farbmatrizen und Aufnahmemetadaten. ISO-Grenzen brauchen noch den realen
 Pixel-8-Vergleich gemäß ISO-0.6.4.md; der Build ersetzt diese Abnahme nicht.
 
 APK-SHA256: 2328a76efb9ee12e1eff19130071ffda9d19afef202aa5e00d00f6b05df212ac
+
+## Korrektur 0.6.5-physical-iso, 2026-10-07
+
+Der Pixel-8-Vergleich aus 0.6.4 enthält vier erfolgreiche JPEGs und zwei
+fehlgeschlagene begrenzte UW-Aufnahmen. Hauptkamera: Auto und Grenze 800
+je ISO 667/29.997374 ms; Grenze 400 tatsächlich ISO 400/33.329016 ms,
+−0.586 EV gegenüber der Messung. Sensorgrenzen und Post-RAW-Gain bestätigt.
+JPEG-EXIF-ISO 1827 beziehungsweise 1096: Sensor-ISO und zusätzliche JPEG-
+Verstärkung unterscheiden sich. ZIP vollständig, keine Export-/CRC-/Logfehler.
+
+Der UW-Request-Builder fehlte in der physicalCameraIdSet-Initialisierung.
+0.6.5 korrigiert diese für begrenzte physische Still-Aufnahmen, übernimmt
+unterstützte physische Settings aus dem Request und überschreibt dann nur
+die Belichtung. Keine Abschaltung der physischen UW-Ausgabe, kein Fallback.
+Setup/Status nennt ausdrücklich Sensor-ISO; jpegExifIso ergänzt die Evidenz.
+
+Abschließender assembleDebug/lintDebug/testDebugUnitTest erfolgreich.
+23 Tests bestanden, 0 Fehler/übersprungen; Lint 0 Fehler, 70 Warnungen.
+API-Request-Builder-Initialisierung benötigt den neuen UW-Gerätetest und
+lässt sich durch die JVM-Rechentests nicht bestätigen. Kein neuer Hardware-
+Erfolg behauptet. APK versionCode 12/versionName 0.6.5-physical-iso, identischer
+Debug-Schlüssel; Installation als Update möglich. Projektversionen unverändert.
+
+APK-SHA256: 6d27d4de3c387cfcb956a32684d0b2a64a65c6d9e4ecec701413df119f72af26

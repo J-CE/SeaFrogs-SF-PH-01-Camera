@@ -6,8 +6,8 @@ android {
         applicationId = "de.jce.seafrogs"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.6.4-iso-limits"
+        versionCode = 12
+        versionName = "0.6.5-physical-iso"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
