@@ -53,3 +53,12 @@ Der neue Debug-Schlüssel unterscheidet sich vom Schlüssel der ausgelieferten
 
 Die Build-Umgebung benötigte eine erneute Abhängigkeitsbeschaffung und den
 JDK-17-Compiler. Diese Umgebungsarbeiten ändern keine Projektversionen.
+
+## Meilenstein 0.4.1-exif, 2026-10-07
+
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich. Vier Zyklustests
+bestanden, Lint 0 Fehler und 39 Warnungen. EV-Zyklus nun 0/+1/+2/−1/−2,
+weiterhin an unterstützte Schrittweite und Grenzen angepasst. JPEGs erhalten
+ergänzende EXIF-Diagnosedaten ohne erneute Bildkompression.
+APK versionCode 5, versionName 0.4.1-exif. APK-SHA256: da100a0a948292623366abb8570dae9ead23d1f418238c84d058fdf1efb5cdd4
+EXIF-Schreiben und Bildqualität auf Pixel 8 noch nicht geprüft.

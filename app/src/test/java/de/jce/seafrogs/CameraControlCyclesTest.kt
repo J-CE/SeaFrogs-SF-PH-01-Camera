@@ -19,7 +19,7 @@ class CameraControlCyclesTest {
     @Test fun thirdEvStepsPreserveNegativeAndPositiveCycleOrder() {
         val step = 1f / 3f
         var index = 0
-        listOf(2, 4, -2, -4, 0).forEach { expected ->
+        listOf(3, 6, -3, -6, 0).forEach { expected ->
             index = CameraControlCycles.nextExposure(index, step, -6, 6)
             assertEquals(expected, index)
         }

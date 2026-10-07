@@ -1,7 +1,7 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.4.0-controls**. Live-Vorschau, JPEG-Aufnahme und
+Aktueller Quelltext: **0.4.1-exif**. Live-Vorschau, JPEG-Aufnahme und
 Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate HID-Diagnose.
 Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
 Pixel-8-Hardwaretest sind noch nicht bestätigt.
@@ -73,7 +73,7 @@ Ultraweitwinkelsensor. Die Bezeichnungen beziehen sich nominal auf die Hauptkame
 Die App überspringt Faktoren außerhalb der aktuellen CameraX-Zoomgrenzen.
 Physische Kamera-Pins und tatsächlicher Crop erfordern die Geräteprüfung.
 
-EV schaltet nominell 0 → +0,7 → +1,3 → −0,7 → −1,3 → 0.
+EV schaltet nominell 0 → +1 → +2 → −1 → −2 → 0.
 Die App rundet auf unterstützte Indizes, begrenzt sie auf den gemeldeten Bereich
 und entfernt doppelte Stufen. Der Status zeigt den gesetzten Wert mit bis zu
 zwei Dezimalstellen, beispielsweise +0,67 bei einer Schrittweite von 1/3 EV.
@@ -149,3 +149,18 @@ App übernommen. Nur der offizielle Gradle Wrapper stammt aus Gradle.
 
 Exporte enthalten Gerätebezeichnungen, Descriptor und Android-Buildinformationen.
 Vor Veröffentlichung in diesem öffentlichen Repository prüfen.
+
+## EXIF-Diagnose 0.4.1
+
+JPEGs behalten ihre vorhandenen Aufnahme-EXIF-Daten. Ergänzt werden Hersteller/Modell
+(wenn fehlend), Software und ein JSON-UserComment mit Objektivmodus, logischer und
+angeforderter physischer Kamera-ID, angewendetem CameraX-Zoom und EV, EV-Schrittweite
+und Grenzen, konfigurierter Fotoauflösung und Ergebnis des Macro-Einstiegs-AF.
+Es werden keine fehlenden ISO-, Verschlusszeit- oder Fokuswerte erfunden.
+Der gespeicherte AF-Wert beschreibt den Einstiegsversuch, nicht den Fokuszustand
+im Moment der Aufnahme. Die angeforderte Kamera-ID beweist nicht die aktive Kamera.
+Die EXIF-Ergänzung komprimiert die Bilddaten nicht erneut.
+
+Für die Auswertung Original-JPEGs als Datei oder ZIP senden. Screenshots und
+verkleinerte Bild-Anhänge können EXIF verlieren. Die Version enthält noch keine
+neue HDR-/Mehrbild-Verarbeitung oder Änderung der Crop-Stufen.

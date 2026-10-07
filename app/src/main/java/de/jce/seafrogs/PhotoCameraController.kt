@@ -20,6 +20,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import org.json.JSONObject
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -47,6 +48,9 @@ class PhotoCameraController(
     private val publish: (PhotoCameraState) -> Unit
 ) {
     private val appContext = context.applicationContext
+    private val exifWriter = PhotoExifWriter(appContext)
+    private var activeRoute: CameraLensRoute? = null
+    private var macroEntryFocusResult = "not_requested"
     private val mainExecutor = ContextCompat.getMainExecutor(appContext)
     private var provider: ProcessCameraProvider? = null
     private var camera: Camera? = null
@@ -114,6 +118,7 @@ class PhotoCameraController(
                     "Keine geeignete Kamera für ${target.label}"
                 }
                 bind(availableProvider, lifecycleOwner, view, route)
+                activeRoute = route
                 activeLens = target
                 val boundCamera = checkNotNull(camera)
                 view.previewStreamState.observe(lifecycleOwner) { stream ->
@@ -200,12 +205,14 @@ class PhotoCameraController(
         if (activeLens != PhotoLens.MACRO || focusTriggered ||
             !cameraOpen || !streaming || !zoomReady || !exposureReady) return
         focusTriggered = true
+        macroEntryFocusResult = "pending"
         val boundCamera = camera ?: return
         val view = previewView ?: return
         val point = view.meteringPointFactory.createPoint(view.width / 2f, view.height / 2f)
         val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
             .setAutoCancelDuration(2, TimeUnit.SECONDS).build()
         if (!boundCamera.cameraInfo.isFocusMeteringSupported(action)) {
+            macroEntryFocusResult = "unsupported"
             message = "Macro: kontinuierlicher AF; Fokus-Neustart nicht verfügbar"
             return
         }
@@ -215,7 +222,14 @@ class PhotoCameraController(
             val focus = boundCamera.cameraControl.startFocusAndMetering(action)
             focus.addListener({
                 if (generation != token) return@addListener
-                val focused = runCatching { focus.get().isFocusSuccessful }.getOrDefault(false)
+                val outcome = runCatching { focus.get().isFocusSuccessful }
+                val focused = outcome.getOrDefault(false)
+                macroEntryFocusResult = when {
+                    outcome.isFailure -> "failed:" + (outcome.exceptionOrNull()?.cause
+                        ?: outcome.exceptionOrNull())?.javaClass?.simpleName
+                    focused -> "success"
+                    else -> "not_confirmed"
+                }
                 // A one-shot AF trigger temporarily locks focus. Cancel it so
                 // subsequent near subjects continue to receive continuous AF.
                 try {
@@ -238,6 +252,7 @@ class PhotoCameraController(
             }, mainExecutor)
         } catch (error: Exception) {
             focusPending = false
+            macroEntryFocusResult = "failed:${error.javaClass.simpleName}"
             message = "Macro: Fokus-Neustart fehlgeschlagen: ${error.message}"
         }
     }
@@ -375,6 +390,7 @@ class PhotoCameraController(
         message = "Foto wird aufgenommen"
         emit()
         val token = generation
+        val metadata = exifSnapshot()
         val name = "SeaFrogs_${System.currentTimeMillis()}_${UUID.randomUUID()}.jpg"
         try {
             val values = ContentValues().apply {
@@ -404,10 +420,18 @@ class PhotoCameraController(
             ).build()
             capture.takePicture(output, mainExecutor, object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(result: ImageCapture.OutputFileResults) {
-                    if (generation != token) return
-                    busy = false
-                    message = "JPEG gespeichert: Pictures/SeaFrogs"
-                    emit()
+                    // Finish metadata even when this session has stopped. Only
+                    // UI updates depend on its generation; the JPEG still exists.
+                    exifWriter.write(result.savedUri, metadata) { failure ->
+                        mainExecutor.execute {
+                            if (generation == token) {
+                                busy = false
+                                message = if (failure == null) "JPEG mit EXIF gespeichert: Pictures/SeaFrogs"
+                                else "JPEG gespeichert; EXIF-Ergaenzung fehlgeschlagen: $failure"
+                                emit()
+                            }
+                        }
+                    }
                 }
                 override fun onError(error: ImageCaptureException) {
                     if (generation != token) return
@@ -421,6 +445,35 @@ class PhotoCameraController(
             message = "Aufnahmefehler: ${error.message}"
             emit()
         }
+    }
+
+    private fun exifSnapshot(): String {
+        val exposure = camera?.cameraInfo?.exposureState
+        val zoom = camera?.cameraInfo?.zoomState?.value
+        val size = imageCapture?.resolutionInfo?.resolution
+        return JSONObject()
+            .put("app", "SeaFrogs Camera")
+            .put("version", "0.4.1-exif")
+            .put("mode", "PHOTO")
+            .put("lensMode", activeLens.name)
+            .put("logicalCameraId", activeRoute?.logicalId ?: JSONObject.NULL)
+            .put("requestedPhysicalCameraId", activeRoute?.physicalId ?: JSONObject.NULL)
+            .put("appliedCameraXZoomRatio", zoomRatio.toDouble())
+            .put("nominalMacroMainEquivalent", if (activeLens == PhotoLens.MACRO)
+                (zoomRatio / 2f).toDouble() else JSONObject.NULL)
+            .put("appliedExposureEV", exposureEv.toDouble())
+            .put("exposureIndex", exposure?.exposureCompensationIndex ?: JSONObject.NULL)
+            .put("exposureStep", exposure?.exposureCompensationStep?.toString() ?: JSONObject.NULL)
+            .put("exposureMinIndex", exposure?.exposureCompensationRange?.lower ?: JSONObject.NULL)
+            .put("exposureMaxIndex", exposure?.exposureCompensationRange?.upper ?: JSONObject.NULL)
+            .put("zoomMinRatio", zoom?.minZoomRatio?.toDouble() ?: JSONObject.NULL)
+            .put("zoomMaxRatio", zoom?.maxZoomRatio?.toDouble() ?: JSONObject.NULL)
+            .put("macroEntryFocusResult", macroEntryFocusResult)
+            .put("configuredPhotoWidth", size?.width ?: JSONObject.NULL)
+            .put("configuredPhotoHeight", size?.height ?: JSONObject.NULL)
+            .put("jpegTargetRotation", rotation)
+            .put("androidBuild", Build.FINGERPRINT)
+            .toString()
     }
 
     fun stop() {
@@ -444,6 +497,8 @@ class PhotoCameraController(
         preview = null
         imageCapture = null
         camera = null
+        activeRoute = null
+        macroEntryFocusResult = "not_requested"
         cameraOpen = false
         streaming = false
         busy = false

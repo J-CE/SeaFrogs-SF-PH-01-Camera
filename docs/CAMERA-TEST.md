@@ -73,7 +73,7 @@ JPEG-Größen je Modus, Fokusabstände, Ausschnitt und Fehler. Noch keine Messwe
    Auf echte UW-Sensorausgabe sowie AF-Nachführung achten. Nominale 0,5×/1×/2×
    müssen dem tatsächlichen Bildfeld entsprechen, bevor sie als bestätigt gelten.
 3. EV-Zyklus vollständig durchlaufen. CameraX-Schrittweite, Indexbereich und
-   erreichte Werte notieren; beispielsweise 0/+0,67/+1,33/−0,67/−1,33.
+   erreichte Werte notieren; beispielsweise 0/+1/+2/−1/−2.
    Unter unveränderter Beleuchtung JPEG-Helligkeit vergleichen.
 4. Kamera wechseln: voller Ausschnitt und übernommener EV-Wert. Grenzen anderer
    Kameras beachten. Nach Diagnose-Rückkehr müssen Zoom und EV wieder aktiv sein.
@@ -84,3 +84,12 @@ JPEG-Größen je Modus, Fokusabstände, Ausschnitt und Fehler. Noch keine Messwe
 Automatisch prüfbar: Zyklusende, unzulässige Zoomstufen, Macro-Faktoren,
 EV-Rundung auf Drittelstufen und Entdoppelung bei eingeschränktem EV-Bereich.
 Diese Unit-Tests ersetzen keinen Pixel-8-Kameratest.
+
+### EXIF-Abnahme 0.4.1
+
+Je ein Original-JPEG mit Hauptkamera 1×, UW ohne Crop und Macro in jeder
+Crop-Stufe aufnehmen. Gerät, Motiv, Abstand und Beleuchtung konstant halten.
+Zum Vergleich die originale Pixel-Kamera nutzen und vergleichbaren Bildausschnitt
+notieren. Originale als Datei/ZIP exportieren; keine Screenshots. Vorhandene
+EXIF und den App-JSON-UserComment prüfen. Speicher- oder EXIF-Fehler notieren.
+Bildqualität, tatsächliche Kameraauswahl und Nahfokus bleiben Hardwareprüfungen.
