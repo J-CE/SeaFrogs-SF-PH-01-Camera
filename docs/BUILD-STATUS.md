@@ -278,7 +278,7 @@ APK-SHA256: 648f737888f9a5a265c73461b394577b3d2fccaf0aadfe5e4faff5bc391b63ad
 Beide Host-Pipelines verarbeiten die validierten fünf RAWs je Kamera tatsächlich.
 HDR+ align/merge/finish und MotionCam fuse/forward/inverse/postprocess wurden
 als Halide-AOT-Kerne gebaut. MotionCam braucht die dokumentierte API-Anpassung
-an Halide 24. Der portable Standalone-Aufbau lädt fixierte Quellen; alle
+an Halide 21. Der portable Standalone-Aufbau lädt fixierte Quellen; alle
 C++-/Header-Dateien stimmen mit den anfangs geprüften Quellen überein. Ein
 erneuter vollständiger Build aller Generatoren/Brücke und MAIN-HDR-Aufruf
 reproduziert RAW-NPY und beide MAIN-JPEGs bitidentisch. Synthetische globale
@@ -290,3 +290,33 @@ Messungen/Methodik/Grenzen in LIBRARY-RESULTS-2026-10-08.md. Standalone-Testcode
 unter tools/library-benchmark ist GPL-3.0-only; die App bindet ihn nicht ein.
 Keine neue APK, keine Änderung am Android-Kameracode. ARM64-Codegenerierung
 ist kein JNI-/Gerätetest. Neue Bildpipeline braucht die Pixel-Abnahme.
+
+## Meilenstein 0.7.0-mit-multiframe, 2026-10-07
+
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich. 34 Unit-Tests
+bestanden, 0 Fehler; vier neue Tests prüfen RAW-Zeilen-/Pixelstride, Anfangs-
+position, Puffergrenzen und abgeschnittene Eingaben. Lint: 0 Fehler, 72 Warnungen
+(auch HardcodedText/fehlende Übersetzungen in der Testoberfläche).
+
+Native ARM64-JNI und generierter MIT HDR+ Vollkern sind in der APK verlinkt.
+NDK 27.2.12479018, CMake 3.22.1, Halide 21.0.0. ELF-LOAD-Ausrichtung 16 KiB;
+APK zipalign -P16 und apksigner erfolgreich. Gleicher Debug-Schlüssel wie 0.6.8,
+versionCode 16, versionName 0.7.0-mit-multiframe.
+
+Der genaue neue Generator wurde zusätzlich auf Linux x86-64 mit den zwei
+Original-RAW-Serien ausgeführt: MAIN 4080×3072 und UW 4032×3016, jeweils fünf
+Frames. Je zwei Ausführungen liefern bitidentische RGB-Ausgabe, Rückgabecode 0;
+Metadaten-/Schwarzpegel-/LensShadingMap-Übergabe läuft auch im Hosttest. Ein
+zweiter Lauf über das veröffentlichte verify_uploaded.py reproduziert beide
+RGB-SHA256-Werte. Prüfergebnis: MIT-NATIVE-VERIFICATION.json. Die kleinen
+Vorschaubilder wurden visuell auf leere/zerstörte Ausgabe geprüft.
+
+Kein Pixel-JNI-/Kamera-Hardwaretest durchgeführt. Host-Laufzeit ist keine
+Android-Laufzeitmessung. Speicherbedarf, Temperatur, tatsächlich gemeldete LSC-
+Metadaten, Ausgabeorientierung, ISO-Grenze, UW-Farbe und bewegte Motive sind
+mit dem neuen MEHRBILD TEST zu prüfen (MIT-MEHRBILD-0.7.md). Macro-Nahfokus
+bleibt offen. HDR+ bezeichnet die unabhängige MIT-Implementierung, keine
+verfügbare Google HDR-Extension.
+
+APK-SHA256: 9e2e4e046fb766bab769f63afc100a06e6387d049c293a44d0c3c333f6e485e0
+APK-Länge: 8301942 Byte.

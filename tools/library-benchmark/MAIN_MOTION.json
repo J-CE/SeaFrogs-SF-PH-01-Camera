@@ -40,7 +40,7 @@
     ]
   ],
   "threads": 4,
-  "halide": "24.0.0",
+  "halide": "21.0.0",
   "cv2": "5.0.0",
   "timings": {
     "flowSeconds": 0.2095423499995377,

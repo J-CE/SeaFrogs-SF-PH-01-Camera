@@ -102,6 +102,10 @@ class PhotoCameraController(
     private var message = "Kamera startet"
     private val formatPreferences = appContext.getSharedPreferences("photoFormat", Context.MODE_PRIVATE)
     private var rawEnabled = formatPreferences.getBoolean("rawJpeg", false)
+    private var nativeEnabled = formatPreferences.getBoolean("nativeFusion", false)
+    private var testNativeFusionOverride: Boolean? = null
+    private fun usesNativeFusion() = testNativeFusionOverride ?: nativeEnabled
+    private fun selectedQualityName() = if (usesNativeFusion()) "MEHRBILD" else qualityName(qualityMode)
     private var testRawOverride: Boolean? = null
     private var rawCapture: RawJpegCapture? = null
     private var lastRawOutcome: RawPairOutcome? = null
@@ -135,13 +139,14 @@ class PhotoCameraController(
     }
 
     fun endAutoTest() {
+        testNativeFusionOverride = null
         testRawOverride = null
         testLimitsOverride = null
         testNativeCapture = false
         testProcessing = ProcessingVariant.NONE
         testFrameCount = 1
         comparisonReferences.clear()
-        if (usesRaw() || effectiveLimits().enabled) qualityMode = ExtensionMode.NONE
+        if (usesNativeFusion() || usesRaw() || effectiveLimits().enabled) qualityMode = ExtensionMode.NONE
         // Rebind after a cancelled extension run too, so saved format and
         // limits cannot coexist with a stale extension session.
         if (!busy && owner != null) open(activeLens) else emit()
@@ -458,17 +463,20 @@ class PhotoCameraController(
     }
 
     fun cycleQuality() {
-        if (!isReady() || usesRaw() || effectiveLimits().enabled) return
+        if (!isReady()) return
         val route = activeRoute ?: return
-        if (route.physicalId != null) {
-            message = "Extensions nur ohne erzwungenen physischen Sensor testen"
-            emit(); return
-        }
-        val supported = qualityModes.filter { it == ExtensionMode.NONE ||
-            runCatching { extensions?.isExtensionAvailable(route.selector(), it) == true }.getOrDefault(false) }
-        qualityMode = supported[(supported.indexOf(qualityMode) + 1) % supported.size]
-        zoomRatio = 1f
-        exposureEv = 0f
+        val nativeMode = 100
+        val supported = mutableListOf(ExtensionMode.NONE)
+        if (runCatching { catalog?.rawSize(route) }.getOrNull() != null) supported.add(nativeMode)
+        if (!usesRaw() && !effectiveLimits().enabled && route.physicalId == null)
+            supported.addAll(qualityModes.drop(1).filter {
+                runCatching { extensions?.isExtensionAvailable(route.selector(), it) == true }.getOrDefault(false)
+            })
+        val current = if (usesNativeFusion()) nativeMode else qualityMode
+        val next = supported[(supported.indexOf(current) + 1) % supported.size]
+        nativeEnabled = next == nativeMode
+        formatPreferences.edit().putBoolean("nativeFusion", nativeEnabled).apply()
+        qualityMode = if (nativeEnabled) ExtensionMode.NONE else next
         open(activeLens)
     }
 
@@ -486,8 +494,10 @@ class PhotoCameraController(
 
     fun configureAutoTest(step: AutoTestStep): Boolean {
         if (busy || owner == null || catalog?.routeFor(step.lens) == null) return false
-        val mode = qualityModes.firstOrNull { qualityName(it) == step.quality } ?: return false
-        if (step.quality !in autoTestQualities(step.lens)) return false
+        val mode = if (step.fusion) ExtensionMode.NONE else qualityModes.firstOrNull { qualityName(it) == step.quality } ?: return false
+        testNativeFusionOverride = step.fusion
+        if (!step.fusion && step.quality !in autoTestQualities(step.lens)) return false
+        if (step.fusion && runCatching { catalog?.rawSize(checkNotNull(catalog?.routeFor(step.lens))) }.getOrNull() == null) return false
         if (step.raw && runCatching { catalog?.rawSize(checkNotNull(catalog?.routeFor(step.lens))) }.getOrNull() == null) return false
         val route = checkNotNull(catalog?.routeFor(step.lens))
         if (runCatching { catalog?.supportsProcessing(route, step.processing) }.getOrNull() != true) return false
@@ -509,7 +519,7 @@ class PhotoCameraController(
     }
 
     fun autoTestMatches(step: AutoTestStep) = isReady() && activeLens == step.lens &&
-        kotlin.math.abs(zoomRatio - step.zoom) < 0.01f && qualityName(qualityMode) == step.quality
+        kotlin.math.abs(zoomRatio - step.zoom) < 0.01f && selectedQualityName() == step.quality
 
     fun readyForCommand() = isReady()
 
@@ -611,7 +621,7 @@ class PhotoCameraController(
 
     fun capturePhoto(completed: ((android.net.Uri?, String?) -> Unit)? = null) {
         lastRawOutcome = null
-        if (usesRaw() || effectiveLimits().enabled || testNativeCapture) { captureSensorPhoto(completed); return }
+        if (usesNativeFusion() || usesRaw() || effectiveLimits().enabled || testNativeCapture) { captureSensorPhoto(completed); return }
         val capture = imageCapture
         if (capture == null || !isReady()) {
             completed?.invoke(null, "Kamera nicht bereit")
@@ -690,27 +700,28 @@ class PhotoCameraController(
         val routes = catalog ?: return
         val route = activeRoute ?: return
         val includeRaw = usesRaw()
+        val fuse = usesNativeFusion()
         val limits = effectiveLimits()
-        val rawSize = if (includeRaw) runCatching { routes.rawSize(route) }.getOrNull() else null
+        val rawSize = if (includeRaw || fuse) runCatching { routes.rawSize(route) }.getOrNull() else null
         val jpegSize = imageCapture?.resolutionInfo?.resolution
-        if ((includeRaw && rawSize == null) || jpegSize == null) {
+        if (((includeRaw || fuse) && rawSize == null) || jpegSize == null) {
             message = "Gewünschtes Fotoformat auf dieser Kameraroute nicht verfügbar"; emit()
             completed?.invoke(null, message); return
         }
         val metadata = exifSnapshot()
         val lens = activeLens
-        val processing = testProcessing
-        val frameCount = testFrameCount
+        val processing = if (fuse) ProcessingVariant.DEFAULT else testProcessing
+        val frameCount = if (fuse) 5 else testFrameCount
         val reference = if (processing == ProcessingVariant.DEFAULT) null else comparisonReferences[lens]
         val jpegOrientation = routes.jpegOrientation(route, rotation)
         clearSession()
         val token = generation
         busy = true
-        message = "${if (includeRaw) "RAW + JPEG" else "JPEG"}: Fokus/Aufnahme … Vorschau pausiert"
+        message = "${if (fuse) "MEHRBILD: 5 RAW-Aufnahmen + Verarbeitung" else if (includeRaw) "RAW + JPEG" else "JPEG"}: Bitte ruhig halten … Vorschau pausiert"
         emit()
         val operation = RawJpegCapture(appContext)
         rawCapture = operation
-        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount) { outcome ->
+        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount, fuse, includeRaw) { outcome ->
             val actualMetadata = JSONObject(metadata).put(if (includeRaw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence)).toString()
             exifWriter.write(outcome.jpeg, actualMetadata) { exifError ->
                 mainExecutor.execute {
@@ -734,7 +745,8 @@ class PhotoCameraController(
                     val warning = if (result.optBoolean("underexposedByLimits"))
                         "\nDUNKLER DURCH LIMIT: ${number(difference.toFloat())} EV" else ""
                     open(lens, notice = if (failure == null && outcome.jpeg != null && (!includeRaw || outcome.dng != null))
-                        "${if (includeRaw) "RAW + JPEG" else "JPEG"} gespeichert: Pictures/SeaFrogs$applied$warning"
+                        "${if (fuse) "MEHRBILD + STANDARD" else if (includeRaw) "RAW + JPEG" else "JPEG"} gespeichert: Pictures/SeaFrogs$applied$warning"
+                        else if (fuse && outcome.jpeg != null) "STANDARD-JPEG gespeichert. MEHRBILD fehlgeschlagen: $failure"
                         else "Aufnahmefehler: $failure")
                 }
             }
@@ -747,10 +759,10 @@ class PhotoCameraController(
         val size = imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.6.8-export-fix")
+            .put("version", "0.7.0-mit-multiframe")
             .put("mode", "PHOTO")
             .put("testCase", testCase)
-            .put("qualityMode", qualityName(qualityMode))
+            .put("qualityMode", selectedQualityName())
             .put("processingVariantRequested", testProcessing.name)
             .put("photoFormat", if (usesRaw()) "RAW+JPEG" else "JPEG")
             .put("isoCapRequested", effectiveLimits().isoCap)
@@ -824,7 +836,7 @@ class PhotoCameraController(
             capturing = busy,
             message = message,
             resolution = size?.let { "${it.width} × ${it.height}" } ?: "",
-            quality = qualityName(qualityMode),
+            quality = selectedQualityName(),
             diagnostics = extensionSummary + "\n" + resultSummary(),
             photoFormat = if (usesRaw()) "RAW+JPEG" else "JPEG",
             exposureLimits = effectiveLimits()

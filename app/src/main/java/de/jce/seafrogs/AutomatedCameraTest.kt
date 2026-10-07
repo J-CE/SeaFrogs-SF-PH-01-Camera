@@ -27,17 +27,17 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         private set
     private val results = runCatching { JSONArray(preferences.getString("results", "[]")) }.getOrDefault(JSONArray())
 
-    fun start(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false, libraries: Boolean = false) {
+    fun start(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false, libraries: Boolean = false, fusion: Boolean = false) {
         if (running || !controller.readyForCommand()) { display("Kamera noch nicht bereit", false); return }
         token++
         running = true
-        group = if (libraries) "LIBRARY" else if (processing) "QUALITY" else if (iso) "ISO" else if (raw) "RAW" else if (macro) "MACRO" else "NORMAL"
+        group = if (fusion) "FUSION" else if (libraries) "LIBRARY" else if (processing) "QUALITY" else if (iso) "ISO" else if (raw) "RAW" else if (macro) "MACRO" else "NORMAL"
         runId = System.currentTimeMillis().toString()
         // Replace only the previous run of this group. Keep the other group for
         // the joint ZIP; JPEGs remain in MediaStore and are never deleted here.
         for (i in results.length() - 1 downTo 0) if (results.getJSONObject(i).optString("group") == group) results.remove(i)
         persist()
-        steps = if (libraries) AutoTestPlan.libraries() else if (processing) AutoTestPlan.processing() else if (iso) AutoTestPlan.iso(controller.savedExposureLimits().longestTimeNs) else if (raw) AutoTestPlan.raw() else AutoTestPlan.create(macro)
+        steps = if (fusion) AutoTestPlan.fusion() else if (libraries) AutoTestPlan.libraries() else if (processing) AutoTestPlan.processing() else if (iso) AutoTestPlan.iso(controller.savedExposureLimits().longestTimeNs) else if (raw) AutoTestPlan.raw() else AutoTestPlan.create(macro)
         index = 0
         record(JSONObject().put("kind", "autoTestStart").put("group", group).put("runId", runId))
         next(token)
@@ -56,7 +56,7 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         preCaptureFocus = "NOT_CHECKED"
         display("$group ${index + 1}/${steps.size}: ${step.id}", true)
         record(JSONObject().put("kind", "autoTestStep").put("id", step.id).put("runId", runId))
-        if (step.quality !in controller.autoTestQualities(step.lens) || !controller.configureAutoTest(step)) {
+        if ((!step.fusion && step.quality !in controller.autoTestQualities(step.lens)) || !controller.configureAutoTest(step)) {
             save(step, null, "SKIPPED", "Einstellung/Kameraroute nicht unterstützt, Vergleichsreferenz fehlt oder Extension physisch nicht sicher zuordenbar")
             index++
             handler.post { next(run) }
@@ -134,13 +134,14 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
             .put("formatRequested", if (step.raw) "RAW+JPEG" else "JPEG")
             .put("status", status).put("uri", uri ?: JSONObject.NULL).put("error", error ?: JSONObject.NULL)
         if ((step.raw || step.nativeCapture) && uri != null) controller.rawOutcome()?.let { outcome ->
-            if (step.frameCount > 1) value.put("seriesFrames", JSONArray().apply {
+            if (step.frameCount > 1 && !step.fusion) value.put("seriesFrames", JSONArray().apply {
                 outcome.frames.forEachIndexed { index, frame -> put(JSONObject()
                     .put("index", index).put("jpegUri", frame.jpeg.toString())
                     .put("dngUri", frame.dng?.toString() ?: JSONObject.NULL)
                     .put("capture", JSONObject(frame.evidence))) }
             }).put("frameCountSaved", outcome.frames.size)
-            value.put("dngUri", outcome.dng?.toString() ?: JSONObject.NULL)
+            value.put("fallbackJpegUri", JSONObject(outcome.evidence).optString("fallbackJpegUri", outcome.jpeg?.toString() ?: ""))
+                .put("dngUri", outcome.dng?.toString() ?: JSONObject.NULL)
                 .put(if (step.raw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence))
         }
         results.put(value)
@@ -158,14 +159,19 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         display(reason, false)
     }
 
-    fun report(groupOnly: String? = null): String = JSONObject().put("version", "0.6.8-export-fix")
+    fun report(groupOnly: String? = null): String = JSONObject().put("version", "0.7.0-mit-multiframe")
         .put("device", android.os.Build.MODEL).put("androidBuild", android.os.Build.FINGERPRINT)
-        .put("note", "Original JPEGs; requested settings in report, applied settings and latest preview telemetry in EXIF. No automated sharpness score.")
+        .put("note", "HAL reference JPEGs and processed MEHRBILD when requested; actual capture settings and fusion outcome in report/EXIF. No automated sharpness score.")
         .put("results", selectedResults(groupOnly)).toString(2)
 
     fun photos(groupOnly: String? = null): List<Pair<String, String>> = (0 until results.length()).flatMap { i ->
         val value = results.getJSONObject(i)
         if (groupOnly != null && value.optString("group") != groupOnly) return@flatMap emptyList()
+        if (value.optString("group") == "FUSION") return@flatMap listOf("uri" to "mehrbild", "fallbackJpegUri" to "standard").mapNotNull { (key,label) ->
+            value.optString(key).takeIf { it.isNotBlank() && it != "null" }?.let {
+                "photos/${value.getString("id")}_$label.jpg" to it
+            }
+        }.distinctBy { it.second }
         val series = value.optJSONArray("seriesFrames")
         if (series != null) return@flatMap (0 until series.length()).flatMap { index ->
             val frame = series.getJSONObject(index)

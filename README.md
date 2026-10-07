@@ -1,26 +1,35 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.6.8-export-fix**. Live-Vorschau, JPEG-Aufnahme und
+Aktueller Quelltext: **0.7.0-mit-multiframe**. Live-Vorschau, JPEG-Aufnahme und
 Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate HID-Diagnose.
 Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
 Pixel-8-Testbefunde und offene Punkte stehen im [Fähigkeitsbericht](docs/CAPABILITIES-0.6.1.md).
 
-Der native [Bibliotheksvergleich](docs/LIBRARY-RESULTS-2026-10-08.md) mit den
-Pixel-RAW-Serien ist abgeschlossen. Für die nächste App-Integration wählen wir
-den MIT-HDR+-Mehrbildkern. Er mindert den Rausch-Proxy um 55–58 % bei besserem
-Kantenerhalt als MotionCam mit zusätzlicher Wavelet-Entrauschung. Der Vergleich
-umfasst Host-Ausgaben und ARM64-Codegenerierung; Pixel-Laufzeit/JNI sind offen.
-Die aktuelle APK enthält weiterhin keine dieser Engines. Der separate Host-
-Testaufbau in tools/library-benchmark steht unter GPL-3.0-only und gehört nicht
-zum Android-Build; dessen App-Lizenz bleibt Apache 2.0.
+0.7.0 enthält den MIT-HDR+-Kern als Modus **MEHRBILD**: fünf fixierte RAW-
+Aufnahmen, Ausrichtung/Fusion, Sensor-Schwarzpegel, Objektivkorrektur, WB und
+Farbmatrix, JPEG-Ausgabe. STANDARD bleibt auswählbar; das erste normale JPEG
+bleibt bei Erfolg und Fehler erhalten. RAW+JPEG speichert zusätzlich das erste
+Referenz-DNG, nicht fünf DNGs pro Foto. Digitaler Crop wird einmal angewendet
+und nicht auf Sensorauflösung hochskaliert. Die Gehäusetasten bleiben gleich.
+
+**MEHRBILD TEST** führt automatisch drei Vergleiche durch: Hauptkamera, UW,
+Hauptkamera mit ISO 800. **TEST ZIP** exportiert sechs JPEGs plus Messdaten,
+keine RAW-Serie. Details: [MIT-Mehrbildtest](docs/MIT-MEHRBILD-0.7.md).
+Native Hostprüfung mit beiden echten RAW-Serien, Android-Link/Build und
+Unit-Tests sind erfolgreich; die Pixel-Laufzeit und Bildausgabe sind noch offen.
+
+Der [Bibliotheksvergleich](docs/LIBRARY-RESULTS-2026-10-08.md) begründet die
+Wahl des MIT-Kerns. Der separate Host-Testaufbau in tools/library-benchmark
+steht unter GPL-3.0-only und wird nicht in die App eingebunden. Die App bleibt
+Apache 2.0. MIT-Vermerke und Halide-Lizenz liegen auch in der APK.
 
 0.6.8 stellt das ZIP zuerst intern fertig, prüft jeden Eintrag auf Länge und CRC
 und kopiert es anschließend ins gewählte Ziel. Der Status zeigt Packen, Prüfung,
 Kopierfortschritt und dauerhafte Fehlermeldungen. Bereits komprimierte Fotos
 werden ohne zusätzliche ZIP-Kompression übertragen. Erfolg folgt erst nach
-Schließen des Zielstreams. Bestehende Testdaten bleiben erhalten: nach dem
-Update nur BIB ZIP erneut exportieren, den Test nicht wiederholen.
+Schließen des Zielstreams. Bestehende Testdaten bleiben erhalten. Frühere BIB-Daten lassen sich über
+DIAGNOSE ZIP exportieren; TEST ZIP ist jetzt dem kleinen Mehrbildtest zugeordnet.
 
 0.6.7 aktualisiert CameraX auf 1.6.2 und ergänzt BIB-TEST / BIB ZIP:
 je fünf originale RAW+JPEG-Paare aus einer Sitzung mit eingefrorenen,

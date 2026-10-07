@@ -2,12 +2,15 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
 android {
     namespace = "de.jce.seafrogs"
     compileSdk = 36
+    ndkVersion = "27.2.12479018"
+    externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
     defaultConfig {
         applicationId = "de.jce.seafrogs"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "0.6.8-export-fix"
+        ndk { abiFilters += "arm64-v8a" }
+        versionCode = 16
+        versionName = "0.7.0-mit-multiframe"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

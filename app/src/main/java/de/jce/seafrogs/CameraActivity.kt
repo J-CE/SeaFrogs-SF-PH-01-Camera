@@ -102,7 +102,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.8-export-fix")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.7.0-mit-multiframe")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -221,16 +221,16 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         buttonsPanel.addView(rawControls)
         val libraryControls = LinearLayout(this)
         libraryTest = Button(this).apply {
-            text = "BIB-TEST"
-            setOnClickListener { beginAutomated(false, libraries = true) }
+            text = "MEHRBILD TEST"
+            setOnClickListener { beginAutomated(false, fusion = true) }
         }
         libraryExport = Button(this).apply {
-            text = "BIB ZIP"
+            text = "TEST ZIP"
             setOnClickListener {
                 preview.releasePointerCapture()
                 resetInput("libraryExport")
-                exportGroupOnly = "LIBRARY"
-                exportRequest.launch("seafrogs-library-${System.currentTimeMillis()}.zip")
+                exportGroupOnly = "FUSION"
+                exportRequest.launch("seafrogs-mehrbild-${System.currentTimeMillis()}.zip")
             }
         }
         listOf(libraryTest, libraryExport).forEach {
@@ -372,7 +372,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
                     else -> "1/30 s"
                 }}" else "") + "\n" + state.message + "\n" + state.diagnostics + "\n" + hidStatus
         quality.text = state.quality
-        quality.isEnabled = state.ready && !testing && state.photoFormat == "JPEG" && !state.exposureLimits.enabled
+        quality.isEnabled = state.ready && !testing
         format.text = "FORMAT: ${state.photoFormat}"
         format.isEnabled = state.ready && !testing
         exposureSetup.isEnabled = state.ready && !testing
@@ -396,13 +396,15 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         macroTest.isEnabled = state.ready && !testing
     }
 
-    private fun beginAutomated(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false, libraries: Boolean = false) {
+    private fun beginAutomated(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false, libraries: Boolean = false, fusion: Boolean = false) {
         if (libraries && android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes < 1_000_000_000L) {
             AlertDialog.Builder(this).setTitle("Speicher reicht nicht")
                 .setMessage("Für RAW-Serie und ZIP mindestens 1 GB freihalten.").setPositiveButton("OK", null).show()
             return
         }
-        val message = if (libraries)
+        val message = if (fusion)
+            "Handy fest abstützen. Bedrucktes Motiv mit feiner Schrift etwa 50 cm entfernt, gleichbleibendes Licht. Dann START drücken und warten.\n\nDie App prüft automatisch Hauptkamera, Ultraweitwinkel und ISO 800. Pro Schritt entstehen ein STANDARD-JPEG und ein verarbeitetes MEHRBILD-JPEG aus fünf RAW-Aufnahmen. Keine DNGs im Export. Während des Tests keine Tasten drücken. Danach TEST ZIP exportieren und hochladen. Der Test bestätigt noch keinen Macro-Nahfokus."
+        else if (libraries)
             "Handy fest abstützen. Bedrucktes Motiv mit feinen Details etwa 50 cm entfernt, gleichbleibendes Licht. Nicht bewegen und während des Tests keine Tasten drücken.\n\nDie App nimmt je fünf RAW+JPEG-Paare mit Hauptkamera und UW auf, in derselben Kamerasitzung mit festgelegter Belichtung, Weißabgleich und Fokus. Danach folgen AUTO-, HDR- und NIGHT-Referenzen, sofern verfügbar. ISO-Grenzen sind aus.\n\nDiese RAW-Serien dienen als identische Eingaben für den Bibliotheksvergleich. Diese APK enthält noch keine MotionCam-/HDR+-Verarbeitung. Benötigt mindestens 1 GB freien Speicher. Danach BIB ZIP exportieren und nach Export gespeichert hochladen. ZIP etwa 250 MB."
         else if (processing)
             "Stütze das Handy fest ab und stelle ein bedrucktes Motiv mit feinen Details etwa 50 cm vor die Linse. Motiv und Licht konstant halten, während des Tests nichts berühren.\n\nDie App vergleicht je Kamera Standard-Verarbeitung, HQ-Entrauschen und HQ-Entrauschen + HQ-Schärfung. Belichtung, Weißabgleich und Fokus bleiben je Kamera fest. ISO-Grenzen sind für diesen Test aus. Danach folgt ein separates NIGHT-Referenzbild der Hauptkamera, sofern verfügbar.\n\nNicht unterstützte Varianten überspringt die App. Bis zu sieben JPEGs, Vorschau pausiert bei normalen Vergleichsaufnahmen. Danach QUALITÄT ZIP exportieren."
@@ -413,12 +415,12 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         else if (macro)
             "Lege eine bedruckte Seite etwa 5 cm vor die Kameralinse. Stütze das Handy ab und halte das Licht konstant.\n\nDie App übernimmt Kamera, Fokusversuch, Crop-Stufen und Aufnahmen. Während des Tests nichts bewegen."
         else "Lege eine bedruckte Seite etwa 50 cm vor die Kameralinse. Stütze das Handy ab und halte das Licht konstant.\n\nDie App übernimmt Kamera, Zoom, EV, verfügbare Bildverarbeitung und Aufnahmen. Während des Tests nichts bewegen."
-        AlertDialog.Builder(this).setTitle(if (libraries) "Automatischer Bibliotheks-Datentest" else if (processing) "Automatischer Qualitätstest" else if (iso) "Automatischer ISO-Vergleich" else if (raw) "Automatischer RAW-Test" else if (macro) "Automatischer Macrotest" else "Automatischer Normaltest")
+        AlertDialog.Builder(this).setTitle(if (fusion) "Automatischer MIT-Mehrbildtest" else if (libraries) "Automatischer Bibliotheks-Datentest" else if (processing) "Automatischer Qualitätstest" else if (iso) "Automatischer ISO-Vergleich" else if (raw) "Automatischer RAW-Test" else if (macro) "Automatischer Macrotest" else "Automatischer Normaltest")
             .setMessage(message).setNegativeButton("Zurück", null)
             .setPositiveButton("Test starten") { _, _ ->
                 preview.releasePointerCapture()
                 resetInput("autoTestStart")
-                automated.start(macro, raw, iso, processing, libraries)
+                automated.start(macro, raw, iso, processing, libraries, fusion)
             }.show()
     }
 

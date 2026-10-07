@@ -16,3 +16,4 @@ tools/library-benchmark/*.log
 tools/library-benchmark/*-generator
 tools/library-benchmark/*.so
 **/__pycache__/
+**/.cxx/

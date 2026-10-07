@@ -35,7 +35,7 @@ HDR+ ef4dd2ca53a51e105ed923557c726b253f05c13b (MIT),
 MotionCam cc7f7c9cad5234bc939699b1ab1ffbc4bdfd6690 (GPL-3.0).
 MotionCam-Generatorkopien ersetzen lediglich auto_schedule/get_auto_schedule()
 durch using_autoscheduler(). Alle getesteten Generatoren kompilieren mit Halide
-24.0.0. Beide RAW-Fusionkerne lassen sich zusätzlich als arm-64-android-AOT-
+21.0.0. Beide RAW-Fusionkerne lassen sich zusätzlich als arm-64-android-AOT-
 Bibliotheken erzeugen. Android-Link, JNI und Ausführung auf dem Pixel sind offen.
 
 ## RAW-Ergebnisse vor Schärfung/Tonwerten
@@ -59,7 +59,7 @@ zusätzlich die visuelle Prüfung feiner Schrift und flacher Wandflächen.
 
 ## Hostaufwand
 
-Vier Halide-Threads, Linux x86-64, g++ 13, Halide 24.0.0; Python/OpenCV-Brücke.
+Vier Halide-Threads, Linux x86-64, g++ 13, Halide 21.0.0; Python/OpenCV-Brücke.
 Zeiten sind einzelne gemessene Hostläufe nach der Buildprüfung, keine belastbare
 Pixel-Geschwindigkeitsprognose. Laufzeitschwankungen traten bei Wiederholungen auf.
 
@@ -123,3 +123,8 @@ Der Standalone-Testaufbau in tools/library-benchmark hat GPL-3.0-only, weil er
 MotionCam-Kerne und Ablaufteile verwendet. Er ist nicht im Android-Build verlinkt.
 Die App bleibt Apache 2.0. Für die gewählte MIT-Integration müssen Lizenz-/Urheber-
 vermerke von HDR+ und Halide erhalten bleiben.
+
+Versionskorrektur bei der Integration: Frühere Reportfelder nannten Halide 24
+fest im Messskript. Die tatsächlich installierte und verwendete Version ist
+21.0.0 (auch in requirements.txt). Das Metadatenlabel ist korrigiert; die
+Algorithmusausgaben und Vergleichswerte werden dadurch nicht geändert.

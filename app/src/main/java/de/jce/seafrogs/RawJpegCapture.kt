@@ -67,6 +67,15 @@ class RawJpegCapture(context: Context) {
     private val focus = AutofocusStability()
     private var savedJpeg: Uri? = null
     private var savedDng: Uri? = null
+    private var nativeFusion = false
+    private var retainDng = true
+    private var rawStack: java.nio.ByteBuffer? = null
+    private var fusionSensor: CaptureResult? = null
+    private var fallbackBytes: ByteArray? = null
+    private var fusionSize: Size? = null
+    private var targetJpegSize: Size? = null
+    private val fusionTimestamps = mutableListOf<Long>()
+    private val cancelRequested = java.util.concurrent.atomic.AtomicBoolean(false)
     private val evidence = JSONObject()
     private var finishedOutcome: RawPairOutcome? = null
     private var delivered = false
@@ -80,6 +89,8 @@ class RawJpegCapture(context: Context) {
               processingVariant: ProcessingVariant = ProcessingVariant.NONE,
               reference: FrozenCaptureSettings? = null,
               frameCount: Int = 1,
+              fuse: Boolean = false,
+              keepDng: Boolean = true,
               complete: (RawPairOutcome) -> Unit) {
         worker.post {
             if (finished) return@post
@@ -87,6 +98,10 @@ class RawJpegCapture(context: Context) {
             require(frameCount in 1..5) { "RAW-Serie muss 1 bis 5 Bilder enthalten" }
             require(frameCount == 1 || rawSize != null && processingVariant == ProcessingVariant.DEFAULT) { "RAW-Serie benötigt RAW und fixierte Szenenwerte" }
             seriesCount = frameCount
+            nativeFusion = fuse; retainDng = keepDng; targetJpegSize = jpegSize
+            evidence.put("nativeFusionRequested", fuse).put("nativeFusionApplied", false)
+            if (fuse) check(frameCount == 5 && rawSize != null && processingVariant == ProcessingVariant.DEFAULT)
+
             evidence.put("seriesCountRequested", frameCount).put("seriesFrameIndex", 0)
             route = selected; zoom = zoomRatio; ev = exposureEv
             orientation = jpegOrientation; description = metadata; limits = exposureLimits
@@ -195,6 +210,7 @@ class RawJpegCapture(context: Context) {
         builder.set(CaptureRequest.CONTROL_AF_MODE, if (route.supportsPhotoAutofocus)
             CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE else CaptureRequest.CONTROL_AF_MODE_OFF)
         val c = checkNotNull(logicalCharacteristics)
+        if (nativeFusion) setSensorKey(builder, CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE, CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_ON)
         val step = c[CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP]?.toFloat() ?: 0f
         val range = c[CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE]
         if (step > 0 && range != null) builder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION,
@@ -262,6 +278,16 @@ class RawJpegCapture(context: Context) {
                 if (processing == ProcessingVariant.NONE) submitStill(value, sensor, this)
                 else try {
                     requestedReference = suppliedReference ?: FrozenCaptureSettings.from(checkNotNull(sensor))
+                    if (nativeFusion && limits.enabled) {
+                        val measured = checkNotNull(requestedReference)
+                        val c = checkNotNull(characteristics)
+                        val isoRange = checkNotNull(c[CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE])
+                        val timeRange = checkNotNull(c[CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE])
+                        val bounded = ExposureLimitCalculator.calculate(measured.iso, measured.timeNs, limits,
+                            isoRange.lower, isoRange.upper, timeRange.lower, timeRange.upper)
+                        requestedReference = measured.copy(iso = bounded.iso, timeNs = bounded.timeNs,
+                            frameNs = maxOf(measured.frameNs, bounded.timeNs))
+                    }
                     evidence.put("comparisonRequestedSettings", checkNotNull(requestedReference).json())
                     focus.reset()
                     manualSettling = true
@@ -328,24 +354,85 @@ class RawJpegCapture(context: Context) {
             }.onFailure { evidence.put("jpegExifReadError", it.toString()) }
             val exposureError = validateExposure(sensor) ?: validateComparison(sensor)
             val prefix = "SeaFrogs_${System.currentTimeMillis()}_${UUID.randomUUID()}"
-            savedJpeg = save("$prefix.jpg", "image/jpeg") { it.write(jpeg) }
-            if (raw != null) DngCreator(c, sensor).use { creator ->
+            // Persist the first conventional JPEG before allocating fusion memory.
+            if (!nativeFusion || seriesFrames.isEmpty()) {
+                savedJpeg = save("$prefix.jpg", "image/jpeg") { it.write(jpeg) }
+                if (nativeFusion) fallbackBytes = jpeg
+            }
+            if (raw != null && (!nativeFusion || retainDng && seriesFrames.isEmpty())) DngCreator(c, sensor).use { creator ->
                 creator.setOrientation(when (orientation) { 90 -> 6; 180 -> 3; 270 -> 8; else -> 1 })
                 creator.setDescription(JSONObject(description).put("rawCapture", JSONObject(evidence.toString())).toString())
                 savedDng = save("$prefix.dng", "image/x-adobe-dng") { creator.writeImage(it, raw) }
+            }
+            if (nativeFusion) {
+                checkNotNull(raw)
+                check(timestamp !in fusionTimestamps) { "Doppelter RAW-Sensorzeitstempel" }
+                if (rawStack == null) {
+                    rawStack = NativeHdr.allocate(app, raw.width, raw.height)
+                    fusionSize = Size(raw.width, raw.height); fusionSensor = sensor
+                }
+                check(fusionSize == Size(raw.width, raw.height)) { "RAW-Größe innerhalb der Serie verändert" }
+                val plane = raw.planes[0]
+                RawPlaneCopy.copy(plane.buffer, plane.rowStride, plane.pixelStride, raw.width, raw.height,
+                    checkNotNull(rawStack), seriesFrames.size)
+                fusionTimestamps.add(timestamp)
+                evidence.put("nativeFusionFramesCopied", fusionTimestamps.size)
+                    .put("nativeFusionTimestampsNs", org.json.JSONArray(fusionTimestamps))
             }
             seriesFrames.add(RawSeriesFrame(checkNotNull(savedJpeg), savedDng, evidence.toString()))
             rawImage?.close(); rawImage = null
             stillResult = null
             jpegFrames.clear()
-            if (exposureError != null || seriesFrames.size >= seriesCount) finish(exposureError)
+            if (exposureError != null) finish(exposureError)
+            else if (seriesFrames.size >= seriesCount) {
+                if (nativeFusion) finishFusion() else finish(null)
+            }
             else {
                 // Keep the camera and manual AE/AWB/AF settings alive. Only one
                 // outstanding RAW image, so DNG writing cannot exhaust the reader.
                 evidence.put("seriesFrameIndex", seriesFrames.size)
                 worker.post { if (!finished) submitStill(checkNotNull(session), sensor, captureCallback) }
             }
-        } catch (error: Exception) { finish(error.toString()) }
+        } catch (error: Throwable) { finish(error.toString()) }
+    }
+
+    private fun finishFusion() {
+        val started = SystemClock.elapsedRealtime()
+        evidence.put("nativeCaptureSpanNs", fusionTimestamps.last() - fusionTimestamps.first())
+        val sensor = checkNotNull(fusionSensor)
+        val size = checkNotNull(fusionSize)
+        check(!cancelRequested.get()) { "MEHRBILD abgebrochen" }
+        val target = checkNotNull(targetJpegSize)
+        val bitmap = NativeHdr.render(checkNotNull(rawStack), size.width, size.height, sensor,
+            checkNotNull(characteristics), zoom, orientation, target.width, target.height)
+        try {
+            check(!cancelRequested.get()) { "MEHRBILD abgebrochen; normales JPEG erhalten" }
+            val uri = save("SeaFrogs_${System.currentTimeMillis()}_MEHRBILD.jpg", "image/jpeg") {
+                check(bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 98, it)) { "MEHRBILD-JPEG nicht komprimiert" }
+            }
+            try {
+                val original = androidx.exifinterface.media.ExifInterface(java.io.ByteArrayInputStream(checkNotNull(fallbackBytes)))
+                app.contentResolver.openFileDescriptor(uri, "rw").use { fd ->
+                    val exif = androidx.exifinterface.media.ExifInterface(checkNotNull(fd).fileDescriptor)
+                    // Sensor tags describe the reference exposure. Output is already rotated.
+                    listOf("Make", "Model", "DateTime", "DateTimeOriginal", "ExposureTime", "FNumber",
+                        "PhotographicSensitivity", "ISOSpeedRatings", "FocalLength", "ExposureBiasValue").forEach { key ->
+                        original.getAttribute(key)?.let { exif.setAttribute(key, it) }
+                    }
+                    exif.setAttribute(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, "1")
+                    exif.saveAttributes()
+                }
+            } catch (error: Throwable) {
+                app.contentResolver.delete(uri, null, null); throw error
+            }
+            evidence.put("nativeFusionApplied", true).put("nativeFusionEngine", "timothybrooks/hdr-plus MIT")
+                .put("nativeFusionElapsedMs", SystemClock.elapsedRealtime() - started)
+                .put("nativeOutputWidth", bitmap.width).put("nativeOutputHeight", bitmap.height)
+                .put("fallbackJpegUri", savedJpeg.toString()).put("equalExposureBurst", true)
+                .put("lensShadingApplied", true).put("toneCompression", 1).put("toneGain", 1)
+            savedJpeg = uri
+        } finally { bitmap.recycle() }
+        finish(null)
     }
 
     /** AE meters the current scene/EV. Disable only AE for the final exposure;
@@ -511,11 +598,14 @@ class RawJpegCapture(context: Context) {
         } catch (error: Exception) { resolver.delete(uri, null, null); throw error }
     }
 
-    fun cancel() { worker.post { finish("RAW-Aufnahme durch Lifecycle-Wechsel abgebrochen") } }
+    fun cancel() { cancelRequested.set(true); worker.post { finish("RAW-Aufnahme durch Lifecycle-Wechsel abgebrochen") } }
 
     private fun finish(error: String?) {
         if (finished) return
         finished = true
+        rawStack = null; fusionSensor = null; fallbackBytes = null
+        if (nativeFusion && !evidence.optBoolean("nativeFusionApplied"))
+            evidence.put("nativeFusionFallback", true).put("nativeFusionFallbackReason", error ?: "Verarbeitung nicht abgeschlossen")
         worker.removeCallbacksAndMessages(null)
         rawImage?.close(); rawImage = null
         jpegFrames.clear()

@@ -68,7 +68,7 @@ if args.motion_shift:
   raws[i]=cv2.warpAffine(raws[i],np.array([[1,0,dx],[0,1,dy]],'f4'),(W,H),flags=cv2.INTER_NEAREST,borderMode=cv2.BORDER_REFLECT_101)
 colors=[[chr(desc[c]) for c in row] for row in pattern];cfa=4 if colors==[['G','B'],['R','G']] else 1;arrangement=2 if cfa==4 else 0
 maps=gainmaps(path/'frame_00.dng');lsc=shading(maps,H,W)
-meta={'lens':lens,'engine':engine,'inputShape':list(raws.shape),'cfa':colors,'wb':wb.tolist(),'ccm':ccm.tolist(),'threads':4,'halide':'24.0.0','cv2':cv2.__version__,'timings':{},'syntheticShiftsSensorPixels':shifts,'aperture':ap,'settings':settings,'lscRange':[float(lsc.min()),float(lsc.max())]}
+meta={'lens':lens,'engine':engine,'inputShape':list(raws.shape),'cfa':colors,'wb':wb.tolist(),'ccm':ccm.tolist(),'threads':4,'halide':__import__('importlib.metadata',fromlist=['version']).version('halide'),'cv2':cv2.__version__,'timings':{},'syntheticShiftsSensorPixels':shifts,'aperture':ap,'settings':settings,'lscRange':[float(lsc.min()),float(lsc.max())]}
 t0=time.perf_counter()
 if engine=='HDR':
  merged=np.empty((H,W),'u2');call(lib.bench_hdr_merge,ptr(raws),W,H,N,ptr(merged));meta['timings']['mergeSeconds']=time.perf_counter()-t0
