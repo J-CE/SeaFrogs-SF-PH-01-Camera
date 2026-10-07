@@ -179,7 +179,7 @@ class DiagnosticActivity : Activity(), InputManager.InputDeviceListener {
     }
 
     private fun devices(reason: String) {
-        val all = InputDevice.getDeviceIds().mapNotNull { InputDevice.getDevice(it) }
+        val all = InputDevice.getDeviceIds().toList().mapNotNull { InputDevice.getDevice(it) }
         val snapshots = JSONArray()
         all.forEach { snapshots.put(EventEncoder.device(it)) }
         recorder.record(JSONObject().put("kind", "devices").put("reason", reason)

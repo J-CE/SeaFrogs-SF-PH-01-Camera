@@ -1,21 +1,27 @@
 # Build-Status 0.2.0-photo
 
-2026-10-07: Hauptkamera, Live-Vorschau und JPEG-Aufnahme implementiert.
-Manifest-XML statisch geprüft. Vollständiges JDK 17 und Android SDK 35 vorhanden.
-Ein eigener Gradle-Cache vermeidet die vorherige Cache-Sperre.
+2026-10-07: **assembleDebug und lintDebug erfolgreich** mit AGP 8.9.2,
+Gradle 8.11.1, Kotlin 2.1.20, JDK 17 und Android SDK 35.
+Die Debug-APK trägt Paket de.jce.seafrogs, versionCode 2 und
+versionName 0.2.0-photo. apksigner bestätigt ihre APK-v2-Signatur.
 
-Der erste Build-Versuch erreichte beim Download der Android-/Kotlin-Abhängigkeiten
-sein Zeitlimit vor der App-Kompilierung. Build und Lint laufen erneut mit gefülltem
-Cache. Solange kein erfolgreicher Abschluss dokumentiert ist, gilt die APK als
-**nicht verifiziert**. Der Pixel-8-Hardwaretest bleibt offen.
+Lint: 0 Fehler, 30 Warnungen. Die Warnungen betreffen Ressourcen/Lokalisierung,
+KTX-Stil, fehlendes Launcher-Icon und die noch nicht explizit definierten
+Android-12-Datenübertragungsregeln. Die App setzt allowBackup=false.
+Compilerwarnungen betreffen ältere, auf API 26 weiterhin gültige WindowInsets-APIs.
 
-Lokaler Meilenstein:
+Die erste Kotlin-Kompilierung fand einen IntArray/mapNotNull-Fehler in der
+HID-Geräteliste. Die Korrektur wandelt die IDs vor dem Mapping in eine Liste um.
+Der abschließende Build prüft sowohl Kamera- als auch Diagnosecode.
+
+**Nicht geprüft:** Kamera-Hardware, AF, JPEG-Bildqualität, Orientierung und
+Gehäuseeingaben auf dem Pixel 8. CAMERA-TEST.md und PIXEL8-TEST.md beschreiben
+beide getrennten Hardware-Meilensteine. Keine gemessenen HID-Events liegen vor.
+
+Erneuter lokaler Meilenstein bei Bedarf:
 
 ```powershell
 .\gradlew.bat :app:assembleDebug :app:lintDebug
 ```
 
-Bei erfolgreichem Build die Debug-APK installieren und CAMERA-TEST.md abarbeiten.
-Die separate HID-Diagnose anhand PIXEL8-TEST.md prüfen.
-
-GitHub-Schreibzugriff am 2026-10-07 bestätigt. Source auf main übertragen.
+GitHub-Schreibzugriff bestätigt. Source auf main übertragen.
