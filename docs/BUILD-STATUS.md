@@ -211,3 +211,29 @@ versionName 0.6.6-processing-test. APK-Signatur geprüft, gleicher Debug-Schlüs
 wie 0.6.5; Installation als Update möglich. Abhängigkeiten unverändert.
 
 APK-SHA256: 48287984a9ed2515b28f6e066741f72d17cfd3c75687fcf6fc434a5a1e5b29c9
+
+## Bibliotheks-Datentest 0.6.7-library-test, 2026-10-07
+
+CameraX 1.6.2, compileSdk 36, targetSdk 35; AGP 8.9.2, Gradle 8.11.1,
+Kotlin 2.1.20 und JDK 17 unverändert. AGP meldet seine getestete compileSdk-
+Grenze 35; der Build mit SDK 36 war erfolgreich.
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich. 25 Tests bestanden,
+0 Fehler/übersprungen. Lint: 0 Fehler, 67 Warnungen.
+versionCode 14/versionName 0.6.7-library-test. APK-Signatur geprüft, gleicher
+Debug-Schlüssel wie 0.6.6; Installation als Update möglich.
+
+Alte Normal-/RAW-/ISO-/Qualitätstest-Schaltflächen und manueller Testfallmarker
+entfernt. Format, ISO-Setup, Bildverarbeitungsauswahl, Maussteuerung und Kamera-
+bedienung bleiben. BIB-TEST/BIB ZIP, Abbrechen, Macrotest, HID-Diagnose und
+DIAGNOSE ZIP ersetzen die verstreuten Testfunktionen.
+
+Zwei fünfteilige RAW-Serien pro Sitzung mit tatsächlicher Settings-/Timestamp-
+Prüfung, danach unabhängige AUTO/HDR/NIGHT-Referenzen sofern verfügbar.
+Camera2-Extension-Angebot wird zusätzlich direkt protokolliert. Serienablauf
+und neue Extension-Abfrage brauchen den Pixel-Gerätetest. Kein erfolgreicher
+Hardwaretest und kein integrierter MotionCam-/HDR+-Output behauptet.
+Der ZIP-Validator wurde kompiliert und weist das alte Einzelbild-ZIP zurück;
+die positive Abnahme braucht den neuen RAW-Serienexport.
+Details: LIBRARIES-0.6.7.md. Apache-2.0 unverändert; keine GPL-Bibliothek eingebunden.
+
+APK-SHA256: 761f100e02dfb5dbe7830b5ae952eec653d57706537e317d1901552ea61e2f6e

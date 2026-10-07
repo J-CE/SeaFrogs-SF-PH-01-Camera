@@ -43,19 +43,15 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var inputManager: InputManager
     private lateinit var recorder: EventRecorder
     private lateinit var automated: AutomatedCameraTest
-    private lateinit var normalTest: Button
+    private lateinit var cancelTest: Button
     private lateinit var macroTest: Button
-    private lateinit var rawTest: Button
     private lateinit var format: Button
     private lateinit var exposureSetup: Button
-    private lateinit var isoTest: Button
-    private lateinit var isoExport: Button
     private var exportGroupOnly: String? = null
-    private lateinit var qualityTest: Button
-    private lateinit var qualityExport: Button
+    private lateinit var libraryTest: Button
+    private lateinit var libraryExport: Button
     private var autoStatus = ""
     private var lastCameraState = PhotoCameraState()
-    private lateinit var testCase: Button
     private lateinit var quality: Button
     private lateinit var mouse: Button
     private lateinit var export: Button
@@ -95,7 +91,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.6-processing-test")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.7-library-test")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -194,18 +190,6 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             testControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
         buttonsPanel.addView(testControls)
-        testCase = Button(this).apply {
-            text = "TESTFALL: FREI"
-            setOnClickListener {
-                val cases = arrayOf("FREI", "K01 MAIN", "K02 UW", "K03 MACRO NAH", "K04 MACRO FERN", "K05 CROP1", "K06 CROP2", "K07 EXT MAIN", "K08 EXT UW", "K09 EXT MACRO", "K10 EV", "M01 EINZEL", "M02 HALTEN", "M03 DOPPEL", "M04 KOMBINATION", "M05 LEBENSZYKLUS")
-                AlertDialog.Builder(this@CameraActivity).setTitle("Testfall markieren")
-                    .setItems(cases) { _, index ->
-                        text = "TESTFALL: ${cases[index]}"
-                        controller.setTestCase(cases[index])
-                    }.show()
-            }
-        }
-        buttonsPanel.addView(testCase)
         val rawControls = LinearLayout(this)
         format = Button(this).apply {
             text = "FORMAT: JPEG"
@@ -216,66 +200,44 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
                     }.show()
             }
         }
-        rawTest = Button(this).apply {
-            text = "RAW-TEST"
-            setOnClickListener { beginAutomated(false, true) }
-        }
-        listOf(format, rawTest).forEach {
-            rawControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        buttonsPanel.addView(rawControls)
-        val isoControls = LinearLayout(this)
         exposureSetup = Button(this).apply {
             text = "ISO: AUTO"
             setOnClickListener { chooseExposureLimits() }
         }
-        isoTest = Button(this).apply {
-            text = "ISO-TEST"
-            setOnClickListener { beginAutomated(false, iso = true) }
+        listOf(format, exposureSetup).forEach {
+            rawControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
-        isoExport = Button(this).apply {
-            text = "ISO ZIP"
+        buttonsPanel.addView(rawControls)
+        val libraryControls = LinearLayout(this)
+        libraryTest = Button(this).apply {
+            text = "BIB-TEST"
+            setOnClickListener { beginAutomated(false, libraries = true) }
+        }
+        libraryExport = Button(this).apply {
+            text = "BIB ZIP"
             setOnClickListener {
                 preview.releasePointerCapture()
-                resetInput("isoExport")
-                exportGroupOnly = "ISO"
-                exportRequest.launch("seafrogs-iso-${System.currentTimeMillis()}.zip")
+                resetInput("libraryExport")
+                exportGroupOnly = "LIBRARY"
+                exportRequest.launch("seafrogs-library-${System.currentTimeMillis()}.zip")
             }
         }
-        listOf(exposureSetup, isoTest, isoExport).forEach {
-            isoControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        listOf(libraryTest, libraryExport).forEach {
+            libraryControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
-        buttonsPanel.addView(isoControls)
-        val processingControls = LinearLayout(this)
-        qualityTest = Button(this).apply {
-            text = "QUALITÄTSTEST"
-            setOnClickListener { beginAutomated(false, processing = true) }
-        }
-        qualityExport = Button(this).apply {
-            text = "QUALITÄT ZIP"
-            setOnClickListener {
-                preview.releasePointerCapture()
-                resetInput("qualityExport")
-                exportGroupOnly = "QUALITY"
-                exportRequest.launch("seafrogs-quality-${System.currentTimeMillis()}.zip")
-            }
-        }
-        listOf(qualityTest, qualityExport).forEach {
-            processingControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        buttonsPanel.addView(processingControls)
+        buttonsPanel.addView(libraryControls)
         val autoControls = LinearLayout(this)
-        normalTest = Button(this).apply {
-            text = "NORMALTEST"
+        cancelTest = Button(this).apply {
+            text = "ABBRECHEN"
             minHeight = dp(64)
-            setOnClickListener { if (automated.running) automated.cancel() else beginAutomated(false) }
+            setOnClickListener { automated.cancel() }
         }
         macroTest = Button(this).apply {
             text = "MACROTEST"
             minHeight = dp(64)
             setOnClickListener { beginAutomated(true) }
         }
-        autoControls.addView(normalTest, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        autoControls.addView(cancelTest, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         autoControls.addView(macroTest, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         buttonsPanel.addView(autoControls)
         root.addView(cameraPanel, if (landscape)
@@ -401,15 +363,11 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         quality.isEnabled = state.ready && !testing && state.photoFormat == "JPEG" && !state.exposureLimits.enabled
         format.text = "FORMAT: ${state.photoFormat}"
         format.isEnabled = state.ready && !testing
-        rawTest.isEnabled = state.ready && !testing
         exposureSetup.isEnabled = state.ready && !testing
         exposureSetup.text = if (state.exposureLimits.enabled) "Sensor ≤ ${state.exposureLimits.isoCap}" else "ISO: AUTO"
-        isoTest.isEnabled = state.ready && !testing
-        isoExport.isEnabled = capabilityReport != null && !state.capturing && !testing
-        qualityTest.isEnabled = state.ready && !testing
-        qualityExport.isEnabled = capabilityReport != null && !state.capturing && !testing
-        testCase.isEnabled = !state.capturing && !testing
-        export.text = if (capabilityReport == null) "KAMERADATEN …" else "TEST ZIP"
+        libraryTest.isEnabled = state.ready && !testing
+        libraryExport.isEnabled = capabilityReport != null && !testing && !state.capturing
+        export.text = if (capabilityReport == null) "KAMERADATEN …" else "DIAGNOSE ZIP"
         export.isEnabled = capabilityReport != null && !state.capturing && !testing
         mouse.isEnabled = !state.capturing && !testing
         zoom.isEnabled = state.ready && !testing
@@ -422,13 +380,19 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         shutter.text = if (state.capturing) "AUFNAHME …" else "FOTO"
         diagnosis.isEnabled = !state.capturing && !testing
         restart.isEnabled = !state.capturing && !testing
-        normalTest.text = if (testing) "ABBRECHEN" else "NORMALTEST"
-        normalTest.isEnabled = testing || state.ready
+        cancelTest.isEnabled = testing
         macroTest.isEnabled = state.ready && !testing
     }
 
-    private fun beginAutomated(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false) {
-        val message = if (processing)
+    private fun beginAutomated(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false, libraries: Boolean = false) {
+        if (libraries && android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes < 1_000_000_000L) {
+            AlertDialog.Builder(this).setTitle("Speicher reicht nicht")
+                .setMessage("Für RAW-Serie und ZIP mindestens 1 GB freihalten.").setPositiveButton("OK", null).show()
+            return
+        }
+        val message = if (libraries)
+            "Handy fest abstützen. Bedrucktes Motiv mit feinen Details etwa 50 cm entfernt, gleichbleibendes Licht. Nicht bewegen und während des Tests keine Tasten drücken.\n\nDie App nimmt je fünf RAW+JPEG-Paare mit Hauptkamera und UW auf, in derselben Kamerasitzung mit festgelegter Belichtung, Weißabgleich und Fokus. Danach folgen AUTO-, HDR- und NIGHT-Referenzen, sofern verfügbar. ISO-Grenzen sind aus.\n\nDiese RAW-Serien dienen als identische Eingaben für den Bibliotheksvergleich. Diese APK enthält noch keine MotionCam-/HDR+-Verarbeitung. Benötigt mindestens 1 GB freien Speicher. Danach BIB ZIP exportieren und nach Export gespeichert hochladen. ZIP etwa 250 MB."
+        else if (processing)
             "Stütze das Handy fest ab und stelle ein bedrucktes Motiv mit feinen Details etwa 50 cm vor die Linse. Motiv und Licht konstant halten, während des Tests nichts berühren.\n\nDie App vergleicht je Kamera Standard-Verarbeitung, HQ-Entrauschen und HQ-Entrauschen + HQ-Schärfung. Belichtung, Weißabgleich und Fokus bleiben je Kamera fest. ISO-Grenzen sind für diesen Test aus. Danach folgt ein separates NIGHT-Referenzbild der Hauptkamera, sofern verfügbar.\n\nNicht unterstützte Varianten überspringt die App. Bis zu sieben JPEGs, Vorschau pausiert bei normalen Vergleichsaufnahmen. Danach QUALITÄT ZIP exportieren."
         else if (iso)
             "Stütze das Handy ab. Stelle ein bedrucktes Motiv etwa 50 cm vor die Linse und halte das Licht konstant.\n\nDie App fotografiert automatisch mit Hauptkamera und UW: jeweils Auto, maximal ISO 800 und maximal ISO 400. Die Zeitgrenze aus dem ISO-Setup gilt bei den beiden begrenzten Aufnahmen. Auto bleibt unbeschränkt. Alle sechs Fotos nutzen denselben Aufnahmeweg; die Vorschau pausiert während der Aufnahme.\n\nDanach ISO ZIP exportieren."
@@ -437,12 +401,12 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         else if (macro)
             "Lege eine bedruckte Seite etwa 5 cm vor die Kameralinse. Stütze das Handy ab und halte das Licht konstant.\n\nDie App übernimmt Kamera, Fokusversuch, Crop-Stufen und Aufnahmen. Während des Tests nichts bewegen."
         else "Lege eine bedruckte Seite etwa 50 cm vor die Kameralinse. Stütze das Handy ab und halte das Licht konstant.\n\nDie App übernimmt Kamera, Zoom, EV, verfügbare Bildverarbeitung und Aufnahmen. Während des Tests nichts bewegen."
-        AlertDialog.Builder(this).setTitle(if (processing) "Automatischer Qualitätstest" else if (iso) "Automatischer ISO-Vergleich" else if (raw) "Automatischer RAW-Test" else if (macro) "Automatischer Macrotest" else "Automatischer Normaltest")
+        AlertDialog.Builder(this).setTitle(if (libraries) "Automatischer Bibliotheks-Datentest" else if (processing) "Automatischer Qualitätstest" else if (iso) "Automatischer ISO-Vergleich" else if (raw) "Automatischer RAW-Test" else if (macro) "Automatischer Macrotest" else "Automatischer Normaltest")
             .setMessage(message).setNegativeButton("Zurück", null)
             .setPositiveButton("Test starten") { _, _ ->
                 preview.releasePointerCapture()
                 resetInput("autoTestStart")
-                automated.start(macro, raw, iso, processing)
+                automated.start(macro, raw, iso, processing, libraries)
             }.show()
     }
 

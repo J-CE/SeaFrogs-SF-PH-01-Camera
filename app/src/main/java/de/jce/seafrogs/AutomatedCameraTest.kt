@@ -27,17 +27,17 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         private set
     private val results = runCatching { JSONArray(preferences.getString("results", "[]")) }.getOrDefault(JSONArray())
 
-    fun start(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false) {
+    fun start(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false, libraries: Boolean = false) {
         if (running || !controller.readyForCommand()) { display("Kamera noch nicht bereit", false); return }
         token++
         running = true
-        group = if (processing) "QUALITY" else if (iso) "ISO" else if (raw) "RAW" else if (macro) "MACRO" else "NORMAL"
+        group = if (libraries) "LIBRARY" else if (processing) "QUALITY" else if (iso) "ISO" else if (raw) "RAW" else if (macro) "MACRO" else "NORMAL"
         runId = System.currentTimeMillis().toString()
         // Replace only the previous run of this group. Keep the other group for
         // the joint ZIP; JPEGs remain in MediaStore and are never deleted here.
         for (i in results.length() - 1 downTo 0) if (results.getJSONObject(i).optString("group") == group) results.remove(i)
         persist()
-        steps = if (processing) AutoTestPlan.processing() else if (iso) AutoTestPlan.iso(controller.savedExposureLimits().longestTimeNs) else if (raw) AutoTestPlan.raw() else AutoTestPlan.create(macro)
+        steps = if (libraries) AutoTestPlan.libraries() else if (processing) AutoTestPlan.processing() else if (iso) AutoTestPlan.iso(controller.savedExposureLimits().longestTimeNs) else if (raw) AutoTestPlan.raw() else AutoTestPlan.create(macro)
         index = 0
         record(JSONObject().put("kind", "autoTestStart").put("group", group).put("runId", runId))
         next(token)
@@ -49,7 +49,7 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
             running = false
             controller.endAutoTest()
             record(JSONObject().put("kind", "autoTestFinished").put("group", group).put("runId", runId))
-            display("$group fertig. TEST ZIP enthält Fotos und Bericht.", false)
+            display("$group fertig. ${if (group == "LIBRARY") "BIB ZIP" else "TEST ZIP"} enthält Fotos und Bericht.", false)
             return
         }
         val step = steps[index]
@@ -109,7 +109,8 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
             val rawOutcome = controller.rawOutcome()
             val status = when {
                 uri == null || (step.raw && rawOutcome?.dng == null) ||
-                    ((step.raw || step.nativeCapture) && rawOutcome?.error != null) -> "FAILED"
+                    ((step.raw || step.nativeCapture) && rawOutcome?.error != null) ||
+                    (step.frameCount > 1 && rawOutcome?.frames?.size != step.frameCount) -> "FAILED"
                 error != null -> "EXIF_WARNING"
                 else -> "SAVED"
             }
@@ -125,13 +126,20 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         val value = JSONObject().put("group", group).put("runId", runId).put("id", step.id)
             .put("lens", step.lens.name).put("zoomRequested", step.zoom.toDouble())
             .put("evRequested", step.ev.toDouble()).put("qualityRequested", step.quality)
+            .put("frameCountRequested", step.frameCount)
             .put("processingVariantRequested", step.processing.name)
-            .put("comparisonType", if (step.processing != ProcessingVariant.NONE) "LOCKED_SENSOR_COMPARISON" else if (group == "QUALITY") "INDEPENDENT_EXTENSION_REFERENCE" else "OTHER")
+            .put("comparisonType", if (step.processing != ProcessingVariant.NONE) "LOCKED_SENSOR_COMPARISON" else if (group == "QUALITY" || group == "LIBRARY") "INDEPENDENT_EXTENSION_REFERENCE" else "OTHER")
             .put("preCaptureFocus", preCaptureFocus)
             .put("isoCapRequested", step.isoCap).put("longestTimeNsRequested", if (step.isoCap > 0) step.longestTimeNs else JSONObject.NULL)
             .put("formatRequested", if (step.raw) "RAW+JPEG" else "JPEG")
             .put("status", status).put("uri", uri ?: JSONObject.NULL).put("error", error ?: JSONObject.NULL)
         if ((step.raw || step.nativeCapture) && uri != null) controller.rawOutcome()?.let { outcome ->
+            if (step.frameCount > 1) value.put("seriesFrames", JSONArray().apply {
+                outcome.frames.forEachIndexed { index, frame -> put(JSONObject()
+                    .put("index", index).put("jpegUri", frame.jpeg.toString())
+                    .put("dngUri", frame.dng?.toString() ?: JSONObject.NULL)
+                    .put("capture", JSONObject(frame.evidence))) }
+            }).put("frameCountSaved", outcome.frames.size)
             value.put("dngUri", outcome.dng?.toString() ?: JSONObject.NULL)
                 .put(if (step.raw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence))
         }
@@ -150,7 +158,7 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         display(reason, false)
     }
 
-    fun report(groupOnly: String? = null): String = JSONObject().put("version", "0.6.6-processing-test")
+    fun report(groupOnly: String? = null): String = JSONObject().put("version", "0.6.7-library-test")
         .put("device", android.os.Build.MODEL).put("androidBuild", android.os.Build.FINGERPRINT)
         .put("note", "Original JPEGs; requested settings in report, applied settings and latest preview telemetry in EXIF. No automated sharpness score.")
         .put("results", selectedResults(groupOnly)).toString(2)
@@ -158,6 +166,15 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
     fun photos(groupOnly: String? = null): List<Pair<String, String>> = (0 until results.length()).flatMap { i ->
         val value = results.getJSONObject(i)
         if (groupOnly != null && value.optString("group") != groupOnly) return@flatMap emptyList()
+        val series = value.optJSONArray("seriesFrames")
+        if (series != null) return@flatMap (0 until series.length()).flatMap { index ->
+            val frame = series.getJSONObject(index)
+            listOf("jpegUri" to "jpg", "dngUri" to "dng").mapNotNull { (key, suffix) ->
+                frame.optString(key).takeIf { it.isNotBlank() && it != "null" }?.let {
+                    "photos/${value.getString("id")}/frame_${index.toString().padStart(2, '0')}.$suffix" to it
+                }
+            }
+        }
         listOf("uri" to "jpg", "dngUri" to "dng").mapNotNull { (key, suffix) ->
             val uri = value.optString(key)
             if (uri.isBlank() || uri == "null") null else "photos/${value.getString("id")}.$suffix" to uri

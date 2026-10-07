@@ -24,7 +24,7 @@ class PhotoExifWriter(context: Context) {
                     if (exif.getAttribute(ExifInterface.TAG_MODEL).isNullOrBlank())
                         exif.setAttribute(ExifInterface.TAG_MODEL, Build.MODEL)
                     val originalSoftware = exif.getAttribute(ExifInterface.TAG_SOFTWARE)
-                    val appSoftware = "SeaFrogs Camera 0.6.6-processing-test"
+                    val appSoftware = "SeaFrogs Camera 0.6.7-library-test"
                     exif.setAttribute(ExifInterface.TAG_SOFTWARE,
                         if (originalSoftware.isNullOrBlank()) appSoftware
                         else "$originalSoftware; $appSoftware")

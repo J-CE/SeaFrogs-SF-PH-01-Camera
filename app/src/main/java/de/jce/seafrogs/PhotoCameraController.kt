@@ -113,6 +113,7 @@ class PhotoCameraController(
     private var testLimitsOverride: ExposureLimits? = null
     private var testNativeCapture = false
     private var testProcessing = ProcessingVariant.NONE
+    private var testFrameCount = 1
     private val comparisonReferences = mutableMapOf<PhotoLens, FrozenCaptureSettings>()
     private fun effectiveLimits() = testLimitsOverride ?: exposureLimits
     fun savedExposureLimits() = exposureLimits
@@ -138,6 +139,7 @@ class PhotoCameraController(
         testLimitsOverride = null
         testNativeCapture = false
         testProcessing = ProcessingVariant.NONE
+        testFrameCount = 1
         comparisonReferences.clear()
         if (usesRaw() || effectiveLimits().enabled) qualityMode = ExtensionMode.NONE
         // Rebind after a cancelled extension run too, so saved format and
@@ -493,6 +495,7 @@ class PhotoCameraController(
             comparisonReferences[step.lens] == null) return false
         if (step.processing == ProcessingVariant.DEFAULT) comparisonReferences.remove(step.lens)
         testProcessing = step.processing
+        testFrameCount = step.frameCount
         testRawOverride = step.raw
         testNativeCapture = step.nativeCapture
         testLimitsOverride = ExposureLimits(step.isoCap, step.longestTimeNs)
@@ -697,6 +700,7 @@ class PhotoCameraController(
         val metadata = exifSnapshot()
         val lens = activeLens
         val processing = testProcessing
+        val frameCount = testFrameCount
         val reference = if (processing == ProcessingVariant.DEFAULT) null else comparisonReferences[lens]
         val jpegOrientation = routes.jpegOrientation(route, rotation)
         clearSession()
@@ -706,7 +710,7 @@ class PhotoCameraController(
         emit()
         val operation = RawJpegCapture(appContext)
         rawCapture = operation
-        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference) { outcome ->
+        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount) { outcome ->
             val actualMetadata = JSONObject(metadata).put(if (includeRaw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence)).toString()
             exifWriter.write(outcome.jpeg, actualMetadata) { exifError ->
                 mainExecutor.execute {
@@ -743,7 +747,7 @@ class PhotoCameraController(
         val size = imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.6.6-processing-test")
+            .put("version", "0.6.7-library-test")
             .put("mode", "PHOTO")
             .put("testCase", testCase)
             .put("qualityMode", qualityName(qualityMode))

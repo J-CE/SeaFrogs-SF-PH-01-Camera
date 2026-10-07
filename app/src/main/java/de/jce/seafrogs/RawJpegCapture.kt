@@ -19,8 +19,11 @@ import androidx.core.content.ContextCompat
 import org.json.JSONObject
 import java.util.UUID
 
+data class RawSeriesFrame(val jpeg: Uri, val dng: Uri?, val evidence: String)
+
 data class RawPairOutcome(val jpeg: Uri?, val dng: Uri?, val evidence: String, val error: String?,
-    val comparisonSettings: FrozenCaptureSettings? = null)
+    val comparisonSettings: FrozenCaptureSettings? = null,
+    val frames: List<RawSeriesFrame> = emptyList())
 
 /** One Camera2 exposure with JPEG and optional RAW targets. CameraX must be unbound first.
  * All camera/image state lives on one worker. Match sensor timestamps before
@@ -67,6 +70,8 @@ class RawJpegCapture(context: Context) {
     private val evidence = JSONObject()
     private var finishedOutcome: RawPairOutcome? = null
     private var delivered = false
+    private var seriesCount = 1
+    private val seriesFrames = mutableListOf<RawSeriesFrame>()
     private var opening = false
 
     fun start(selected: CameraLensRoute, jpegSize: Size, rawSize: Size?, zoomRatio: Float,
@@ -74,10 +79,15 @@ class RawJpegCapture(context: Context) {
               exposureLimits: ExposureLimits = ExposureLimits(),
               processingVariant: ProcessingVariant = ProcessingVariant.NONE,
               reference: FrozenCaptureSettings? = null,
+              frameCount: Int = 1,
               complete: (RawPairOutcome) -> Unit) {
         worker.post {
             if (finished) return@post
             callback = complete
+            require(frameCount in 1..5) { "RAW-Serie muss 1 bis 5 Bilder enthalten" }
+            require(frameCount == 1 || rawSize != null && processingVariant == ProcessingVariant.DEFAULT) { "RAW-Serie benötigt RAW und fixierte Szenenwerte" }
+            seriesCount = frameCount
+            evidence.put("seriesCountRequested", frameCount).put("seriesFrameIndex", 0)
             route = selected; zoom = zoomRatio; ev = exposureEv
             orientation = jpegOrientation; description = metadata; limits = exposureLimits
             processing = processingVariant; suppliedReference = reference
@@ -117,7 +127,7 @@ class RawJpegCapture(context: Context) {
                     else { rawImage = image; trySave() }
                 }, worker)
                 openedAt = SystemClock.uptimeMillis()
-                worker.postDelayed({ finish("RAW-Aufnahme nach 25 Sekunden nicht beendet") }, 25000)
+                worker.postDelayed({ finish("RAW-Aufnahme/Serie nach 60 Sekunden nicht beendet") }, 60000)
                 open(manager)
             } catch (error: Exception) { finish(error.toString()) }
         }
@@ -324,7 +334,17 @@ class RawJpegCapture(context: Context) {
                 creator.setDescription(JSONObject(description).put("rawCapture", JSONObject(evidence.toString())).toString())
                 savedDng = save("$prefix.dng", "image/x-adobe-dng") { creator.writeImage(it, raw) }
             }
-            finish(exposureError)
+            seriesFrames.add(RawSeriesFrame(checkNotNull(savedJpeg), savedDng, evidence.toString()))
+            rawImage?.close(); rawImage = null
+            stillResult = null
+            jpegFrames.clear()
+            if (exposureError != null || seriesFrames.size >= seriesCount) finish(exposureError)
+            else {
+                // Keep the camera and manual AE/AWB/AF settings alive. Only one
+                // outstanding RAW image, so DNG writing cannot exhaust the reader.
+                evidence.put("seriesFrameIndex", seriesFrames.size)
+                worker.post { if (!finished) submitStill(checkNotNull(session), sensor, captureCallback) }
+            }
         } catch (error: Exception) { finish(error.toString()) }
     }
 
@@ -502,7 +522,7 @@ class RawJpegCapture(context: Context) {
         session?.close(); session = null
         jpegReader?.close(); jpegReader = null
         rawReader?.close(); rawReader = null
-        finishedOutcome = RawPairOutcome(savedJpeg, savedDng, evidence.toString(), error, actualReference)
+        finishedOutcome = RawPairOutcome(savedJpeg, savedDng, evidence.toString(), error, actualReference, seriesFrames.toList())
         val closing = device
         device = null
         if (closing != null) {

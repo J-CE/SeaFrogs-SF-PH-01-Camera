@@ -3,10 +3,20 @@ package de.jce.seafrogs
 data class AutoTestStep(val id: String, val lens: PhotoLens, val zoom: Float = 1f,
     val ev: Float = 0f, val quality: String = "STANDARD", val raw: Boolean = false,
     val nativeCapture: Boolean = false, val isoCap: Int = 0, val longestTimeNs: Long = 33_333_333L,
-    val processing: ProcessingVariant = ProcessingVariant.NONE)
+    val processing: ProcessingVariant = ProcessingVariant.NONE, val frameCount: Int = 1)
 
 /** Stable order and settings keep the comparison reproducible. */
 object AutoTestPlan {
+    fun libraries(): List<AutoTestStep> = listOf(
+        AutoTestStep("LIBRARY_MAIN_RAW_SERIES", PhotoLens.MAIN, raw = true,
+            nativeCapture = true, processing = ProcessingVariant.DEFAULT, frameCount = 5),
+        AutoTestStep("LIBRARY_ULTRAWIDE_RAW_SERIES", PhotoLens.ULTRAWIDE, raw = true,
+            nativeCapture = true, processing = ProcessingVariant.DEFAULT, frameCount = 5),
+        AutoTestStep("LIBRARY_MAIN_AUTO_REFERENCE", PhotoLens.MAIN, quality = "AUTO"),
+        AutoTestStep("LIBRARY_MAIN_HDR_REFERENCE", PhotoLens.MAIN, quality = "HDR"),
+        AutoTestStep("LIBRARY_MAIN_NIGHT_REFERENCE", PhotoLens.MAIN, quality = "NIGHT")
+    )
+
     fun processing(): List<AutoTestStep> = buildList {
         for (lens in listOf(PhotoLens.MAIN, PhotoLens.ULTRAWIDE)) {
             for (variant in listOf(ProcessingVariant.DEFAULT, ProcessingVariant.NR_HIGH_QUALITY,

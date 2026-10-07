@@ -3,6 +3,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AutoTestPlanTest {
+    @Test fun libraryInputsAreFrozenRawSeriesPerLensWithSeparateNightReference() {
+        val steps = AutoTestPlan.libraries()
+        assertEquals(5, steps.size)
+        assertEquals(listOf("AUTO", "HDR", "NIGHT"), steps.drop(2).map { it.quality })
+        assertEquals(listOf(PhotoLens.MAIN, PhotoLens.ULTRAWIDE), steps.take(2).map { it.lens })
+        assertTrue(steps.take(2).all { it.raw && it.nativeCapture && it.frameCount == 5 &&
+            it.processing == ProcessingVariant.DEFAULT && it.quality == "STANDARD" &&
+            it.zoom == 1f && it.ev == 0f && it.isoCap == 0 })
+        assertEquals("NIGHT", steps.last().quality)
+        assertFalse(steps.last().raw)
+        assertEquals(1, steps.last().frameCount)
+    }
+
     @Test fun processingTestHasPerLensBaselineThenVariantsAndIndependentNightReference() {
         val steps = AutoTestPlan.processing()
         assertEquals(7, steps.size)

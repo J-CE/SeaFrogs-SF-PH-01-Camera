@@ -17,7 +17,7 @@ import org.json.JSONObject
 object CameraCapabilityReport {
     fun collect(context: Context): JSONObject {
         val report = JSONObject()
-            .put("schemaVersion", 1).put("appVersion", "0.6.6-processing-test")
+            .put("schemaVersion", 2).put("cameraXVersion", "1.6.2").put("appVersion", "0.6.7-library-test")
             .put("createdWallTimeMs", System.currentTimeMillis())
             .put("device", Build.MODEL).put("androidBuild", Build.FINGERPRINT)
             .put("sdk", Build.VERSION.SDK_INT)
@@ -59,6 +59,9 @@ object CameraCapabilityReport {
                 else {
                     entry.put("metadataAvailable", true)
                     describe(c, entry)
+                    if (id in publicIds && Build.VERSION.SDK_INT >= 31) {
+                        entry.put("camera2Extensions", extensionReport(manager, id))
+                    }
                 }
                 cameras.put(entry)
             }
@@ -67,6 +70,39 @@ object CameraCapabilityReport {
             errors.put(JSONObject().put("operation", "enumerateCameras").put("error", error.toString()))
         }
         return report
+    }
+
+
+    @androidx.annotation.RequiresApi(31)
+    private fun extensionReport(manager: CameraManager, id: String): JSONObject {
+        val out = JSONObject().put("evidence", "advertisedOnlyNotCaptured")
+        val errors = JSONArray(); out.put("errors", errors)
+        try {
+            val c = manager.getCameraExtensionCharacteristics(id)
+            val offered = c.supportedExtensions
+            out.put("supportedTypes", JSONArray(offered))
+            val variants = JSONArray()
+            val names = listOf(0 to "AUTO", 1 to "FACE_RETOUCH", 2 to "BOKEH", 3 to "HDR", 4 to "NIGHT")
+            for ((type, name) in names) {
+                val item = JSONObject().put("type", type).put("name", name).put("supported", type in offered)
+                if (type in offered) {
+                    for ((format, label) in listOf(ImageFormat.JPEG to "jpegSizes", ImageFormat.YUV_420_888 to "yuvSizes")) {
+                        try { item.put(label, json(c.getExtensionSupportedSizes(type, format))) }
+                        catch (error: Exception) { errors.put(JSONObject().put("mode", name).put("field", label).put("error", error.toString())) }
+                    }
+                    if (Build.VERSION.SDK_INT >= 34) try {
+                        item.put("ultraHdrSizes", json(c.getExtensionSupportedSizes(type, ImageFormat.JPEG_R)))
+                    } catch (error: Exception) { errors.put(JSONObject().put("mode", name).put("field", "ultraHdrSizes").put("error", error.toString())) }
+                    if (Build.VERSION.SDK_INT >= 33) try {
+                        item.put("requestKeys", JSONArray(c.getAvailableCaptureRequestKeys(type).map { it.name }.sorted()))
+                        item.put("resultKeys", JSONArray(c.getAvailableCaptureResultKeys(type).map { it.name }.sorted()))
+                    } catch (error: Exception) { errors.put(JSONObject().put("mode", name).put("field", "keys").put("error", error.toString())) }
+                }
+                variants.put(item)
+            }
+            out.put("modes", variants)
+        } catch (error: Exception) { errors.put(error.toString()) }
+        return out
     }
 
     private fun describe(c: CameraCharacteristics, out: JSONObject) {
