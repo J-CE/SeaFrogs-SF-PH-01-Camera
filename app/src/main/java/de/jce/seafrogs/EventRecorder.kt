@@ -50,7 +50,7 @@ class EventRecorder(private val context: Context, private val report: (String) -
         val photoSnapshot = photos.toList()
         progress("EXPORT: ZIP vorbereiten …", true)
         val summary = """
-            SeaFrogs Kamera/HID Test 0.7.0
+            SeaFrogs Kamera/HID Test 0.7.1
             Android-App-Ereignisse, keine rohen Bluetooth-HID-Reports.
             Datensatznummer am Export: $sequence
             Verlorene Datensätze durch Warteschlangenlimit: ${dropped.get()}

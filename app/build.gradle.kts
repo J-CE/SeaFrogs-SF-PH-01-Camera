@@ -9,8 +9,8 @@ android {
         minSdk = 26
         targetSdk = 35
         ndk { abiFilters += "arm64-v8a" }
-        versionCode = 16
-        versionName = "0.7.0-mit-multiframe"
+        versionCode = 17
+        versionName = "0.7.1-quality-basics"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

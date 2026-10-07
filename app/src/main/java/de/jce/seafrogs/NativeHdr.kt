@@ -24,7 +24,7 @@ object NativeHdr {
     }
 
     fun render(raw: ByteBuffer, width: Int, height: Int, sensor: R, c: C,
-               zoom: Float, orientation: Int, jpegWidth: Int, jpegHeight: Int): Bitmap {
+               zoom: Float, orientation: Int, jpegWidth: Int, jpegHeight: Int, rawCrop: android.graphics.Rect? = null, zoomUsesRatio: Boolean = true): Bitmap {
         val pattern = checkNotNull(c[C.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT]) { "Bayer-Muster fehlt" }
         val (cfa, colors) = when (pattern) {
             C.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGGB -> 1 to intArrayOf(0,1,2,3)
@@ -62,14 +62,18 @@ object NativeHdr {
         var cropped: Bitmap? = null
         try {
             process(raw, width, height, 5, black, white, shading, map.columnCount, map.rowCount, rect, gains, cfa, matrix, boost, full)
-            // RAW ignores JPEG's digital crop. Apply it once, after fusion; never upscale.
-            var cw = (rect[2] / zoom).toInt().coerceIn(1, width)
-            var ch = (rect[3] / zoom).toInt().coerceIn(1, height)
-            val aspect = jpegWidth.toFloat() / jpegHeight
-            if (cw.toFloat() / ch > aspect) cw = (ch * aspect).toInt().coerceAtLeast(1)
-            else ch = (cw / aspect).toInt().coerceAtLeast(1)
-            val left = (rect[0] + (rect[2] - cw) / 2).toInt().coerceIn(0, width - cw)
-            val top = (rect[1] + (rect[3] - ch) / 2).toInt().coerceIn(0, height - ch)
+            // Apply measured sensor crop and RAW valid area before one digital zoom.
+            val reported = sensor[R.SCALER_CROP_REGION] ?: active
+            val bounded = PhotoCrop.calculate(width, height,
+                PixelRect((reported.left * sx).toInt(), (reported.top * sy).toInt(),
+                    (reported.right * sx).toInt(), (reported.bottom * sy).toInt()),
+                rawCrop?.let { PixelRect(it.left, it.top, it.right, it.bottom) }
+                    ?: PixelRect(0,0,width,height),
+                // Pre-30 SCALER_CROP_REGION already carries the zoom.
+                if (zoomUsesRatio) zoom else 1f,
+                jpegWidth.toFloat() / jpegHeight)
+            val left = bounded.left; val top = bounded.top
+            val cw = bounded.right - left; val ch = bounded.bottom - top
             cropped = Bitmap.createBitmap(full, left, top, cw, ch)
             if (cropped !== full) full.recycle()
             if (orientation == 0) return cropped

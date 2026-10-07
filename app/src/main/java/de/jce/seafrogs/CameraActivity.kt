@@ -102,7 +102,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.7.0-mit-multiframe")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.7.1-quality-basics")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -362,6 +362,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         if (isDestroyed || !active) return
         val state = lastCameraState
         val testing = automated.running || exporting
+        val cameraMessage = if (state.message == "Bereit" && !state.ready) "Warte auf Vorschau/Fokus …" else state.message
         status.text = (if (exportStatus.isBlank()) "" else "$exportStatus\n") +
             (if (autoStatus.isBlank()) "" else "$autoStatus\n") +
             "PHOTO | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | ${state.quality} | ${state.photoFormat}\n" +
@@ -370,7 +371,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
                     8_000_000L -> "1/125 s"
                     16_666_666L -> "1/60 s"
                     else -> "1/30 s"
-                }}" else "") + "\n" + state.message + "\n" + state.diagnostics + "\n" + hidStatus
+                }}" else "") + "\n" + "Speicher: ${android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes / (1024 * 1024)} MiB frei\n" + cameraMessage + "\n" + state.diagnostics + "\n" + hidStatus
         quality.text = state.quality
         quality.isEnabled = state.ready && !testing
         format.text = "FORMAT: ${state.photoFormat}"
@@ -389,7 +390,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         lensSwitch.isEnabled = state.ready && !testing
         lensSwitch.text = "KAMERA: ${state.lens.label}"
         shutter.isEnabled = state.ready && !testing
-        shutter.text = if (state.capturing) "AUFNAHME …" else "FOTO"
+        shutter.text = if (state.capturing) "AUFNAHME …" else if (state.ready) "FOTO" else "WARTE …"
         diagnosis.isEnabled = !state.capturing && !testing
         restart.isEnabled = !state.capturing && !testing
         cancelTest.isEnabled = automated.running
@@ -403,7 +404,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             return
         }
         val message = if (fusion)
-            "Handy fest abstützen. Bedrucktes Motiv mit feiner Schrift etwa 50 cm entfernt, gleichbleibendes Licht. Dann START drücken und warten.\n\nDie App prüft automatisch Hauptkamera, Ultraweitwinkel und ISO 800. Pro Schritt entstehen ein STANDARD-JPEG und ein verarbeitetes MEHRBILD-JPEG aus fünf RAW-Aufnahmen. Keine DNGs im Export. Während des Tests keine Tasten drücken. Danach TEST ZIP exportieren und hochladen. Der Test bestätigt noch keinen Macro-Nahfokus."
+            "Handy fest abstützen. Bedrucktes Motiv mit feiner Schrift etwa 50 cm entfernt, gleichbleibendes Licht. Dann START drücken und warten.\n\nDie App prüft automatisch Hauptkamera, Ultraweitwinkel und ISO 400. Pro Schritt entstehen ein STANDARD-JPEG und ein verarbeitetes MEHRBILD-JPEG aus fünf RAW-Aufnahmen. Keine DNGs im Export. Während des Tests keine Tasten drücken. Danach TEST ZIP exportieren und hochladen. Der Test bestätigt noch keinen Macro-Nahfokus."
         else if (libraries)
             "Handy fest abstützen. Bedrucktes Motiv mit feinen Details etwa 50 cm entfernt, gleichbleibendes Licht. Nicht bewegen und während des Tests keine Tasten drücken.\n\nDie App nimmt je fünf RAW+JPEG-Paare mit Hauptkamera und UW auf, in derselben Kamerasitzung mit festgelegter Belichtung, Weißabgleich und Fokus. Danach folgen AUTO-, HDR- und NIGHT-Referenzen, sofern verfügbar. ISO-Grenzen sind aus.\n\nDiese RAW-Serien dienen als identische Eingaben für den Bibliotheksvergleich. Diese APK enthält noch keine MotionCam-/HDR+-Verarbeitung. Benötigt mindestens 1 GB freien Speicher. Danach BIB ZIP exportieren und nach Export gespeichert hochladen. ZIP etwa 250 MB."
         else if (processing)

@@ -67,12 +67,14 @@ class RawJpegCapture(context: Context) {
     private val focus = AutofocusStability()
     private var savedJpeg: Uri? = null
     private var savedDng: Uri? = null
+    private var progress: ((String) -> Unit)? = null
     private var nativeFusion = false
     private var retainDng = true
     private var rawStack: java.nio.ByteBuffer? = null
     private var fusionSensor: CaptureResult? = null
     private var fallbackBytes: ByteArray? = null
     private var fusionSize: Size? = null
+    private var fusionRawCrop: android.graphics.Rect? = null
     private var targetJpegSize: Size? = null
     private val fusionTimestamps = mutableListOf<Long>()
     private val cancelRequested = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -91,10 +93,12 @@ class RawJpegCapture(context: Context) {
               frameCount: Int = 1,
               fuse: Boolean = false,
               keepDng: Boolean = true,
+              onProgress: ((String) -> Unit)? = null,
               complete: (RawPairOutcome) -> Unit) {
         worker.post {
             if (finished) return@post
-            callback = complete
+            callback = complete; progress = onProgress
+            reportProgress("Fokus und Belichtung vorbereiten …")
             require(frameCount in 1..5) { "RAW-Serie muss 1 bis 5 Bilder enthalten" }
             require(frameCount == 1 || rawSize != null && processingVariant == ProcessingVariant.DEFAULT) { "RAW-Serie benötigt RAW und fixierte Szenenwerte" }
             seriesCount = frameCount
@@ -225,6 +229,10 @@ class RawJpegCapture(context: Context) {
                 builder.set(CaptureRequest.SCALER_CROP_REGION, android.graphics.Rect(left, top, left + width, top + height))
             }
         }
+        builder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
+        if (Build.VERSION.SDK_INT >= 31 && c[CameraCharacteristics.SCALER_AVAILABLE_ROTATE_AND_CROP_MODES]?.contains(
+                CaptureRequest.SCALER_ROTATE_AND_CROP_NONE) == true)
+            builder.set(CaptureRequest.SCALER_ROTATE_AND_CROP, CaptureRequest.SCALER_ROTATE_AND_CROP_NONE)
         builder.set(CaptureRequest.JPEG_QUALITY, 100.toByte())
         builder.set(CaptureRequest.JPEG_ORIENTATION, orientation)
         if (Build.VERSION.SDK_INT >= 28 && physical != null) {
@@ -306,6 +314,8 @@ class RawJpegCapture(context: Context) {
 
     private fun submitStill(value: CameraCaptureSession, sensor: CaptureResult?, callback: CameraCaptureSession.CaptureCallback) {
         try {
+            if (cancelRequested.get()) { finish("Aufnahme abgebrochen; gespeicherte Fotos erhalten"); return }
+            reportProgress("${if (nativeFusion) "MEHRBILD" else "Aufnahme"}: ${seriesFrames.size + 1}/$seriesCount")
             shotRequested = true
             value.stopRepeating()
             val still = request(CameraDevice.TEMPLATE_STILL_CAPTURE)
@@ -345,6 +355,14 @@ class RawJpegCapture(context: Context) {
                 .put("colorCorrectionModeActual", sensor[CaptureResult.COLOR_CORRECTION_MODE] ?: JSONObject.NULL)
                 .put("lensStateActual", sensor[CaptureResult.LENS_STATE] ?: JSONObject.NULL)
                 .put("focalLengthMm", sensor[CaptureResult.LENS_FOCAL_LENGTH]?.toDouble() ?: JSONObject.NULL)
+                .put("sensorCropRegion", sensor[CaptureResult.SCALER_CROP_REGION]?.toShortString() ?: JSONObject.NULL)
+                .put("logicalCropRegion", total[CaptureResult.SCALER_CROP_REGION]?.toShortString() ?: JSONObject.NULL)
+                .put("rawImageCropRect", raw?.cropRect?.toShortString() ?: JSONObject.NULL)
+                .put("jpegRotateAndCropActual", if (Build.VERSION.SDK_INT >= 31) total[CaptureResult.SCALER_ROTATE_AND_CROP] ?: JSONObject.NULL else JSONObject.NULL)
+                .put("videoStabilizationActual", total[CaptureResult.CONTROL_VIDEO_STABILIZATION_MODE] ?: JSONObject.NULL)
+                .put("distortionCorrectionActual", if (Build.VERSION.SDK_INT >= 28) sensor[CaptureResult.DISTORTION_CORRECTION_MODE] ?: JSONObject.NULL else JSONObject.NULL)
+                .put("lensIntrinsicCalibration", sensor[CaptureResult.LENS_INTRINSIC_CALIBRATION]?.let { org.json.JSONArray(it.map { value -> value.toDouble() }) } ?: JSONObject.NULL)
+                .put("lensDistortion", if (Build.VERSION.SDK_INT >= 28) sensor[CaptureResult.LENS_DISTORTION]?.let { org.json.JSONArray(it.map { value -> value.toDouble() }) } ?: JSONObject.NULL else JSONObject.NULL)
             // Read the JPEG's own ISO tag: sensor gain and JPEG post-RAW
             // amplification are distinct and the HAL may report their product.
             runCatching {
@@ -370,6 +388,7 @@ class RawJpegCapture(context: Context) {
                 if (rawStack == null) {
                     rawStack = NativeHdr.allocate(app, raw.width, raw.height)
                     fusionSize = Size(raw.width, raw.height); fusionSensor = sensor
+                    fusionRawCrop = android.graphics.Rect(raw.cropRect)
                 }
                 check(fusionSize == Size(raw.width, raw.height)) { "RAW-Größe innerhalb der Serie verändert" }
                 val plane = raw.planes[0]
@@ -397,6 +416,7 @@ class RawJpegCapture(context: Context) {
     }
 
     private fun finishFusion() {
+        reportProgress("MEHRBILD: 5/5 erfasst · Bilder verarbeiten …")
         val started = SystemClock.elapsedRealtime()
         evidence.put("nativeCaptureSpanNs", fusionTimestamps.last() - fusionTimestamps.first())
         val sensor = checkNotNull(fusionSensor)
@@ -404,9 +424,11 @@ class RawJpegCapture(context: Context) {
         check(!cancelRequested.get()) { "MEHRBILD abgebrochen" }
         val target = checkNotNull(targetJpegSize)
         val bitmap = NativeHdr.render(checkNotNull(rawStack), size.width, size.height, sensor,
-            checkNotNull(characteristics), zoom, orientation, target.width, target.height)
+            checkNotNull(characteristics), zoom, orientation, target.width, target.height, fusionRawCrop,
+            Build.VERSION.SDK_INT >= 30 && logicalCharacteristics?.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE) != null)
         try {
             check(!cancelRequested.get()) { "MEHRBILD abgebrochen; normales JPEG erhalten" }
+            reportProgress("MEHRBILD: JPEG und EXIF speichern …")
             val uri = save("SeaFrogs_${System.currentTimeMillis()}_MEHRBILD.jpg", "image/jpeg") {
                 check(bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 98, it)) { "MEHRBILD-JPEG nicht komprimiert" }
             }
@@ -430,6 +452,7 @@ class RawJpegCapture(context: Context) {
                 .put("nativeOutputWidth", bitmap.width).put("nativeOutputHeight", bitmap.height)
                 .put("fallbackJpegUri", savedJpeg.toString()).put("equalExposureBurst", true)
                 .put("lensShadingApplied", true).put("toneCompression", 1).put("toneGain", 1)
+                .put("chromaDenoisingApplied", true).put("neutralToneMapBypass", true)
             savedJpeg = uri
         } finally { bitmap.recycle() }
         finish(null)
@@ -596,6 +619,10 @@ class RawJpegCapture(context: Context) {
             if (Build.VERSION.SDK_INT >= 29) resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
             return uri
         } catch (error: Exception) { resolver.delete(uri, null, null); throw error }
+    }
+
+    private fun reportProgress(value: String) {
+        main.execute { if (!cancelRequested.get()) progress?.invoke(value) }
     }
 
     fun cancel() { cancelRequested.set(true); worker.post { finish("RAW-Aufnahme durch Lifecycle-Wechsel abgebrochen") } }

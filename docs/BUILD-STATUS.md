@@ -320,3 +320,29 @@ verfügbare Google HDR-Extension.
 
 APK-SHA256: 9e2e4e046fb766bab769f63afc100a06e6387d049c293a44d0c3c333f6e485e0
 APK-Länge: 8301942 Byte.
+
+## Meilenstein 0.7.1-quality-basics, 2026-10-08
+
+assembleDebug, lintDebug, testDebugUnitTest erfolgreich. 38 Tests bestanden,
+0 Fehler/übersprungen. Vier zusätzliche Crop-Tests prüfen versetzte Sensorfläche,
+Schnittmenge mit gültigen RAW-Pixeln, einmaligen Zoom, Seitenverhältnis und
+Fehler bei ungültiger Geometrie. Lint: 0 Fehler, 76 Warnungen.
+
+Nativer Vollkern neu generiert, Android-JNI verlinkt, Hostprüfung mit beiden
+Originalserien erfolgreich und je zweimal bitidentisch. Ergebnis in
+MIT-NATIVE-VERIFICATION-0.7.1.json. Zusätzlich liefert ein neutraler synthetischer
+256×256-Bayer-Test bei Identitäts-WB/Matrix und konstanten Eingaben identische
+RGB-Kanäle [136,136,136] im gesamten inneren Testbereich, Rückgabecode 0.
+Neue Host-Ausgaben visuell geprüft. Keine neue Pixel-Qualitätsabnahme.
+
+Farbentrauschung aktiv, neutrale Tonwertparameter bypass statt Zusatzaufhellung.
+JPEG-RotateAndCrop explizit NONE bei Unterstützung, Videostabilisierung OFF;
+Geometrie anhand realer Result-/RAW-Grenzen, Diagnosewerte erweitert. Ursache
+der gemessenen FoV-Abweichung bleibt bis zum nächsten Still-Metadaten-/Bildtest
+offen. Fortschrittsstufen, Bereitschaft, Speicherreserve und getrennte ISO-
+Anzeige ergänzt. ISO-400-Test ersetzt den bisherigen unterforderten ISO-800-Test.
+
+APK-Signatur und 16-KiB-zipalign geprüft; unveränderter Update-Schlüssel.
+versionCode 17, versionName 0.7.1-quality-basics, arm64-v8a.
+APK-SHA256: 20575f0bed230e89d6c03eb8bd8233c0f3b220e8cb1a2760715da4346680cf5e
+APK-Länge: 7620631 Byte.

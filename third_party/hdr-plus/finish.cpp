@@ -568,18 +568,18 @@ Func tone_map(Func input, Expr width, Expr height, Expr comp, Expr gain) {
 
   // constants used to determine compression and gain values at each iteration
 
-  Expr comp_const = 1.f + comp / num_passes;
-  Expr gain_const = 1.f + gain / num_passes;
+  Expr comp_const = pow(comp, 1.f / num_passes);
+  Expr gain_const = pow(gain, 1.f / num_passes);
 
-  Expr comp_slope = (comp - comp_const) / (num_passes - 1);
-  Expr gain_slope = (gain - gain_const) / (num_passes - 1);
+  // Geometric per-pass factors multiply to the requested total.
+  
 
   for (int pass = 0; pass < num_passes; pass++) {
 
     // compute compression and gain at given iteration
 
-    Expr norm_comp = pass * comp_slope + comp_const;
-    Expr norm_gain = pass * gain_slope + gain_const;
+    Expr norm_comp = comp_const;
+    Expr norm_gain = gain_const;
 
     bright = brighten(dark, norm_comp);
 
@@ -794,11 +794,15 @@ Halide::Func finish(Halide::Func input, Expr width, Expr height, Expr bp,
 
   // 5. sRGB color correction
 
-  Func srgb_output = srgb(demosaic_output, ccm);
+  Func srgb_output = srgb(chroma_denoised_output, ccm);
 
   // 6. Tone mapping
 
-  Func tone_map_output = tone_map(srgb_output, width, height, c, g);
+  Func mapped = tone_map(srgb_output, width, height, c, g);
+  Var x, y, channel;
+  Func tone_map_output("tone_or_identity");
+  tone_map_output(x,y,channel) = select(c == 1.f && g == 1.f,
+      srgb_output(x,y,channel), mapped(x,y,channel));
 
   // 7. Gamma correction
 

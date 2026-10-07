@@ -12,8 +12,8 @@ object AutoTestPlan {
             processing = ProcessingVariant.DEFAULT, frameCount = 5, fusion = true),
         AutoTestStep("FUSION_ULTRAWIDE", PhotoLens.ULTRAWIDE, quality = "MEHRBILD", nativeCapture = true,
             processing = ProcessingVariant.DEFAULT, frameCount = 5, fusion = true),
-        AutoTestStep("FUSION_MAIN_ISO800", PhotoLens.MAIN, quality = "MEHRBILD", nativeCapture = true,
-            isoCap = 800, processing = ProcessingVariant.DEFAULT, frameCount = 5, fusion = true)
+        AutoTestStep("FUSION_MAIN_ISO400", PhotoLens.MAIN, quality = "MEHRBILD", nativeCapture = true,
+            isoCap = 400, processing = ProcessingVariant.DEFAULT, frameCount = 5, fusion = true)
     )
 
     fun libraries(): List<AutoTestStep> = listOf(

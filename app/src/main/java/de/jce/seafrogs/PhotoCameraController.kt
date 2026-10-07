@@ -700,6 +700,11 @@ class PhotoCameraController(
         val routes = catalog ?: return
         val route = activeRoute ?: return
         val includeRaw = usesRaw()
+        val freeBytes = android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes
+        if (freeBytes < (if (includeRaw) 160L else 80L) * 1024 * 1024) {
+            message = "SPEICHER KNAPP: Aufnahme nicht gestartet"; emit()
+            completed?.invoke(null, message); return
+        }
         val fuse = usesNativeFusion()
         val limits = effectiveLimits()
         val rawSize = if (includeRaw || fuse) runCatching { routes.rawSize(route) }.getOrNull() else null
@@ -721,7 +726,9 @@ class PhotoCameraController(
         emit()
         val operation = RawJpegCapture(appContext)
         rawCapture = operation
-        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount, fuse, includeRaw) { outcome ->
+        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount, fuse, includeRaw, onProgress = { stage ->
+            if (generation == token && busy) { message = stage; emit() }
+        }) { outcome ->
             val actualMetadata = JSONObject(metadata).put(if (includeRaw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence)).toString()
             exifWriter.write(outcome.jpeg, actualMetadata) { exifError ->
                 mainExecutor.execute {
@@ -736,11 +743,10 @@ class PhotoCameraController(
                         outcome.comparisonSettings?.let { comparisonReferences[lens] = it }
                     busy = false
                     val failure = outcome.error ?: exifError
-                    completed?.invoke(outcome.jpeg, failure)
                     val result = JSONObject(outcome.evidence)
                     val difference = result.optDouble("brightnessDifferenceEvSensor", 0.0)
-                    val applied = if (limits.enabled && result.has("iso") && result.has("exposureTimeNs"))
-                        "\nFOTO SENSOR-ISO ${result.optString("iso")} | ${number((result.optLong("exposureTimeNs") / 1_000_000.0).toFloat())} ms"
+                    val applied = if (result.has("iso") && result.has("exposureTimeNs"))
+                        "\nSensor-ISO ${result.optString("iso")} · JPEG-ISO ${result.optString("jpegExifIso", "n/v")} | ${number((result.optLong("exposureTimeNs") / 1_000_000.0).toFloat())} ms"
                         else ""
                     val warning = if (result.optBoolean("underexposedByLimits"))
                         "\nDUNKLER DURCH LIMIT: ${number(difference.toFloat())} EV" else ""
@@ -748,6 +754,7 @@ class PhotoCameraController(
                         "${if (fuse) "MEHRBILD + STANDARD" else if (includeRaw) "RAW + JPEG" else "JPEG"} gespeichert: Pictures/SeaFrogs$applied$warning"
                         else if (fuse && outcome.jpeg != null) "STANDARD-JPEG gespeichert. MEHRBILD fehlgeschlagen: $failure"
                         else "Aufnahmefehler: $failure")
+                    completed?.invoke(outcome.jpeg, failure)
                 }
             }
         }
@@ -759,7 +766,7 @@ class PhotoCameraController(
         val size = imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.7.0-mit-multiframe")
+            .put("version", "0.7.1-quality-basics")
             .put("mode", "PHOTO")
             .put("testCase", testCase)
             .put("qualityMode", selectedQualityName())
