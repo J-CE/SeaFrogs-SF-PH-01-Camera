@@ -1,9 +1,9 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.3.0-lenses**. Live-Vorschau, JPEG-Aufnahme und
-Kamerawechsel 1× → Macro → 0,5× sowie separate HID-Diagnose.
-Der letzte erfolgreiche Build betrifft 0.2.0-photo; 0.3.0 ist noch nicht gebaut. SeaFrogs-Tastenbelegung und
+Aktueller Quelltext: **0.4.0-controls**. Live-Vorschau, JPEG-Aufnahme und
+Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate HID-Diagnose.
+Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
 Pixel-8-Hardwaretest sind noch nicht bestätigt.
 
 ## Öffnen und bauen
@@ -44,7 +44,7 @@ im Statusbereich. „Erneut starten“ initialisiert die Kamera neu.
 
 [Erster Kameratest](docs/CAMERA-TEST.md): Vorschau, AF, JPEGs, Orientierung,
 Berechtigungen und Freigabe nach Lifecycle-Wechsel auf dem Pixel 8 prüfen.
-Mausadapter, Video, Zoom-/EV-Zyklen, RAW und
+Mausadapter, Video, RAW und
 Weißabgleichprofile folgen nach separater Abstimmung.
 
 ## Kamerawechsel und Macro
@@ -63,6 +63,27 @@ Activity-Exemplar; eine neue Activity startet mit 1×.
 
 [Kameraerkennung und Grenzen](docs/LENS-MODES.md) sowie
 [Geräteprüfung](docs/CAMERA-TEST.md) beschreiben die noch offene Abnahme.
+
+## Zoom, Macro-Crop und EV
+
+ZOOM schaltet außerhalb von Macro 1× → 1,5× → 2× → 3× → 1×,
+bezogen auf das jeweilige Objektiv. Im Macro-Modus schaltet die Taste
+0,5× → 1× Crop → 2× Crop → 0,5×. Das entspricht Faktoren 1/2/4 auf dem
+Ultraweitwinkelsensor. Die Bezeichnungen beziehen sich nominal auf die Hauptkamera.
+Die App überspringt Faktoren außerhalb der aktuellen CameraX-Zoomgrenzen.
+Physische Kamera-Pins und tatsächlicher Crop erfordern die Geräteprüfung.
+
+EV schaltet nominell 0 → +0,7 → +1,3 → −0,7 → −1,3 → 0.
+Die App rundet auf unterstützte Indizes, begrenzt sie auf den gemeldeten Bereich
+und entfernt doppelte Stufen. Der Status zeigt den gesetzten Wert mit bis zu
+zwei Dezimalstellen, beispielsweise +0,67 bei einer Schrittweite von 1/3 EV.
+Ohne EV-Unterstützung bleibt die Taste deaktiviert.
+
+Alle drei Kamera-Befehle und der Auslöser warten auf die Bestätigung laufender
+Zoom-/EV-Operationen. Kamerawechsel setzen den Zoom auf den vollen Ausschnitt
+zurück und übernehmen den aktuellen EV-Wert innerhalb der neuen Grenzen.
+Lifecycle-Rückkehr im selben Activity-Exemplar stellt Zoom und EV erneut ein;
+eine neue Activity startet mit Zoom 1 und EV 0. Noch keine dauerhafte Speicherung.
 
 ## Diagnose
 
@@ -106,7 +127,7 @@ Hardwaretest muss der Export beide Werte als 0 melden.
 
 ## Nächster Meilenstein
 
-Nach Ergänzung von Zoom und EV: Build mit Lint, danach [Kameratest](docs/CAMERA-TEST.md) und getrennt
+Build, Lint und Zyklustests, danach [Kameratest](docs/CAMERA-TEST.md) und getrennt
 [HID-Hardwaretest](docs/PIXEL8-TEST.md). Die Kamera funktioniert unabhängig von
 der späteren Input-Abstraktion. Beide Ansichten verwenden native Android Views.
 Build-Ergebnisse stehen in [BUILD-STATUS.md](docs/BUILD-STATUS.md).
@@ -114,7 +135,7 @@ Build-Ergebnisse stehen in [BUILD-STATUS.md](docs/BUILD-STATUS.md).
 Geplante Bedienung: Links Macro/0,5×/1×, Hoch Zoom oder Macro-Crop, Runter
 Foto/Video, Klick Auslöser beziehungsweise Video Start/Stop, Rechts EV-Zyklus.
 RAW, Video-FPS, Weißabgleich und Kameraauswahl erfordern Capability-Prüfungen
-am realen Gerät. Diese erweiterten Funktionen sind in Version 0.3.0 noch nicht implementiert.
+am realen Gerät. Diese erweiterten Funktionen sind in Version 0.4.0 noch nicht implementiert.
 
 ## Lizenz und Quellen
 

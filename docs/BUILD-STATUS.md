@@ -32,3 +32,24 @@ Kamerawechsel und Macro-AF wurden nach dem obigen Build ergänzt.
 Für diese Version wurde vereinbarungsgemäß kein weiterer Build/Lint- oder
 Gerätetest ausgeführt. Die vorhandene 0.2.0-APK enthält diese Änderungen nicht.
 Nächster gemeinsamer Testmeilenstein: nach Zoom- und EV-Zyklen.
+
+## Meilenstein 0.4.0-controls, 2026-10-07
+
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich mit den unveränderten
+Projektversionen AGP 8.9.2 / Gradle 8.11.1 / Kotlin 2.1.20 / JDK 17 / SDK 35.
+Die Prüfung umfasst auch den zuvor ungebauten Objektivcode aus 0.3.0.
+
+Vier Zyklustests: 4 bestanden, 0 Fehler, 0 übersprungen.
+Lint: 0 Fehler, 39 Warnungen. Compiler: ältere WindowInsets-Zugriffe als deprecated.
+APK: de.jce.seafrogs, versionCode 4, versionName 0.4.0-controls, minSdk 26.
+apksigner bestätigt die APK-v2-Signatur. Kein Pixel-Hardwaretest durchgeführt.
+
+APK-SHA256:
+3a75e59c8624298e45cf77b47c4d589523836114d0630188677217bbe416df38
+
+Der neue Debug-Schlüssel unterscheidet sich vom Schlüssel der ausgelieferten
+0.2.0-APK. Eine bestehende Installation dieser APK muss vor Installation von
+0.4.0 entfernt werden; vorher benötigte HID-Protokolle exportieren.
+
+Die Build-Umgebung benötigte eine erneute Abhängigkeitsbeschaffung und den
+JDK-17-Compiler. Diese Umgebungsarbeiten ändern keine Projektversionen.

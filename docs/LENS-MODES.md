@@ -1,6 +1,6 @@
 # Objektivmodi 0.3.0-lenses
 
-Quelltextstand, noch nicht gebaut oder auf dem Pixel 8 geprüft.
+Der Meilenstein 0.4.0 baut diesen Objektivcode erfolgreich. Pixel-8-Prüfung noch offen.
 
 | Modus | Ausgabe | Fokus |
 | --- | --- | --- |
@@ -9,7 +9,7 @@ Quelltextstand, noch nicht gebaut oder auf dem Pixel 8 geprüft.
 | 0,5× | Ultraweitwinkel, voller Ausschnitt | Normaler Kamera-AF, soweit verfügbar |
 
 0,5× ist die nominelle Benutzerbezeichnung, keine gemessene Brennweitenrelation.
-Macro-Crops folgen mit dem Zoomzyklus. Es wird keine manuelle Fokusdistanz
+Version 0.4.0 ergänzt Macro-Crops über Faktoren 1/2/4 des UW-Ausschnitts. Es wird keine manuelle Fokusdistanz
 und kein Nahfokus garantiert; Macro muss am realen Motiv abgenommen werden.
 
 ## Auswahl ohne fest hinterlegte Kamera-IDs

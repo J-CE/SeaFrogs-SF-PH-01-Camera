@@ -20,11 +20,15 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 data class PhotoCameraState(
     val lens: PhotoLens = PhotoLens.MAIN,
+    val zoomLabel: String = "1×",
+    val exposureLabel: String = "0",
+    val exposureSupported: Boolean = false,
     val ready: Boolean = false,
     val capturing: Boolean = false,
     val message: String = "Kamera startet",
@@ -57,6 +61,10 @@ class PhotoCameraController(
     private var catalog: CameraLensCatalog? = null
     private var activeLens = PhotoLens.MAIN
     private var cyclePosition = PhotoLens.MAIN
+    private var zoomRatio = 1f
+    private var exposureEv = 0f
+    private var exposureReady = false
+    private var controlPending = false
     private var zoomReady = false
     private var focusPending = false
     private var focusTriggered = false
@@ -82,6 +90,7 @@ class PhotoCameraController(
             emit()
             return
         }
+        zoomRatio = 1f
         open(target, activeLens)
     }
 
@@ -126,14 +135,13 @@ class PhotoCameraController(
                         emit()
                     }
                 }
-                val zoom = boundCamera.cameraControl.setZoomRatio(1f)
+                val zoom = boundCamera.cameraControl.setZoomRatio(zoomRatio)
                 zoom.addListener({
                     if (generation == token) {
                         try {
                             zoom.get()
                             zoomReady = true
-                            maybeRestartMacroFocus(token)
-                            emit()
+                            restoreExposure(boundCamera, token, target, fallback)
                         } catch (error: Exception) {
                             recover(target, fallback, error)
                         }
@@ -190,7 +198,7 @@ class PhotoCameraController(
 
     private fun maybeRestartMacroFocus(token: Int) {
         if (activeLens != PhotoLens.MACRO || focusTriggered ||
-            !cameraOpen || !streaming || !zoomReady) return
+            !cameraOpen || !streaming || !zoomReady || !exposureReady) return
         focusTriggered = true
         val boundCamera = camera ?: return
         val view = previewView ?: return
@@ -234,7 +242,126 @@ class PhotoCameraController(
         }
     }
 
-    private fun isReady() = cameraOpen && streaming && zoomReady && !busy && !focusPending
+    private fun isReady() = cameraOpen && streaming && zoomReady && exposureReady &&
+        !busy && !focusPending && !controlPending
+
+    private fun restoreExposure(
+        boundCamera: Camera, token: Int, target: PhotoLens, fallback: PhotoLens?
+    ) {
+        val exposure = boundCamera.cameraInfo.exposureState
+        if (!exposure.isExposureCompensationSupported) {
+            exposureEv = 0f
+            exposureReady = true
+            maybeRestartMacroFocus(token)
+            emit()
+            return
+        }
+        try {
+            val step = exposure.exposureCompensationStep.toFloat()
+            val range = exposure.exposureCompensationRange
+            val index = CameraControlCycles.exposureIndex(exposureEv, step, range.lower, range.upper)
+            val operation = boundCamera.cameraControl.setExposureCompensationIndex(index)
+            operation.addListener({
+                if (generation == token) {
+                    try {
+                        exposureEv = operation.get() * step
+                        exposureReady = true
+                        maybeRestartMacroFocus(token)
+                        emit()
+                    } catch (error: Exception) {
+                        recover(target, fallback, error)
+                    }
+                }
+            }, mainExecutor)
+        } catch (error: Exception) {
+            recover(target, fallback, error)
+        }
+    }
+
+    fun cycleZoom() {
+        if (!isReady()) return
+        val boundCamera = camera ?: return
+        val zoomState = boundCamera.cameraInfo.zoomState.value ?: return
+        val next = CameraControlCycles.nextZoom(zoomRatio, activeLens == PhotoLens.MACRO,
+            zoomState.minZoomRatio, zoomState.maxZoomRatio)
+        if (next == null || next == zoomRatio) {
+            message = "Keine weitere Zoomstufe unterstützt"
+            emit()
+            return
+        }
+        val token = generation
+        controlPending = true
+        message = "Zoom wird eingestellt"
+        emit()
+        try {
+            val operation = boundCamera.cameraControl.setZoomRatio(next)
+            operation.addListener({
+                if (generation == token) {
+                    controlPending = false
+                    message = try {
+                        operation.get()
+                        zoomRatio = next
+                        "Zoom eingestellt"
+                    } catch (error: Exception) {
+                        "Zoom fehlgeschlagen: ${error.cause?.message ?: error.message}"
+                    }
+                    emit()
+                }
+            }, mainExecutor)
+        } catch (error: Exception) {
+            controlPending = false
+            message = "Zoom fehlgeschlagen: ${error.message}"
+            emit()
+        }
+    }
+
+    fun cycleExposure() {
+        if (!isReady()) return
+        val boundCamera = camera ?: return
+        val exposure = boundCamera.cameraInfo.exposureState
+        if (!exposure.isExposureCompensationSupported) {
+            message = "Belichtungskorrektur nicht unterstützt"
+            emit()
+            return
+        }
+        val token = generation
+        try {
+            val step = exposure.exposureCompensationStep.toFloat()
+            val range = exposure.exposureCompensationRange
+            val next = CameraControlCycles.nextExposure(exposure.exposureCompensationIndex,
+                step, range.lower, range.upper)
+            controlPending = true
+            message = "Belichtung wird eingestellt"
+            emit()
+            val operation = boundCamera.cameraControl.setExposureCompensationIndex(next)
+            operation.addListener({
+                if (generation == token) {
+                    controlPending = false
+                    message = try {
+                        exposureEv = operation.get() * step
+                        "Belichtung eingestellt"
+                    } catch (error: Exception) {
+                        "Belichtung fehlgeschlagen: ${error.cause?.message ?: error.message}"
+                    }
+                    emit()
+                }
+            }, mainExecutor)
+        } catch (error: Exception) {
+            controlPending = false
+            message = "Belichtung fehlgeschlagen: ${error.message}"
+            emit()
+        }
+    }
+
+    private fun zoomLabel(): String = if (activeLens == PhotoLens.MACRO) when (zoomRatio) {
+        1f -> "0,5×"
+        2f -> "1× Crop"
+        4f -> "2× Crop"
+        else -> "${number(zoomRatio)}× Cropfaktor"
+    } else "${number(zoomRatio)}×"
+
+    private fun number(value: Float): String = String.format(Locale.GERMANY, "%.2f", value)
+        .trimEnd('0').trimEnd(',')
 
     fun setRotation(targetRotation: Int) {
         rotation = targetRotation
@@ -321,6 +448,8 @@ class PhotoCameraController(
         streaming = false
         busy = false
         zoomReady = false
+        exposureReady = false
+        controlPending = false
         focusPending = false
         focusTriggered = false
     }
@@ -329,6 +458,9 @@ class PhotoCameraController(
         val size = imageCapture?.resolutionInfo?.resolution
         publish(PhotoCameraState(
             lens = activeLens,
+            zoomLabel = zoomLabel(),
+            exposureLabel = (if (exposureEv > 0f) "+" else "") + number(exposureEv),
+            exposureSupported = camera?.cameraInfo?.exposureState?.isExposureCompensationSupported == true,
             ready = isReady(),
             capturing = busy,
             message = message,

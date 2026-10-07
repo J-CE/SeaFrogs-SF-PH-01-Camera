@@ -6,8 +6,8 @@ android {
         applicationId = "de.jce.seafrogs"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0-lenses"
+        versionCode = 4
+        versionName = "0.4.0-controls"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -16,8 +16,10 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.activity:activity:1.10.1")
     implementation("androidx.camera:camera-camera2:1.4.2")
     implementation("androidx.camera:camera-lifecycle:1.4.2")
     implementation("androidx.camera:camera-view:1.4.2")
 }
+

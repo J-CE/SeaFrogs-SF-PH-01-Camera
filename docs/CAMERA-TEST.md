@@ -40,8 +40,8 @@ Eine Gehäusetaste kann in dieser Version noch kein Foto auslösen.
 
 ## Nächster gemeinsamer Meilenstein: Objektive, Zoom und EV
 
-Der Objektivcode liegt in 0.3.0-lenses vor, ist aber noch nicht gebaut oder
-am Gerät getestet. Die folgenden Prüfungen werden nach Zoom/EV ergänzt und
+Der Objektivcode stammt aus 0.3.0-lenses und wurde mit 0.4.0-controls erfolgreich
+gebaut. Der Gerätetest steht noch aus. Die folgenden Prüfungen werden nach Zoom/EV ergänzt und
 zusammen ausgeführt:
 
 1. KAMERA mehrfach drücken: 1× → Macro → 0,5× → 1×. Bei jedem Modus JPEG
@@ -64,3 +64,23 @@ zusammen ausgeführt:
 
 Protokollieren: Android-Build, gewählte logische/physische IDs (Debugger),
 JPEG-Größen je Modus, Fokusabstände, Ausschnitt und Fehler. Noch keine Messwerte.
+
+### Zoom-/EV-Abnahme für 0.4.0-controls
+
+1. In 1× und 0,5× jeden Zoomschritt samt Rückkehr zur Basis prüfen. Bildfeld
+   von Vorschau und JPEG vergleichen; nicht unterstützte Faktoren werden übersprungen.
+2. Macro: voller UW-Ausschnitt → Faktor 2 → Faktor 4 → voller Ausschnitt.
+   Auf echte UW-Sensorausgabe sowie AF-Nachführung achten. Nominale 0,5×/1×/2×
+   müssen dem tatsächlichen Bildfeld entsprechen, bevor sie als bestätigt gelten.
+3. EV-Zyklus vollständig durchlaufen. CameraX-Schrittweite, Indexbereich und
+   erreichte Werte notieren; beispielsweise 0/+0,67/+1,33/−0,67/−1,33.
+   Unter unveränderter Beleuchtung JPEG-Helligkeit vergleichen.
+4. Kamera wechseln: voller Ausschnitt und übernommener EV-Wert. Grenzen anderer
+   Kameras beachten. Nach Diagnose-Rückkehr müssen Zoom und EV wieder aktiv sein.
+5. Schnell wechselnde Befehle und Auslösung während Zoom-/EV-Änderung prüfen:
+   keine konkurrierenden Operationen, keine veralteten Statusrückmeldungen.
+6. In beiden Querformaten prüfen, ob Status, Vorschau und große Tasten Platz haben.
+
+Automatisch prüfbar: Zyklusende, unzulässige Zoomstufen, Macro-Faktoren,
+EV-Rundung auf Drittelstufen und Entdoppelung bei eingeschränktem EV-Bereich.
+Diese Unit-Tests ersetzen keinen Pixel-8-Kameratest.

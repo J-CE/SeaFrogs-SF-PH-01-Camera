@@ -3,6 +3,7 @@ package de.jce.seafrogs
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -25,6 +26,8 @@ class CameraActivity : ComponentActivity() {
     private lateinit var preview: PreviewView
     private lateinit var status: TextView
     private lateinit var lensSwitch: Button
+    private lateinit var zoom: Button
+    private lateinit var exposure: Button
     private lateinit var shutter: Button
     private lateinit var diagnosis: Button
     private lateinit var restart: Button
@@ -44,8 +47,9 @@ class CameraActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+            orientation = if (landscape) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
             setBackgroundColor(android.graphics.Color.BLACK)
             setOnApplyWindowInsetsListener { view, insets ->
                 view.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
@@ -53,18 +57,20 @@ class CameraActivity : ComponentActivity() {
                 insets
             }
         }
+        val cameraPanel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val buttonsPanel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         status = TextView(this).apply {
             textSize = 22f
             gravity = Gravity.CENTER
             setTextColor(android.graphics.Color.WHITE)
             setPadding(dp(8), dp(8), dp(8), dp(8))
         }
-        root.addView(status)
+        cameraPanel.addView(status)
         preview = PreviewView(this).apply {
             scaleType = PreviewView.ScaleType.FIT_CENTER
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         }
-        root.addView(preview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        cameraPanel.addView(preview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         lensSwitch = Button(this).apply {
             text = "KAMERA: 1×"
             textSize = 24f
@@ -72,7 +78,25 @@ class CameraActivity : ComponentActivity() {
             isEnabled = false
             setOnClickListener { controller.cycleLens() }
         }
-        root.addView(lensSwitch)
+        buttonsPanel.addView(lensSwitch)
+        val controls = LinearLayout(this)
+        zoom = Button(this).apply {
+            text = "ZOOM: 1×"
+            textSize = 22f
+            minHeight = dp(64)
+            isEnabled = false
+            setOnClickListener { controller.cycleZoom() }
+        }
+        exposure = Button(this).apply {
+            text = "EV: 0"
+            textSize = 22f
+            minHeight = dp(64)
+            isEnabled = false
+            setOnClickListener { controller.cycleExposure() }
+        }
+        controls.addView(zoom, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        controls.addView(exposure, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        buttonsPanel.addView(controls)
         shutter = Button(this).apply {
             text = "FOTO"
             textSize = 28f
@@ -80,7 +104,7 @@ class CameraActivity : ComponentActivity() {
             isEnabled = false
             setOnClickListener { controller.capturePhoto() }
         }
-        root.addView(shutter)
+        buttonsPanel.addView(shutter)
         val footer = LinearLayout(this)
         restart = Button(this).apply {
             text = "Erneut starten"
@@ -99,12 +123,22 @@ class CameraActivity : ComponentActivity() {
         }
         footer.addView(restart, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         footer.addView(diagnosis, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        root.addView(footer)
+        buttonsPanel.addView(footer)
+        root.addView(cameraPanel, if (landscape)
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+        else LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        root.addView(buttonsPanel, LinearLayout.LayoutParams(
+            if (landscape) dp(244) else LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT))
         setContentView(root)
         controller = PhotoCameraController(this) { state ->
             if (!isDestroyed && active) {
-                status.text = "PHOTO | ${state.lens.label} | JPEG\n" +
+                status.text = "PHOTO | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | JPEG\n" +
                     state.resolution + "\n" + state.message
+                zoom.isEnabled = state.ready
+                zoom.text = "ZOOM: ${state.zoomLabel}"
+                exposure.isEnabled = state.ready && state.exposureSupported
+                exposure.text = if (state.exposureSupported) "EV: ${state.exposureLabel}" else "EV: N/V"
                 lensSwitch.isEnabled = state.ready
                 lensSwitch.text = "KAMERA: ${state.lens.label}"
                 shutter.isEnabled = state.ready
@@ -163,6 +197,8 @@ class CameraActivity : ComponentActivity() {
     }
 
     private fun showPermissionRequired() {
+        zoom.isEnabled = false
+        exposure.isEnabled = false
         lensSwitch.isEnabled = false
         shutter.isEnabled = false
         status.text = "KAMERAZUGRIFF FEHLT\nBerechtigung freigeben. HID-Diagnose bleibt verfügbar."
@@ -184,6 +220,8 @@ class CameraActivity : ComponentActivity() {
     override fun onStop() {
         active = false
         sessionStarted = false
+        zoom.isEnabled = false
+        exposure.isEnabled = false
         lensSwitch.isEnabled = false
         shutter.isEnabled = false
         orientation.disable()
