@@ -3,6 +3,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AutoTestPlanTest {
+    @Test fun processingTestHasPerLensBaselineThenVariantsAndIndependentNightReference() {
+        val steps = AutoTestPlan.processing()
+        assertEquals(7, steps.size)
+        for (lens in listOf(PhotoLens.MAIN, PhotoLens.ULTRAWIDE)) {
+            val variants = steps.filter { it.lens == lens && it.nativeCapture }
+            assertEquals(listOf(ProcessingVariant.DEFAULT, ProcessingVariant.NR_HIGH_QUALITY,
+                ProcessingVariant.NR_EDGE_HIGH_QUALITY), variants.map { it.processing })
+            assertTrue(variants.all { it.quality == "STANDARD" })
+        }
+        assertEquals("NIGHT", steps.last().quality)
+        assertEquals(PhotoLens.MAIN, steps.last().lens)
+        assertFalse(steps.last().nativeCapture)
+        assertEquals(ProcessingVariant.NONE, steps.last().processing)
+        assertTrue(steps.all { !it.raw && it.isoCap == 0 && it.zoom == 1f && it.ev == 0f })
+        assertEquals(steps.size, steps.map { it.id }.toSet().size)
+    }
     @Test fun isoComparisonUsesSameBackendAndUncroppedEvZeroPairs() {
         val steps = AutoTestPlan.iso(8_000_000L)
         assertEquals(6, steps.size)

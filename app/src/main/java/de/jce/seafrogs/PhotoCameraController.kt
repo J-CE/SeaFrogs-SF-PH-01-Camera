@@ -112,6 +112,8 @@ class PhotoCameraController(
         exposurePreferences.getLong("longestTimeNs", 33_333_333L).takeIf { it in ExposureLimits.timeChoices } ?: 33_333_333L)
     private var testLimitsOverride: ExposureLimits? = null
     private var testNativeCapture = false
+    private var testProcessing = ProcessingVariant.NONE
+    private val comparisonReferences = mutableMapOf<PhotoLens, FrozenCaptureSettings>()
     private fun effectiveLimits() = testLimitsOverride ?: exposureLimits
     fun savedExposureLimits() = exposureLimits
 
@@ -135,6 +137,8 @@ class PhotoCameraController(
         testRawOverride = null
         testLimitsOverride = null
         testNativeCapture = false
+        testProcessing = ProcessingVariant.NONE
+        comparisonReferences.clear()
         if (usesRaw() || effectiveLimits().enabled) qualityMode = ExtensionMode.NONE
         // Rebind after a cancelled extension run too, so saved format and
         // limits cannot coexist with a stale extension session.
@@ -483,6 +487,12 @@ class PhotoCameraController(
         val mode = qualityModes.firstOrNull { qualityName(it) == step.quality } ?: return false
         if (step.quality !in autoTestQualities(step.lens)) return false
         if (step.raw && runCatching { catalog?.rawSize(checkNotNull(catalog?.routeFor(step.lens))) }.getOrNull() == null) return false
+        val route = checkNotNull(catalog?.routeFor(step.lens))
+        if (runCatching { catalog?.supportsProcessing(route, step.processing) }.getOrNull() != true) return false
+        if (step.processing != ProcessingVariant.NONE && step.processing != ProcessingVariant.DEFAULT &&
+            comparisonReferences[step.lens] == null) return false
+        if (step.processing == ProcessingVariant.DEFAULT) comparisonReferences.remove(step.lens)
+        testProcessing = step.processing
         testRawOverride = step.raw
         testNativeCapture = step.nativeCapture
         testLimitsOverride = ExposureLimits(step.isoCap, step.longestTimeNs)
@@ -686,6 +696,8 @@ class PhotoCameraController(
         }
         val metadata = exifSnapshot()
         val lens = activeLens
+        val processing = testProcessing
+        val reference = if (processing == ProcessingVariant.DEFAULT) null else comparisonReferences[lens]
         val jpegOrientation = routes.jpegOrientation(route, rotation)
         clearSession()
         val token = generation
@@ -694,7 +706,7 @@ class PhotoCameraController(
         emit()
         val operation = RawJpegCapture(appContext)
         rawCapture = operation
-        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits) { outcome ->
+        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference) { outcome ->
             val actualMetadata = JSONObject(metadata).put(if (includeRaw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence)).toString()
             exifWriter.write(outcome.jpeg, actualMetadata) { exifError ->
                 mainExecutor.execute {
@@ -705,6 +717,8 @@ class PhotoCameraController(
                     if (generation != token) return@execute
                     rawCapture = null
                     lastRawOutcome = outcome
+                    if (processing == ProcessingVariant.DEFAULT && outcome.error == null)
+                        outcome.comparisonSettings?.let { comparisonReferences[lens] = it }
                     busy = false
                     val failure = outcome.error ?: exifError
                     completed?.invoke(outcome.jpeg, failure)
@@ -729,10 +743,11 @@ class PhotoCameraController(
         val size = imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.6.5-physical-iso")
+            .put("version", "0.6.6-processing-test")
             .put("mode", "PHOTO")
             .put("testCase", testCase)
             .put("qualityMode", qualityName(qualityMode))
+            .put("processingVariantRequested", testProcessing.name)
             .put("photoFormat", if (usesRaw()) "RAW+JPEG" else "JPEG")
             .put("isoCapRequested", effectiveLimits().isoCap)
             .put("longestTimeNsRequested", if (effectiveLimits().enabled) effectiveLimits().longestTimeNs else JSONObject.NULL)

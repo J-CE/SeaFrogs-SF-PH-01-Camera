@@ -17,7 +17,7 @@ import org.json.JSONObject
 object CameraCapabilityReport {
     fun collect(context: Context): JSONObject {
         val report = JSONObject()
-            .put("schemaVersion", 1).put("appVersion", "0.6.5-physical-iso")
+            .put("schemaVersion", 1).put("appVersion", "0.6.6-processing-test")
             .put("createdWallTimeMs", System.currentTimeMillis())
             .put("device", Build.MODEL).put("androidBuild", Build.FINGERPRINT)
             .put("sdk", Build.VERSION.SDK_INT)
@@ -117,6 +117,7 @@ object CameraCapabilityReport {
         field("focalLengthsMm") { c[CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS] }
         field("apertures") { c[CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES] }
         field("oisModes") { c[CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION] }
+        field("edgeModes") { c[CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES] }
         field("noiseReductionModes") { c[CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES] }
         field("maxDigitalZoom") { c[CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM] }
         field("availableRequestKeys") { c.availableCaptureRequestKeys?.map { it.name }?.sorted() }

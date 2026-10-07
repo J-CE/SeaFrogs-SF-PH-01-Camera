@@ -103,6 +103,18 @@ class CameraLensCatalog(context: Context, provider: ProcessCameraProvider) {
         return route.physicalId?.let { logical.intersect(sizes(it)) } ?: logical
     }
 
+    fun supportsProcessing(route: CameraLensRoute, variant: ProcessingVariant): Boolean {
+        if (variant == ProcessingVariant.NONE) return true
+        val c = manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
+        val caps = c[CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES] ?: return false
+        if (!caps.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR) ||
+            !caps.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING)) return false
+        if (variant != ProcessingVariant.DEFAULT &&
+            c[CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES]?.contains(CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY) != true) return false
+        return variant != ProcessingVariant.NR_EDGE_HIGH_QUALITY ||
+            c[CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES]?.contains(CaptureRequest.EDGE_MODE_HIGH_QUALITY) == true
+    }
+
     fun rawSize(route: CameraLensRoute): android.util.Size? {
         val c = manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
         if (c[CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES]?.contains(

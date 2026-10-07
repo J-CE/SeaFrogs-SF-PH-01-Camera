@@ -2,10 +2,24 @@ package de.jce.seafrogs
 
 data class AutoTestStep(val id: String, val lens: PhotoLens, val zoom: Float = 1f,
     val ev: Float = 0f, val quality: String = "STANDARD", val raw: Boolean = false,
-    val nativeCapture: Boolean = false, val isoCap: Int = 0, val longestTimeNs: Long = 33_333_333L)
+    val nativeCapture: Boolean = false, val isoCap: Int = 0, val longestTimeNs: Long = 33_333_333L,
+    val processing: ProcessingVariant = ProcessingVariant.NONE)
 
 /** Stable order and settings keep the comparison reproducible. */
 object AutoTestPlan {
+    fun processing(): List<AutoTestStep> = buildList {
+        for (lens in listOf(PhotoLens.MAIN, PhotoLens.ULTRAWIDE)) {
+            for (variant in listOf(ProcessingVariant.DEFAULT, ProcessingVariant.NR_HIGH_QUALITY,
+                ProcessingVariant.NR_EDGE_HIGH_QUALITY)) {
+                add(AutoTestStep("QUALITY_${lens.name}_${variant.name}", lens,
+                    nativeCapture = true, processing = variant))
+            }
+        }
+        // Extension controls its own exposure/WB/focus and resolution. This
+        // is a separately labelled reference, not a locked processing pair.
+        add(AutoTestStep("QUALITY_MAIN_NIGHT_REFERENCE", PhotoLens.MAIN, quality = "NIGHT"))
+    }
+
     fun create(macro: Boolean): List<AutoTestStep> = buildList {
         if (macro) {
             add(AutoTestStep("MACRO_UW_BASIS", PhotoLens.ULTRAWIDE))

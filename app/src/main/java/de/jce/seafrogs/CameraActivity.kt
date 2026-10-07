@@ -50,7 +50,9 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var exposureSetup: Button
     private lateinit var isoTest: Button
     private lateinit var isoExport: Button
-    private var exportIsoOnly = false
+    private var exportGroupOnly: String? = null
+    private lateinit var qualityTest: Button
+    private lateinit var qualityExport: Button
     private var autoStatus = ""
     private var lastCameraState = PhotoCameraState()
     private lateinit var testCase: Button
@@ -70,9 +72,9 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private var downCount = 0
     private val finishBurst = Runnable { finishInput() }
     private val exportRequest = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        val isoOnly = exportIsoOnly
-        exportIsoOnly = false
-        if (uri != null) recorder.export(uri, automated.photos(isoOnly), automated.report(isoOnly), capabilityReport)
+        val groupOnly = exportGroupOnly
+        exportGroupOnly = null
+        if (uri != null) recorder.export(uri, automated.photos(groupOnly), automated.report(groupOnly), capabilityReport)
     }
     private var active = false
     private var sessionStarted = false
@@ -93,7 +95,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.5-physical-iso")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.6-processing-test")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -184,7 +186,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             setOnClickListener {
                 preview.releasePointerCapture()
                 resetInput("export")
-                exportIsoOnly = false
+                exportGroupOnly = null
                 exportRequest.launch("seafrogs-test-${System.currentTimeMillis()}.zip")
             }
         }
@@ -236,7 +238,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             setOnClickListener {
                 preview.releasePointerCapture()
                 resetInput("isoExport")
-                exportIsoOnly = true
+                exportGroupOnly = "ISO"
                 exportRequest.launch("seafrogs-iso-${System.currentTimeMillis()}.zip")
             }
         }
@@ -244,6 +246,24 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             isoControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
         buttonsPanel.addView(isoControls)
+        val processingControls = LinearLayout(this)
+        qualityTest = Button(this).apply {
+            text = "QUALITÄTSTEST"
+            setOnClickListener { beginAutomated(false, processing = true) }
+        }
+        qualityExport = Button(this).apply {
+            text = "QUALITÄT ZIP"
+            setOnClickListener {
+                preview.releasePointerCapture()
+                resetInput("qualityExport")
+                exportGroupOnly = "QUALITY"
+                exportRequest.launch("seafrogs-quality-${System.currentTimeMillis()}.zip")
+            }
+        }
+        listOf(qualityTest, qualityExport).forEach {
+            processingControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        buttonsPanel.addView(processingControls)
         val autoControls = LinearLayout(this)
         normalTest = Button(this).apply {
             text = "NORMALTEST"
@@ -386,6 +406,8 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         exposureSetup.text = if (state.exposureLimits.enabled) "Sensor ≤ ${state.exposureLimits.isoCap}" else "ISO: AUTO"
         isoTest.isEnabled = state.ready && !testing
         isoExport.isEnabled = capabilityReport != null && !state.capturing && !testing
+        qualityTest.isEnabled = state.ready && !testing
+        qualityExport.isEnabled = capabilityReport != null && !state.capturing && !testing
         testCase.isEnabled = !state.capturing && !testing
         export.text = if (capabilityReport == null) "KAMERADATEN …" else "TEST ZIP"
         export.isEnabled = capabilityReport != null && !state.capturing && !testing
@@ -405,20 +427,22 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         macroTest.isEnabled = state.ready && !testing
     }
 
-    private fun beginAutomated(macro: Boolean, raw: Boolean = false, iso: Boolean = false) {
-        val message = if (iso)
+    private fun beginAutomated(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false) {
+        val message = if (processing)
+            "Stütze das Handy fest ab und stelle ein bedrucktes Motiv mit feinen Details etwa 50 cm vor die Linse. Motiv und Licht konstant halten, während des Tests nichts berühren.\n\nDie App vergleicht je Kamera Standard-Verarbeitung, HQ-Entrauschen und HQ-Entrauschen + HQ-Schärfung. Belichtung, Weißabgleich und Fokus bleiben je Kamera fest. ISO-Grenzen sind für diesen Test aus. Danach folgt ein separates NIGHT-Referenzbild der Hauptkamera, sofern verfügbar.\n\nNicht unterstützte Varianten überspringt die App. Bis zu sieben JPEGs, Vorschau pausiert bei normalen Vergleichsaufnahmen. Danach QUALITÄT ZIP exportieren."
+        else if (iso)
             "Stütze das Handy ab. Stelle ein bedrucktes Motiv etwa 50 cm vor die Linse und halte das Licht konstant.\n\nDie App fotografiert automatisch mit Hauptkamera und UW: jeweils Auto, maximal ISO 800 und maximal ISO 400. Die Zeitgrenze aus dem ISO-Setup gilt bei den beiden begrenzten Aufnahmen. Auto bleibt unbeschränkt. Alle sechs Fotos nutzen denselben Aufnahmeweg; die Vorschau pausiert während der Aufnahme.\n\nDanach ISO ZIP exportieren."
         else if (raw)
             "Lege eine bedruckte Seite etwa 50 cm vor die Kameralinse. Stütze das Handy ab, halte Motiv und Licht konstant.\n\nDie App nimmt je ein RAW+JPEG-Paar mit Hauptkamera, UW und Macro auf. Dieser Test prüft Dateiformat und Sensorzuordnung. Während jeder RAW-Aufnahme pausiert die Vorschau."
         else if (macro)
             "Lege eine bedruckte Seite etwa 5 cm vor die Kameralinse. Stütze das Handy ab und halte das Licht konstant.\n\nDie App übernimmt Kamera, Fokusversuch, Crop-Stufen und Aufnahmen. Während des Tests nichts bewegen."
         else "Lege eine bedruckte Seite etwa 50 cm vor die Kameralinse. Stütze das Handy ab und halte das Licht konstant.\n\nDie App übernimmt Kamera, Zoom, EV, verfügbare Bildverarbeitung und Aufnahmen. Während des Tests nichts bewegen."
-        AlertDialog.Builder(this).setTitle(if (iso) "Automatischer ISO-Vergleich" else if (raw) "Automatischer RAW-Test" else if (macro) "Automatischer Macrotest" else "Automatischer Normaltest")
+        AlertDialog.Builder(this).setTitle(if (processing) "Automatischer Qualitätstest" else if (iso) "Automatischer ISO-Vergleich" else if (raw) "Automatischer RAW-Test" else if (macro) "Automatischer Macrotest" else "Automatischer Normaltest")
             .setMessage(message).setNegativeButton("Zurück", null)
             .setPositiveButton("Test starten") { _, _ ->
                 preview.releasePointerCapture()
                 resetInput("autoTestStart")
-                automated.start(macro, raw, iso)
+                automated.start(macro, raw, iso, processing)
             }.show()
     }
 

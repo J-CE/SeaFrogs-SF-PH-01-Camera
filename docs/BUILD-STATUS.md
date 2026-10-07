@@ -195,3 +195,19 @@ Erfolg behauptet. APK versionCode 12/versionName 0.6.5-physical-iso, identischer
 Debug-Schlüssel; Installation als Update möglich. Projektversionen unverändert.
 
 APK-SHA256: 6d27d4de3c387cfcb956a32684d0b2a64a65c6d9e4ecec701413df119f72af26
+
+## Qualitätstest 0.6.6-processing-test, 2026-10-07
+
+Automatischer Vergleich von Still-Template, HQ-Entrauschen und HQ-Entrauschen
+mit HQ-Schärfung für Hauptkamera und physisches UW. Sensorbelichtung, WB
+und Fokus werden eingefroren und am tatsächlichen CaptureResult geprüft.
+Separate NIGHT-Referenz und eigener QUALITY-ZIP-Export. Ablauf und Grenzen
+siehe QUALITY-0.6.6.md; die neue manuelle Vergleichsaufnahme braucht noch
+den Pixel-8-Gerätetest. Kein Bildqualitätsgewinn behauptet.
+
+assembleDebug/lintDebug/testDebugUnitTest erfolgreich. 24 Tests bestanden,
+0 Fehler/übersprungen; Lint 0 Fehler, 72 Warnungen. versionCode 13,
+versionName 0.6.6-processing-test. APK-Signatur geprüft, gleicher Debug-Schlüssel
+wie 0.6.5; Installation als Update möglich. Abhängigkeiten unverändert.
+
+APK-SHA256: 48287984a9ed2515b28f6e066741f72d17cfd3c75687fcf6fc434a5a1e5b29c9
