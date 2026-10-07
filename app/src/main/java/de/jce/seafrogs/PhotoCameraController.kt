@@ -41,7 +41,8 @@ data class PhotoCameraState(
     val message: String = "Kamera startet",
     val resolution: String = "",
     val quality: String = "STANDARD",
-    val diagnostics: String = ""
+    val diagnostics: String = "",
+    val photoFormat: String = "JPEG"
 )
 
 /**
@@ -98,6 +99,23 @@ class PhotoCameraController(
     private var focusTriggered = false
     private var rotation = Surface.ROTATION_0
     private var message = "Kamera startet"
+    private val formatPreferences = appContext.getSharedPreferences("photoFormat", Context.MODE_PRIVATE)
+    private var rawEnabled = formatPreferences.getBoolean("rawJpeg", false)
+    private var testRawOverride: Boolean? = null
+    private var rawCapture: RawJpegCapture? = null
+    private var lastRawOutcome: RawPairOutcome? = null
+    private fun usesRaw() = testRawOverride ?: rawEnabled
+
+    fun setRawEnabled(value: Boolean) {
+        if (!isReady()) return
+        rawEnabled = value
+        formatPreferences.edit().putBoolean("rawJpeg", value).apply()
+        if (value) qualityMode = ExtensionMode.NONE
+        open(activeLens)
+    }
+
+    fun endAutoTest() { testRawOverride = null; emit() }
+    fun rawOutcome() = lastRawOutcome
 
     fun start(lifecycleOwner: LifecycleOwner, view: PreviewView) {
         stop()
@@ -162,7 +180,7 @@ class PhotoCameraController(
                     .put("logicalId", route.logicalId).put("physicalId", route.physicalId ?: JSONObject.NULL)
                     .put("extensionsOnLogicalSelector", org.json.JSONArray(modes.map(::qualityName)))
                     .put("extensionsAllowedOnRoute", route.physicalId == null))
-                if (route.physicalId != null || qualityMode !in modes) qualityMode = ExtensionMode.NONE
+                if (usesRaw() || route.physicalId != null || qualityMode !in modes) qualityMode = ExtensionMode.NONE
                 bind(availableProvider, lifecycleOwner, view, route)
                 activeRoute = route
                 activeLens = target
@@ -439,6 +457,8 @@ class PhotoCameraController(
         if (busy || owner == null || catalog?.routeFor(step.lens) == null) return false
         val mode = qualityModes.firstOrNull { qualityName(it) == step.quality } ?: return false
         if (step.quality !in autoTestQualities(step.lens)) return false
+        if (step.raw && runCatching { catalog?.rawSize(checkNotNull(catalog?.routeFor(step.lens))) }.getOrNull() == null) return false
+        testRawOverride = step.raw
         testCase = step.id
         zoomRatio = step.zoom
         exposureEv = step.ev
@@ -538,7 +558,6 @@ class PhotoCameraController(
     private fun zoomLabel(): String = if (activeLens == PhotoLens.MACRO) when (zoomRatio) {
         1f -> "0,5×"
         2f -> "1× Crop"
-        4f -> "2× Crop"
         else -> "${number(zoomRatio)}× Cropfaktor"
     } else "${number(zoomRatio)}×"
 
@@ -551,6 +570,8 @@ class PhotoCameraController(
     }
 
     fun capturePhoto(completed: ((android.net.Uri?, String?) -> Unit)? = null) {
+        lastRawOutcome = null
+        if (usesRaw()) { captureRawPair(completed); return }
         val capture = imageCapture
         if (capture == null || !isReady()) {
             completed?.invoke(null, "Kamera nicht bereit")
@@ -624,16 +645,58 @@ class PhotoCameraController(
         }
     }
 
+    private fun captureRawPair(completed: ((android.net.Uri?, String?) -> Unit)?) {
+        if (!isReady()) { completed?.invoke(null, "Kamera nicht bereit"); return }
+        val routes = catalog ?: return
+        val route = activeRoute ?: return
+        val rawSize = runCatching { routes.rawSize(route) }.getOrNull()
+        val jpegSize = imageCapture?.resolutionInfo?.resolution
+        if (rawSize == null || jpegSize == null) {
+            message = "RAW auf dieser Kameraroute nicht verfügbar"; emit()
+            completed?.invoke(null, message); return
+        }
+        val metadata = exifSnapshot()
+        val lens = activeLens
+        val jpegOrientation = routes.jpegOrientation(route, rotation)
+        clearSession()
+        val token = generation
+        busy = true
+        message = "RAW + JPEG: Fokus/Aufnahme … Vorschau pausiert"
+        emit()
+        val operation = RawJpegCapture(appContext)
+        rawCapture = operation
+        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata) { outcome ->
+            val actualMetadata = JSONObject(metadata).put("rawCapture", JSONObject(outcome.evidence)).toString()
+            exifWriter.write(outcome.jpeg, actualMetadata) { exifError ->
+                mainExecutor.execute {
+                    log(JSONObject(outcome.evidence).put("kind", "rawJpegCaptureResult")
+                        .put("jpegUri", outcome.jpeg?.toString() ?: JSONObject.NULL)
+                        .put("dngUri", outcome.dng?.toString() ?: JSONObject.NULL)
+                        .put("error", outcome.error ?: JSONObject.NULL))
+                    if (generation != token) return@execute
+                    rawCapture = null
+                    lastRawOutcome = outcome
+                    busy = false
+                    val failure = outcome.error ?: exifError
+                    completed?.invoke(outcome.jpeg, failure)
+                    open(lens, notice = if (outcome.error == null && outcome.dng != null)
+                        "RAW + JPEG gespeichert: Pictures/SeaFrogs" else "RAW-Aufnahmefehler: ${outcome.error}")
+                }
+            }
+        }
+    }
+
     private fun exifSnapshot(): String {
         val exposure = camera?.cameraInfo?.exposureState
         val zoom = camera?.cameraInfo?.zoomState?.value
         val size = imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.6.2-resolution-af")
+            .put("version", "0.6.3-raw-jpeg")
             .put("mode", "PHOTO")
             .put("testCase", testCase)
             .put("qualityMode", qualityName(qualityMode))
+            .put("photoFormat", if (usesRaw()) "RAW+JPEG" else "JPEG")
             .put("latestPreviewResultNotPhotoResult", JSONObject(latestResult))
             .put("lensMode", activeLens.name)
             .put("logicalCameraId", activeRoute?.logicalId ?: JSONObject.NULL)
@@ -657,6 +720,8 @@ class PhotoCameraController(
     }
 
     fun stop() {
+        rawCapture?.cancel()
+        rawCapture = null
         clearSession()
         owner = null
         previewView = null
@@ -702,7 +767,8 @@ class PhotoCameraController(
             message = message,
             resolution = size?.let { "${it.width} × ${it.height}" } ?: "",
             quality = qualityName(qualityMode),
-            diagnostics = extensionSummary + "\n" + resultSummary()
+            diagnostics = extensionSummary + "\n" + resultSummary(),
+            photoFormat = if (usesRaw()) "RAW+JPEG" else "JPEG"
         ))
     }
 

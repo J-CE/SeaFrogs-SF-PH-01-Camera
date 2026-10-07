@@ -1,20 +1,26 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.6.2-resolution-af**. Live-Vorschau, JPEG-Aufnahme und
+Aktueller Quelltext: **0.6.3-raw-jpeg**. Live-Vorschau, JPEG-Aufnahme und
 Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate HID-Diagnose.
 Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
 Pixel-8-Testbefunde und offene Punkte stehen im [Fähigkeitsbericht](docs/CAPABILITIES-0.6.1.md).
 
-0.6.2 korrigiert die Auflösungswahl physisch gepinnter UW-/Macro-Ausgaben und
+0.6.3 ergänzt FORMAT (JPEG only / RAW + JPEG), einen automatischen RAW-Test
+mit Original-DNGs im ZIP und entfernt Macro-Faktor 4. Der RAW-Aufnahmeweg
+pausiert vorübergehend die Vorschau. [RAW-0.6.3.md](docs/RAW-0.6.3.md) beschreibt
+Ablauf und Hardware-Abnahme.
+
+0.6.2 korrigierte die Auflösungswahl physisch gepinnter UW-/Macro-Ausgaben und
 wartet im automatischen Test auf frischen stabilen Vorschau-AF.
 Ablauf und Aussagegrenzen: [QUALITY-0.6.2.md](docs/QUALITY-0.6.2.md).
 
 Seit 0.6.1 fragt die App automatisch angebotene JPEG-/RAW-Auflösungen, Sensorflächen,
 ISO-Grenzen sowie AF-/AWB-Fähigkeiten aller öffentlichen und zugehörigen
 physischen Kameras ab. TEST ZIP enthält dafür `camera-capabilities.json`.
-Für diesen Bericht müssen keine Fototests wiederholt werden. RAW/DNG-Aufnahme
-ist noch nicht implementiert; angebotene Größen sind keine getesteten Aufnahmen.
+Für den Fähigkeitsbericht müssen keine Fototests wiederholt werden. Die neue
+RAW/DNG-Aufnahme erfordert dagegen den RAW-TEST; angebotene Größen allein
+sind keine getesteten Aufnahmen.
 
 ## Öffnen und bauen
 
@@ -55,8 +61,8 @@ im Statusbereich. „Erneut starten“ initialisiert die Kamera neu.
 
 [Erster Kameratest](docs/CAMERA-TEST.md): Vorschau, AF, JPEGs, Orientierung,
 Berechtigungen und Freigabe nach Lifecycle-Wechsel auf dem Pixel 8 prüfen.
-Mausadapter, Video, RAW und
-Weißabgleichprofile folgen nach separater Abstimmung.
+Mausadapter und RAW-Aufnahme sind ergänzt. Video und Weißabgleichprofile
+folgen nach separater Abstimmung.
 
 ## Kamerawechsel und Macro
 
@@ -65,7 +71,7 @@ Während Aufnahme, Initialisierung und Macro-Fokusstart ist sie gesperrt.
 Macro verwendet eine zur Laufzeit ermittelte Ultraweitwinkelkamera mit
 kontinuierlichem Foto-AF und stößt mittigen Autofokus neu an. Anschließend
 wird die kurzzeitige Fokussperre wieder aufgehoben. Beide Ultraweitwinkelmodi
-verwenden momentan das volle Sensorfeld, ohne digitalen Crop.
+starten ohne digitalen Crop; die Zoomtaste kann anschließend einen Crop wählen.
 
 Fehlende Kameras werden gemeldet; der nächste Tastendruck fährt im Zyklus fort.
 Bei einem fehlgeschlagenen Bind versucht die App, die vorherige Kamera erneut
@@ -79,7 +85,7 @@ Activity-Exemplar; eine neue Activity startet mit 1×.
 
 ZOOM schaltet auf der Hauptkamera 1× → 1,5× → 3× → 5× → 1×.
 UW behält 1× → 1,5× → 2× → 3× → 1×, sensorrelativ. Im Macro-Modus schaltet die Taste
-0,5× → 1× Crop → 2× Crop → 0,5×. Das entspricht Faktoren 1/2/4 auf dem
+0,5× → 1× Crop → 0,5×. Das entspricht Faktoren 1/2 auf dem
 Ultraweitwinkelsensor. Die Bezeichnungen beziehen sich nominal auf die Hauptkamera.
 Die App überspringt Faktoren außerhalb der aktuellen CameraX-Zoomgrenzen.
 Physische Kamera-Pins und tatsächlicher Crop erfordern die Geräteprüfung.

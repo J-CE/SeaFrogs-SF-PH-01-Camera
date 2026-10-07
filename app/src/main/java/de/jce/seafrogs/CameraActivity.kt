@@ -45,6 +45,8 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var automated: AutomatedCameraTest
     private lateinit var normalTest: Button
     private lateinit var macroTest: Button
+    private lateinit var rawTest: Button
+    private lateinit var format: Button
     private var autoStatus = ""
     private var lastCameraState = PhotoCameraState()
     private lateinit var testCase: Button
@@ -85,7 +87,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.2-resolution-af")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.3-raw-jpeg")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -195,6 +197,24 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             }
         }
         buttonsPanel.addView(testCase)
+        val rawControls = LinearLayout(this)
+        format = Button(this).apply {
+            text = "FORMAT: JPEG"
+            setOnClickListener {
+                AlertDialog.Builder(this@CameraActivity).setTitle("Fotoformat vor dem Tauchgang")
+                    .setItems(arrayOf("JPEG only", "RAW + JPEG (DNG)")) { _, choice ->
+                        controller.setRawEnabled(choice == 1)
+                    }.show()
+            }
+        }
+        rawTest = Button(this).apply {
+            text = "RAW-TEST"
+            setOnClickListener { beginAutomated(false, true) }
+        }
+        listOf(format, rawTest).forEach {
+            rawControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        buttonsPanel.addView(rawControls)
         val autoControls = LinearLayout(this)
         normalTest = Button(this).apply {
             text = "NORMALTEST"
@@ -323,10 +343,13 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         val state = lastCameraState
         val testing = automated.running
         status.text = (if (autoStatus.isBlank()) "" else "$autoStatus\n") +
-            "PHOTO | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | ${state.quality}\n" +
+            "PHOTO | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | ${state.quality} | ${state.photoFormat}\n" +
             state.resolution + "\n" + state.message + "\n" + state.diagnostics + "\n" + hidStatus
         quality.text = state.quality
-        quality.isEnabled = state.ready && !testing
+        quality.isEnabled = state.ready && !testing && state.photoFormat == "JPEG"
+        format.text = "FORMAT: ${state.photoFormat}"
+        format.isEnabled = state.ready && !testing
+        rawTest.isEnabled = state.ready && !testing
         testCase.isEnabled = !state.capturing && !testing
         export.text = if (capabilityReport == null) "KAMERADATEN …" else "TEST ZIP"
         export.isEnabled = capabilityReport != null && !state.capturing && !testing
@@ -346,16 +369,18 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         macroTest.isEnabled = state.ready && !testing
     }
 
-    private fun beginAutomated(macro: Boolean) {
-        val message = if (macro)
+    private fun beginAutomated(macro: Boolean, raw: Boolean = false) {
+        val message = if (raw)
+            "Lege eine bedruckte Seite etwa 50 cm vor die Kameralinse. Stütze das Handy ab, halte Motiv und Licht konstant.\n\nDie App nimmt je ein RAW+JPEG-Paar mit Hauptkamera, UW und Macro auf. Dieser Test prüft Dateiformat und Sensorzuordnung. Während jeder RAW-Aufnahme pausiert die Vorschau."
+        else if (macro)
             "Lege eine bedruckte Seite etwa 5 cm vor die Kameralinse. Stütze das Handy ab und halte das Licht konstant.\n\nDie App übernimmt Kamera, Fokusversuch, Crop-Stufen und Aufnahmen. Während des Tests nichts bewegen."
         else "Lege eine bedruckte Seite etwa 50 cm vor die Kameralinse. Stütze das Handy ab und halte das Licht konstant.\n\nDie App übernimmt Kamera, Zoom, EV, verfügbare Bildverarbeitung und Aufnahmen. Während des Tests nichts bewegen."
-        AlertDialog.Builder(this).setTitle(if (macro) "Automatischer Macrotest" else "Automatischer Normaltest")
+        AlertDialog.Builder(this).setTitle(if (raw) "Automatischer RAW-Test" else if (macro) "Automatischer Macrotest" else "Automatischer Normaltest")
             .setMessage(message).setNegativeButton("Zurück", null)
             .setPositiveButton("Test starten") { _, _ ->
                 preview.releasePointerCapture()
                 resetInput("autoTestStart")
-                automated.start(macro)
+                automated.start(macro, raw)
             }.show()
     }
 

@@ -123,3 +123,25 @@ Die tatsächliche JPEG-Größe und Bildschärfe brauchen den Gerätetest gemäß
 QUALITY-0.6.2.md; der Build beweist keine Pixel-Hardwarefunktion.
 
 APK-SHA256: 027c41ad3840ffd5453aa09062b77c63b99a96c57ab23959003d06437d69c5fc
+
+## Meilenstein 0.6.3-raw-jpeg, 2026-10-07
+
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich. 17 Tests bestanden
+(Zyklen, HID-Gate, AF-Stabilität, RAW-Testplanung), 0 Fehler/übersprungen.
+Lint: 0 Fehler, 62 Warnungen. APK versionCode 10, versionName 0.6.3-raw-jpeg.
+Unveränderter Debug-Schlüssel; Installation als Update möglich. CameraX 1.4.2,
+AGP/Kotlin/Gradle bleiben unverändert. RAW nutzt den neuen Camera2-Aufnahmeweg.
+
+FORMAT: JPEG only / RAW+JPEG gespeichert. RAW-TEST: drei Sensor-/Modusrouten,
+je ein gleichzeitiges JPEG/DNG-Paar, Originaldateien im ZIP. Physischer
+CaptureResult und RAW-Characteristics müssen zum Sensor passen; JPEG/RAW/
+CaptureResult müssen gleiche Sensorzeitstempel haben. Die Vorschau pausiert
+temporär im RAW-Aufnahmeweg. Macro-Faktor 4 entfällt in Steuerung und Testplan.
+
+Ein erster Compilerlauf fand einen Kotlin-Zeilenumbruch vor einem Indexzugriff;
+die Korrektur verwendet einen expliziten get-Aufruf. Nach der abschließenden
+Korrektur für Fehler beim Kameraöffnen wurde der gemeinsame Build wiederholt.
+Kein nativer RAW-Hardwaretest ausgeführt. Die tatsächlichen DNG-Dateien,
+Farbdaten und Kameraübergaben prüft der nächste Meilenstein RAW-0.6.3.md.
+
+APK-SHA256: ee414178fda53fc4eedbe24b9896f3500e4c99879db37cf25fe58642ac284bff

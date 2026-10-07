@@ -27,17 +27,17 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         private set
     private val results = runCatching { JSONArray(preferences.getString("results", "[]")) }.getOrDefault(JSONArray())
 
-    fun start(macro: Boolean) {
+    fun start(macro: Boolean, raw: Boolean = false) {
         if (running || !controller.readyForCommand()) { display("Kamera noch nicht bereit", false); return }
         token++
         running = true
-        group = if (macro) "MACRO" else "NORMAL"
+        group = if (raw) "RAW" else if (macro) "MACRO" else "NORMAL"
         runId = System.currentTimeMillis().toString()
         // Replace only the previous run of this group. Keep the other group for
         // the joint ZIP; JPEGs remain in MediaStore and are never deleted here.
         for (i in results.length() - 1 downTo 0) if (results.getJSONObject(i).optString("group") == group) results.remove(i)
         persist()
-        steps = AutoTestPlan.create(macro)
+        steps = if (raw) AutoTestPlan.raw() else AutoTestPlan.create(macro)
         index = 0
         record(JSONObject().put("kind", "autoTestStart").put("group", group).put("runId", runId))
         next(token)
@@ -47,6 +47,7 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         if (!running || token != run) return
         if (index >= steps.size) {
             running = false
+            controller.endAutoTest()
             record(JSONObject().put("kind", "autoTestFinished").put("group", group).put("runId", runId))
             display("$group fertig. TEST ZIP enthält Fotos und Bericht.", false)
             return
@@ -105,7 +106,13 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         }, 90000)
         controller.capturePhoto { uri, error ->
             if (!running || token != run) return@capturePhoto
-            save(step, uri?.toString(), if (uri == null) "FAILED" else if (error != null) "EXIF_WARNING" else "SAVED", error)
+            val rawOutcome = controller.rawOutcome()
+            val status = when {
+                uri == null || (step.raw && (rawOutcome?.dng == null || rawOutcome.error != null)) -> "FAILED"
+                error != null -> "EXIF_WARNING"
+                else -> "SAVED"
+            }
+            save(step, uri?.toString(), status, error)
             // Invalidates this step's timeout without invalidating the run.
             handler.removeCallbacksAndMessages(null)
             index++
@@ -118,7 +125,12 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
             .put("lens", step.lens.name).put("zoomRequested", step.zoom.toDouble())
             .put("evRequested", step.ev.toDouble()).put("qualityRequested", step.quality)
             .put("preCaptureFocus", preCaptureFocus)
+            .put("formatRequested", if (step.raw) "RAW+JPEG" else "JPEG")
             .put("status", status).put("uri", uri ?: JSONObject.NULL).put("error", error ?: JSONObject.NULL)
+        if (step.raw && uri != null) controller.rawOutcome()?.let { outcome ->
+            value.put("dngUri", outcome.dng?.toString() ?: JSONObject.NULL)
+                .put("rawCapture", JSONObject(outcome.evidence))
+        }
         results.put(value)
         persist()
         record(JSONObject(value.toString()).put("kind", "autoTestResult"))
@@ -127,21 +139,24 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
     fun cancel(reason: String = "Test abgebrochen. Gespeicherte Fotos bleiben erhalten.") {
         if (!running) return
         running = false
+        controller.endAutoTest()
         token++
         handler.removeCallbacksAndMessages(null)
         record(JSONObject().put("kind", "autoTestCancelled").put("reason", reason).put("runId", runId))
         display(reason, false)
     }
 
-    fun report(): String = JSONObject().put("version", "0.6.2-resolution-af")
+    fun report(): String = JSONObject().put("version", "0.6.3-raw-jpeg")
         .put("device", android.os.Build.MODEL).put("androidBuild", android.os.Build.FINGERPRINT)
         .put("note", "Original JPEGs; requested settings in report, applied settings and latest preview telemetry in EXIF. No automated sharpness score.")
         .put("results", results).toString(2)
 
-    fun photos(): List<Pair<String, String>> = (0 until results.length()).mapNotNull { i ->
+    fun photos(): List<Pair<String, String>> = (0 until results.length()).flatMap { i ->
         val value = results.getJSONObject(i)
-        val uri = value.optString("uri")
-        if (uri.isBlank() || uri == "null") null else "photos/${value.getString("id")}.jpg" to uri
+        listOf("uri" to "jpg", "dngUri" to "dng").mapNotNull { (key, suffix) ->
+            val uri = value.optString(key)
+            if (uri.isBlank() || uri == "null") null else "photos/${value.getString("id")}.$suffix" to uri
+        }
     }
 
     private fun persist() { preferences.edit().putString("results", results.toString()).apply() }

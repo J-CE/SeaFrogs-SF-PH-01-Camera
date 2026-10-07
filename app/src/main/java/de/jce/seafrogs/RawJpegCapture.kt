@@ -1,0 +1,285 @@
+package de.jce.seafrogs
+
+import android.annotation.SuppressLint
+import android.content.ContentValues
+import android.content.Context
+import android.graphics.ImageFormat
+import android.hardware.camera2.*
+import android.hardware.camera2.params.OutputConfiguration
+import android.media.Image
+import android.media.ImageReader
+import android.net.Uri
+import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.SystemClock
+import android.provider.MediaStore
+import android.util.Size
+import androidx.core.content.ContextCompat
+import org.json.JSONObject
+import java.util.UUID
+
+data class RawPairOutcome(val jpeg: Uri?, val dng: Uri?, val evidence: String, val error: String?)
+
+/** One Camera2 exposure with JPEG and RAW targets. CameraX must be unbound first.
+ * All camera/image state lives on one worker. Match sensor timestamps before
+ * writing DNG; pinned outputs require the matching physical CaptureResult.
+ */
+class RawJpegCapture(context: Context) {
+    private val app = context.applicationContext
+    private val main = ContextCompat.getMainExecutor(app)
+    private val thread = HandlerThread("SeaFrogs-RAW").apply { start() }
+    private val worker = Handler(thread.looper)
+    private var device: CameraDevice? = null
+    private var session: CameraCaptureSession? = null
+    private var jpegReader: ImageReader? = null
+    private var rawReader: ImageReader? = null
+    private val jpegFrames = linkedMapOf<Long, ByteArray>()
+    private var rawImage: Image? = null
+    private var stillResult: TotalCaptureResult? = null
+    private var characteristics: CameraCharacteristics? = null
+    private var logicalCharacteristics: CameraCharacteristics? = null
+    private lateinit var route: CameraLensRoute
+    private var zoom = 1f
+    private var ev = 0f
+    private var orientation = 0
+    private var description = ""
+    private var shotRequested = false
+    private var finished = false
+    private var callback: ((RawPairOutcome) -> Unit)? = null
+    private var openedAt = 0L
+    private var firstFrameAt = 0L
+    private val focus = AutofocusStability()
+    private var savedJpeg: Uri? = null
+    private var savedDng: Uri? = null
+    private val evidence = JSONObject().put("backend", "Camera2RawJpeg")
+    private var finishedOutcome: RawPairOutcome? = null
+    private var delivered = false
+    private var opening = false
+
+    fun start(selected: CameraLensRoute, jpegSize: Size, rawSize: Size, zoomRatio: Float,
+              exposureEv: Float, jpegOrientation: Int, metadata: String,
+              complete: (RawPairOutcome) -> Unit) {
+        worker.post {
+            if (finished) return@post
+            callback = complete
+            route = selected; zoom = zoomRatio; ev = exposureEv
+            orientation = jpegOrientation; description = metadata
+            evidence.put("logicalId", route.logicalId).put("physicalId", route.physicalId ?: JSONObject.NULL)
+                .put("jpegRequestedSize", jpegSize.toString()).put("rawRequestedSize", rawSize.toString())
+                .put("zoomRequested", zoom.toDouble()).put("evRequested", ev.toDouble())
+            try {
+                val manager = app.getSystemService(CameraManager::class.java)
+                characteristics = manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
+                logicalCharacteristics = manager.getCameraCharacteristics(route.logicalId)
+                jpegReader = ImageReader.newInstance(jpegSize.width, jpegSize.height, ImageFormat.JPEG, 3)
+                rawReader = ImageReader.newInstance(rawSize.width, rawSize.height, ImageFormat.RAW_SENSOR, 2)
+                jpegReader!!.setOnImageAvailableListener({ reader ->
+                    val image = reader.acquireNextImage() ?: return@setOnImageAvailableListener
+                    try {
+                        if (!finished && shotRequested) {
+                            val buffer = image.planes[0].buffer
+                            jpegFrames[image.timestamp] = ByteArray(buffer.remaining()).also { buffer.get(it) }
+                            while (jpegFrames.size > 4) jpegFrames.remove(jpegFrames.keys.first())
+                        }
+                    } finally { image.close() }
+                    trySave()
+                }, worker)
+                rawReader!!.setOnImageAvailableListener({ reader ->
+                    val image = reader.acquireNextImage() ?: return@setOnImageAvailableListener
+                    if (finished || rawImage != null) image.close()
+                    else { rawImage = image; trySave() }
+                }, worker)
+                openedAt = SystemClock.uptimeMillis()
+                worker.postDelayed({ finish("RAW-Aufnahme nach 25 Sekunden nicht beendet") }, 25000)
+                open(manager)
+            } catch (error: Exception) { finish(error.toString()) }
+        }
+    }
+
+    @SuppressLint("MissingPermission") // Caller has already checked CAMERA; revocation is caught.
+    private fun open(manager: CameraManager) {
+        opening = true
+        try { manager.openCamera(route.logicalId, object : CameraDevice.StateCallback() {
+            override fun onOpened(camera: CameraDevice) {
+                opening = false
+                if (finished) { camera.close(); return }
+                device = camera
+                try {
+                    val surfaces = listOf(jpegReader!!.surface, rawReader!!.surface)
+                    val state = object : CameraCaptureSession.StateCallback() {
+                        override fun onConfigured(value: CameraCaptureSession) {
+                            if (finished) { value.close(); return }
+                            session = value
+                            try {
+                                val request = request(CameraDevice.TEMPLATE_PREVIEW)
+                                request.addTarget(jpegReader!!.surface)
+                                value.setRepeatingRequest(request.build(), captureCallback, worker)
+                            } catch (error: Exception) { finish(error.toString()) }
+                        }
+                        override fun onConfigureFailed(value: CameraCaptureSession) {
+                            value.close(); finish("RAW+JPEG-Streamkombination nicht unterstützt")
+                        }
+                    }
+                    if (Build.VERSION.SDK_INT >= 28 && route.physicalId != null) {
+                        val outputs = surfaces.map { OutputConfiguration(it).apply { setPhysicalCameraId(route.physicalId) } }
+                        camera.createCaptureSessionByOutputConfigurations(outputs, state, worker)
+                    } else camera.createCaptureSession(surfaces, state, worker)
+                } catch (error: Exception) { finish(error.toString()) }
+            }
+            override fun onDisconnected(camera: CameraDevice) {
+                opening = false; camera.close(); finish("RAW-Kamera getrennt")
+                if (finished) deliver()
+            }
+            override fun onError(camera: CameraDevice, error: Int) {
+                opening = false
+                camera.close()
+                if (finished) { deliver(); return }
+                if (device == null && error == ERROR_CAMERA_IN_USE && SystemClock.uptimeMillis() - openedAt < 5000)
+                    worker.postDelayed({ if (!finished) try { open(manager) } catch (e: Exception) { finish(e.toString()) } }, 250)
+                else finish("RAW-Kamerafehler $error")
+            }
+            override fun onClosed(camera: CameraDevice) { if (finished) deliver() }
+        }, worker) } catch (error: Exception) { opening = false; throw error }
+    }
+
+    private fun request(template: Int): CaptureRequest.Builder {
+        val builder = checkNotNull(device).createCaptureRequest(template)
+        builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+        builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+        builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+        builder.set(CaptureRequest.CONTROL_AF_MODE, if (route.supportsPhotoAutofocus)
+            CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE else CaptureRequest.CONTROL_AF_MODE_OFF)
+        val c = checkNotNull(logicalCharacteristics)
+        val step = c[CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP]?.toFloat() ?: 0f
+        val range = c[CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE]
+        if (step > 0 && range != null) builder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION,
+            CameraControlCycles.exposureIndex(ev, step, range.lower, range.upper))
+        if (Build.VERSION.SDK_INT >= 30 && c[CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE] != null) {
+            builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoom)
+        } else {
+            c[CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE]?.let { active ->
+                val width = (active.width() / zoom).toInt(); val height = (active.height() / zoom).toInt()
+                val left = active.left + (active.width() - width) / 2
+                val top = active.top + (active.height() - height) / 2
+                builder.set(CaptureRequest.SCALER_CROP_REGION, android.graphics.Rect(left, top, left + width, top + height))
+            }
+        }
+        builder.set(CaptureRequest.JPEG_QUALITY, 100.toByte())
+        builder.set(CaptureRequest.JPEG_ORIENTATION, orientation)
+        return builder
+    }
+
+    private fun sensorResult(result: TotalCaptureResult): CaptureResult? =
+        if (Build.VERSION.SDK_INT >= 28 && route.physicalId != null) result.physicalCameraResults[route.physicalId]
+        else result
+
+    private val captureCallback = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureCompleted(value: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
+            if (finished) return
+            if (request.tag == "RAW_JPEG_PAIR") { stillResult = result; trySave(); return }
+            val now = SystemClock.uptimeMillis()
+            if (firstFrameAt == 0L) firstFrameAt = now
+            val sensor = sensorResult(result)
+            val af = sensor?.get(CaptureResult.CONTROL_AF_STATE)
+            focus.frame(af?.let { it == CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED ||
+                it == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED }, sensor?.get(CaptureResult.SENSOR_TIMESTAMP), now)
+            val ae = sensor?.get(CaptureResult.CONTROL_AE_STATE)
+            val aeReady = ae == CaptureResult.CONTROL_AE_STATE_CONVERGED || ae == CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED
+            if (!shotRequested && now - firstFrameAt >= 1500 && aeReady &&
+                (!route.supportsPhotoAutofocus || focus.stable(now))) {
+                try {
+                    shotRequested = true
+                    evidence.put("preCaptureAfState", af ?: JSONObject.NULL).put("preCaptureAeState", ae)
+                    value.stopRepeating()
+                    val still = this@RawJpegCapture.request(CameraDevice.TEMPLATE_STILL_CAPTURE)
+                    still.setTag("RAW_JPEG_PAIR")
+                    still.addTarget(jpegReader!!.surface); still.addTarget(rawReader!!.surface)
+                    value.capture(still.build(), this, worker)
+                } catch (error: Exception) { finish(error.toString()) }
+            } else if (!shotRequested && now - openedAt > 15000) finish("RAW: AF/AE nicht rechtzeitig bestätigt")
+        }
+        override fun onCaptureFailed(value: CameraCaptureSession, request: CaptureRequest, failure: CaptureFailure) {
+            finish("RAW-Capture fehlgeschlagen: ${failure.reason}")
+        }
+    }
+
+    private fun trySave() {
+        if (finished) return
+        val raw = rawImage ?: return
+        val total = stillResult ?: return
+        val sensor = sensorResult(total) ?: run { finish("Physische RAW-CaptureResult-Metadaten fehlen"); return }
+        val timestamp = sensor[CaptureResult.SENSOR_TIMESTAMP] ?: run { finish("RAW-Sensorzeitstempel fehlt"); return }
+        if (timestamp != raw.timestamp) { finish("RAW-Bild und Sensor-Metadaten haben unterschiedliche Zeitstempel"); return }
+        val jpeg = jpegFrames[timestamp] ?: return
+        try {
+            val c = checkNotNull(characteristics)
+            val sizes = c[CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP]?.getOutputSizes(ImageFormat.RAW_SENSOR)
+            check(sizes?.any { it.width == raw.width && it.height == raw.height } == true) { "RAW-Größe passt nicht zum Sensor" }
+            evidence.put("sensorTimestampNs", timestamp).put("jpegTimestampNs", timestamp)
+                .put("rawTimestampNs", raw.timestamp).put("sameExposureVerified", true)
+                .put("rawWidth", raw.width).put("rawHeight", raw.height)
+                .put("iso", sensor[CaptureResult.SENSOR_SENSITIVITY] ?: JSONObject.NULL)
+                .put("exposureTimeNs", sensor[CaptureResult.SENSOR_EXPOSURE_TIME] ?: JSONObject.NULL)
+                .put("afState", sensor[CaptureResult.CONTROL_AF_STATE] ?: JSONObject.NULL)
+                .put("focalLengthMm", sensor[CaptureResult.LENS_FOCAL_LENGTH]?.toDouble() ?: JSONObject.NULL)
+            val prefix = "SeaFrogs_${System.currentTimeMillis()}_${UUID.randomUUID()}"
+            savedJpeg = save("$prefix.jpg", "image/jpeg") { it.write(jpeg) }
+            DngCreator(c, sensor).use { creator ->
+                creator.setOrientation(when (orientation) { 90 -> 6; 180 -> 3; 270 -> 8; else -> 1 })
+                creator.setDescription(JSONObject(description).put("rawCapture", JSONObject(evidence.toString())).toString())
+                savedDng = save("$prefix.dng", "image/x-adobe-dng") { creator.writeImage(it, raw) }
+            }
+            finish(null)
+        } catch (error: Exception) { finish(error.toString()) }
+    }
+
+    private fun save(name: String, mime: String, write: (java.io.OutputStream) -> Unit): Uri {
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, name); put(MediaStore.Images.Media.MIME_TYPE, mime)
+            if (Build.VERSION.SDK_INT >= 29) {
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/SeaFrogs")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            } else {
+                val folder = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES), "SeaFrogs")
+                check(folder.exists() || folder.mkdirs()) { "Speicherordner fehlt" }
+                put(MediaStore.Images.Media.DATA, java.io.File(folder, name).absolutePath)
+            }
+        }
+        val resolver = app.contentResolver
+        val uri = checkNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values))
+        try {
+            checkNotNull(resolver.openOutputStream(uri)).use(write)
+            if (Build.VERSION.SDK_INT >= 29) resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+            return uri
+        } catch (error: Exception) { resolver.delete(uri, null, null); throw error }
+    }
+
+    fun cancel() { worker.post { finish("RAW-Aufnahme durch Lifecycle-Wechsel abgebrochen") } }
+
+    private fun finish(error: String?) {
+        if (finished) return
+        finished = true
+        worker.removeCallbacksAndMessages(null)
+        rawImage?.close(); rawImage = null
+        jpegFrames.clear()
+        session?.close(); session = null
+        jpegReader?.close(); jpegReader = null
+        rawReader?.close(); rawReader = null
+        finishedOutcome = RawPairOutcome(savedJpeg, savedDng, evidence.toString(), error)
+        val closing = device
+        device = null
+        if (closing != null) {
+            closing.close()
+            worker.postDelayed({ deliver() }, 2000) // Some HALs omit onClosed after an error.
+        } else if (!opening) deliver()
+    }
+
+    private fun deliver() {
+        if (delivered) return
+        val outcome = finishedOutcome ?: return
+        delivered = true
+        main.execute { callback?.invoke(outcome) }
+        thread.quitSafely()
+    }
+}

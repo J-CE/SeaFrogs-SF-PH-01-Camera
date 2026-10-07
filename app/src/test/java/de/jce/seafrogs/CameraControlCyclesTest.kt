@@ -15,7 +15,7 @@ class CameraControlCyclesTest {
     }
     @Test fun macroUsesSensorRelativeFactors() {
         assertEquals(2f, CameraControlCycles.nextZoom(1f, true, 1f, 4f))
-        assertEquals(4f, CameraControlCycles.nextZoom(2f, true, 1f, 4f))
+        assertEquals(1f, CameraControlCycles.nextZoom(2f, true, 1f, 4f))
         assertEquals(1f, CameraControlCycles.nextZoom(4f, true, 1f, 4f))
     }
     @Test fun thirdEvStepsPreserveNegativeAndPositiveCycleOrder() {

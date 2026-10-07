@@ -103,6 +103,21 @@ class CameraLensCatalog(context: Context, provider: ProcessCameraProvider) {
         return route.physicalId?.let { logical.intersect(sizes(it)) } ?: logical
     }
 
+    fun rawSize(route: CameraLensRoute): android.util.Size? {
+        val c = manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
+        if (c[CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES]?.contains(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW) != true) return null
+        return c[CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP]?.getOutputSizes(ImageFormat.RAW_SENSOR)
+            ?.maxByOrNull { it.width.toLong() * it.height }
+    }
+
+    fun jpegOrientation(route: CameraLensRoute, rotation: Int): Int {
+        val sensor = manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
+            .get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+        // Routes are rear-facing; preserve the same Surface rotation as CameraX.
+        return (sensor - rotation * 90 + 360) % 360
+    }
+
     private fun route(
         logicalId: String, physicalId: String?, characteristics: CameraCharacteristics
     ): CameraLensRoute? {
