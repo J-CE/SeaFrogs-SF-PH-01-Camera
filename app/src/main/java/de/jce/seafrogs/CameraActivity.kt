@@ -48,6 +48,8 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var format: Button
     private lateinit var exposureSetup: Button
     private var exportGroupOnly: String? = null
+    private var exporting = false
+    private var exportStatus = ""
     private lateinit var libraryTest: Button
     private lateinit var libraryExport: Button
     private var autoStatus = ""
@@ -70,7 +72,15 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private val exportRequest = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         val groupOnly = exportGroupOnly
         exportGroupOnly = null
-        if (uri != null) recorder.export(uri, automated.photos(groupOnly), automated.report(groupOnly), capabilityReport)
+        if (uri != null) recorder.export(uri, automated.photos(groupOnly), automated.report(groupOnly), capabilityReport) { message, busy ->
+            handler.post {
+                if (!isDestroyed) {
+                    exportStatus = message
+                    exporting = busy
+                    renderState()
+                }
+            }
+        }
     }
     private var active = false
     private var sessionStarted = false
@@ -87,11 +97,12 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        exportGroupOnly = savedInstanceState?.getString("exportGroupOnly")
         inputManager = getSystemService(InputManager::class.java)
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.7-library-test")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.6.8-export-fix")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -350,8 +361,9 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private fun renderState() {
         if (isDestroyed || !active) return
         val state = lastCameraState
-        val testing = automated.running
-        status.text = (if (autoStatus.isBlank()) "" else "$autoStatus\n") +
+        val testing = automated.running || exporting
+        status.text = (if (exportStatus.isBlank()) "" else "$exportStatus\n") +
+            (if (autoStatus.isBlank()) "" else "$autoStatus\n") +
             "PHOTO | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | ${state.quality} | ${state.photoFormat}\n" +
             state.resolution + (if (state.exposureLimits.enabled)
                 " | Sensor-ISO ≤ ${state.exposureLimits.isoCap} | Zeit ≤ ${when (state.exposureLimits.longestTimeNs) {
@@ -380,7 +392,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         shutter.text = if (state.capturing) "AUFNAHME …" else "FOTO"
         diagnosis.isEnabled = !state.capturing && !testing
         restart.isEnabled = !state.capturing && !testing
-        cancelTest.isEnabled = testing
+        cancelTest.isEnabled = automated.running
         macroTest.isEnabled = state.ready && !testing
     }
 
@@ -500,7 +512,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         if (!initialized) return
         recorder.record(EventEncoder.motion(event, route))
         val selected = InputDevice.getDevice(event.deviceId)?.descriptor == mouseDescriptor
-        if (automated.running || !wantsCapture || !selected || route != "captured" || !preview.hasPointerCapture()) return
+        if (automated.running || exporting || !wantsCapture || !selected || route != "captured" || !preview.hasPointerCapture()) return
         val now = SystemClock.uptimeMillis()
         // Button transitions unify DOWN/BUTTON_PRESS and UP/BUTTON_RELEASE.
         val down = event.buttonState and MotionEvent.BUTTON_PRIMARY != 0
@@ -519,6 +531,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         val name = commands.joinToString("+") { it.name }
         val decision = when {
             automated.running -> "AUTO_TEST_RUNNING"
+            exporting -> "EXPORT_RUNNING"
             !preview.hasPointerCapture() || !hasWindowFocus() || !active ||
                 !InputDevice.getDeviceIds().any { InputDevice.getDevice(it)?.descriptor == mouseDescriptor } -> "INACTIVE"
             commands.size != 1 -> "COMBINATION_BLOCKED"
@@ -570,6 +583,11 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             hidStatus = "MAUS GETRENNT: erneut auswählen"
             android.widget.Toast.makeText(this, hidStatus, android.widget.Toast.LENGTH_LONG).show()
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("exportGroupOnly", exportGroupOnly)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onPause() {

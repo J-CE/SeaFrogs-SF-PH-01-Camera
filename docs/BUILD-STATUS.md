@@ -237,3 +237,38 @@ die positive Abnahme braucht den neuen RAW-Serienexport.
 Details: LIBRARIES-0.6.7.md. Apache-2.0 unverändert; keine GPL-Bibliothek eingebunden.
 
 APK-SHA256: 761f100e02dfb5dbe7830b5ae952eec653d57706537e317d1901552ea61e2f6e
+
+## Exportkorrektur 0.6.8-export-fix, 2026-10-07
+
+Der bisherige Export schreibt das große ZIP direkt in einen bereits angelegten
+SAF-Zielstream und zeigt keinen Fortschritt. Eine anfänglich leere Zieldatei
+allein unterscheidet Wartezeit und Schreibfehler nicht. Die konkrete Ursache
+der vom Nutzer gemeldeten 0-Byte-Datei ist ohne Gerätelog nicht bestätigt.
+
+Der neue Export erstellt ein geschlossenes lokales ZIP, prüft alle Einträge
+auf Länge und CRC, öffnet dann erst den Zielstream mit Truncate-Modus und
+kopiert die vollständige Datei. Zusätzliche Deflation der bereits komprimierten
+JPEG/DNG entfällt. Packen, Prüfung, Kopierfortschritt und Fehler erscheinen
+im Kamerastatus. Erfolg folgt erst nach vollständigem Kopieren und Schließen
+des Zielstreams. Quell-Lesefehler während einer Kopie brechen ab statt beschädigte
+ZIP-Einträge als Erfolg zu melden. Nicht mehr zugängliche Originaldateien
+erscheinen im Fehlerbericht und in der Abschlussmeldung.
+
+Die Android-Dateiauswahl kann die gewählte Zieldatei weiterhin sofort leer
+anlegen; erst die Abschlussmeldung bestätigt den Export. Ein Prozessabbruch
+oder ein Speicheranbieterfehler kann eine leere/teilweise Zieldatei zurücklassen.
+Ein Gerätexport muss die Korrektur abnehmen. Neue Aufnahmen sind dafür nicht
+erforderlich: Ergebnisse/MediaStore-Dateien aus 0.6.7 bleiben beim Update erhalten.
+Nicht deinstallieren. Zielgruppe bleibt auch bei Neuerstellung der Activity im
+Dateiauswahldialog erhalten. Während des Exports sperrt die UI weitere Tests
+und HID-Kamerabefehle.
+
+assembleDebug/lintDebug/testDebugUnitTest erfolgreich. 30 Tests bestanden,
+0 Fehler/übersprungen, einschließlich fünf Exporttests: identische Ausgabe,
+ungültiges ZIP, falsche CRC, Schreibfehler und Fehler beim Zielstream-Schließen.
+versionCode 15/versionName 0.6.8-export-fix. Abhängigkeiten unverändert.
+
+Lint: 0 Fehler, 68 Warnungen. APK-Signatur geprüft; gleicher Debug-Schlüssel
+wie 0.6.7.
+
+APK-SHA256: 648f737888f9a5a265c73461b394577b3d2fccaf0aadfe5e4faff5bc391b63ad

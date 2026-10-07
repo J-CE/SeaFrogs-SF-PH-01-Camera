@@ -1,10 +1,17 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.6.7-library-test**. Live-Vorschau, JPEG-Aufnahme und
+Aktueller Quelltext: **0.6.8-export-fix**. Live-Vorschau, JPEG-Aufnahme und
 Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate HID-Diagnose.
 Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
 Pixel-8-Testbefunde und offene Punkte stehen im [Fähigkeitsbericht](docs/CAPABILITIES-0.6.1.md).
+
+0.6.8 stellt das ZIP zuerst intern fertig, prüft jeden Eintrag auf Länge und CRC
+und kopiert es anschließend ins gewählte Ziel. Der Status zeigt Packen, Prüfung,
+Kopierfortschritt und dauerhafte Fehlermeldungen. Bereits komprimierte Fotos
+werden ohne zusätzliche ZIP-Kompression übertragen. Erfolg folgt erst nach
+Schließen des Zielstreams. Bestehende Testdaten bleiben erhalten: nach dem
+Update nur BIB ZIP erneut exportieren, den Test nicht wiederholen.
 
 0.6.7 aktualisiert CameraX auf 1.6.2 und ergänzt BIB-TEST / BIB ZIP:
 je fünf originale RAW+JPEG-Paare aus einer Sitzung mit eingefrorenen,

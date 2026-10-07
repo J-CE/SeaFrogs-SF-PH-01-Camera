@@ -46,10 +46,11 @@ class EventRecorder(private val context: Context, private val report: (String) -
 
     /** All earlier writes finish before this snapshot; later input is not included. */
     fun export(uri: Uri, photos: List<Pair<String, String>> = emptyList(), testReport: String? = null,
-               capabilityReport: String? = null) {
+               capabilityReport: String? = null, progress: (String, Boolean) -> Unit = { _, _ -> }) {
         val photoSnapshot = photos.toList()
+        progress("EXPORT: ZIP vorbereiten …", true)
         val summary = """
-            SeaFrogs Kamera/HID Test 0.6.7
+            SeaFrogs Kamera/HID Test 0.6.8
             Android-App-Ereignisse, keine rohen Bluetooth-HID-Reports.
             Datensatznummer am Export: $sequence
             Verlorene Datensätze durch Warteschlangenlimit: ${dropped.get()}
@@ -60,26 +61,33 @@ class EventRecorder(private val context: Context, private val report: (String) -
         """.trimIndent()
         try {
             worker.execute {
+                var archive: File? = null
                 try {
                     writer.flush()
-                    val output = context.contentResolver.openOutputStream(uri, "w")
-                        ?: error("Speicherziel lässt sich nicht öffnen")
-                    ZipOutputStream(output).use { zip ->
+                    val staged = File.createTempFile("seafrogs-export-", ".zip", context.cacheDir)
+                    archive = staged
+                    val exportErrors = org.json.JSONArray()
+                    ZipOutputStream(staged.outputStream().buffered(128 * 1024)).use { zip ->
+                        // JPEG/DNG are already compressed. Avoid minutes of redundant deflation.
+                        zip.setLevel(java.util.zip.Deflater.NO_COMPRESSION)
                         zip.putNextEntry(ZipEntry("events.jsonl"))
                         file.inputStream().use { it.copyTo(zip) }
                         zip.closeEntry()
-                        val exportErrors = org.json.JSONArray()
-                        for ((name, photoUri) in photoSnapshot) {
-                            try {
-                                val input = context.contentResolver.openInputStream(Uri.parse(photoUri))
+                        for ((index, photo) in photoSnapshot.withIndex()) {
+                            val (name, photoUri) = photo
+                            progress("EXPORT: Packen ${index + 1}/${photoSnapshot.size}: $name", true)
+                            val input = try {
+                                context.contentResolver.openInputStream(Uri.parse(photoUri))
                                     ?: error("Originalfoto nicht mehr verfügbar")
-                                input.use {
-                                    zip.putNextEntry(ZipEntry(name))
-                                    it.copyTo(zip)
-                                    zip.closeEntry()
-                                }
                             } catch (error: Exception) {
                                 exportErrors.put(JSONObject().put("file", name).put("error", error.message))
+                                continue
+                            }
+                            // A copy/write failure aborts the archive instead of hiding damaged entries.
+                            input.use {
+                                zip.putNextEntry(ZipEntry(name))
+                                it.copyTo(zip, 128 * 1024)
+                                zip.closeEntry()
                             }
                         }
                         if (testReport != null) {
@@ -99,11 +107,27 @@ class EventRecorder(private val context: Context, private val report: (String) -
                         zip.write((summary + "\nSchreibfehler: ${failures.get()}\n").toByteArray())
                         zip.closeEntry()
                     }
-                    report("Export gespeichert. Originalfotos und mögliche Exportfehler stehen im ZIP.")
-                } catch (error: Exception) { report("Exportfehler: ${error.message}") }
+                    progress("EXPORT: ZIP prüfen …", true)
+                    val bytes = VerifiedExport.copy(staged, {
+                        context.contentResolver.openOutputStream(uri, "wt")
+                            ?: error("Speicherziel lässt sich nicht öffnen")
+                    }) { copied, total ->
+                        progress("EXPORT: Kopieren ${copied * 100 / total}% (${copied / 1_048_576}/${total / 1_048_576} MiB)", true)
+                    }
+                    val message = "Export gespeichert: $bytes Byte." +
+                        if (exportErrors.length() > 0) " ${exportErrors.length()} Originaldateien fehlen, siehe export-errors.json." else " ${photoSnapshot.size} Originaldateien enthalten."
+                    progress(message, false)
+                    report(message)
+                } catch (error: Exception) {
+                    val message = "EXPORTFEHLER: ${error.javaClass.simpleName}: ${error.message}. Testdaten bleiben erhalten; Export erneut starten."
+                    progress(message, false)
+                    report(message)
+                } finally { archive?.delete() }
             }
         } catch (_: java.util.concurrent.RejectedExecutionException) {
-            report("Exportwarteschlange voll. Nach kurzer Pause erneut exportieren.")
+            val message = "Exportwarteschlange voll. Nach kurzer Pause erneut exportieren."
+            progress(message, false)
+            report(message)
         }
     }
 
