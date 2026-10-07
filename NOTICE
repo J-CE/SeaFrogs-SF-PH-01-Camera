@@ -6,6 +6,10 @@ Copyright the original author or authors.
 Gradle Wrapper is licensed under the Apache License, Version 2.0.
 Source: https://github.com/gradle/gradle/tree/v8.11.1
 
+The application uses AndroidX Activity and CameraX, licensed under Apache 2.0.
+Source: https://android.googlesource.com/platform/frameworks/support/
+It also uses the Kotlin standard library, licensed under Apache 2.0.
+Source: https://github.com/JetBrains/kotlin
 The application code does not include Google Jetpack Camera App source.
 SeaFrogs and Google Pixel are product names of their respective owners.
 This project is independent of those manufacturers.

@@ -1,14 +1,15 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Stand: **0.1.0, ausschließlich HID-Diagnose**. Keine Kamerafunktion,
-keine bestätigte SeaFrogs-Tastenbelegung und kein bestätigter Hardwaretest.
+Aktueller Stand: **0.2.0-photo**. Rückseitige 1×-Kamera mit Live-Vorschau und
+JPEG-Aufnahme sowie separate HID-Diagnose. SeaFrogs-Tastenbelegung und
+Pixel-8-Hardwaretest sind noch nicht bestätigt.
 
 ## Öffnen und bauen
 
 Repository in Android Studio öffnen, JDK 17 für Gradle wählen, Android SDK 35
 installieren und Gradle synchronisieren. Fest gepinnt: AGP 8.9.2, Kotlin 2.1.20,
-Gradle 8.11.1. Mindestversion Android 8.0 (API 26).
+Gradle 8.11.1. Kamera: CameraX 1.4.2 und AndroidX Activity 1.10.1. Mindestversion Android 8.0 (API 26).
 
 ```powershell
 .\gradlew.bat :app:assembleDebug :app:lintDebug
@@ -18,13 +19,41 @@ Linux/macOS: `./gradlew :app:assembleDebug :app:lintDebug`.
 APK: `app/build/outputs/apk/debug/app-debug.apk`.
 Android Studio kann die App per USB-Debugging direkt auf dem Pixel installieren.
 
+## Hauptkamera und JPEG
+
+Die App startet in der Kameraansicht. Kameraberechtigung erlauben und auf die
+Live-Vorschau warten. FOTO löst eine JPEG-Aufnahme aus; während der Aufnahme
+bleiben Auslöser, Neustart und Diagnosewechsel gesperrt. Aufnahmen landen unter
+Pictures/SeaFrogs und erscheinen über MediaStore in der Galerie. Auf Android 10
+und neuer braucht das keine allgemeine Speicherfreigabe; Android 8/9 benötigt
+die auf diese Versionen beschränkte Legacy-Speicherberechtigung.
+
+Der separate PhotoCameraController besitzt Vorschau und Aufnahme-Use-Case,
+setzt die rückseitige logische Kamera auf 1× und nutzt CameraXs kontinuierlichen
+Foto-Autofokus. Er verhandelt die höchste unterstützte 4:3-JPEG-Auflösung
+einschließlich High-Resolution-Ausgabegrößen zusammen mit der Vorschau. Die
+Statusanzeige zeigt die tatsächliche Größe. Zusätzliche Ultra-High-Resolution-
+Sensormodi und die proprietäre Pixel-Bildverarbeitung gehören nicht dazu.
+
+Die Vorschau zeigt den vollständigen Ausschnitt mit FIT_CENTER. JPEG-Orientierung
+folgt der Geräteorientierung. Das App-Fenster bleibt während der Kameranutzung
+wach. Beim Verlassen gibt die App ihre Kamera-Use-Cases frei und bindet sie
+bei Rückkehr erneut. Fehlende Berechtigung und Kamera-/Aufnahmefehler erscheinen
+im Statusbereich. „Erneut starten“ initialisiert die Kamera neu.
+
+[Erster Kameratest](docs/CAMERA-TEST.md): Vorschau, AF, JPEGs, Orientierung,
+Berechtigungen und Freigabe nach Lifecycle-Wechsel auf dem Pixel 8 prüfen.
+Mausadapter, Ultraweitwinkel, Macro, Video, Zoom-/EV-Zyklen, RAW und
+Weißabgleichprofile folgen nach separater Abstimmung.
+
 ## Diagnose
 
-Das Gehäuse zuerst in Androids Bluetooth-Einstellungen koppeln. Die App benötigt
-keine Bluetooth-, Kamera-, Mikrofon- oder allgemeine Speicherberechtigung:
-Android liefert die HID-Eingaben; der Export verwendet den System-Dateidialog.
+Das Gehäuse zuerst in Androids Bluetooth-Einstellungen koppeln. Die Diagnose
+braucht keine Bluetooth-, Kamera-, Mikrofon- oder Speicherberechtigung. Android
+liefert die HID-Eingaben; der Export verwendet den System-Dateidialog. Die
+Kameraansicht fordert ihre eigenen Berechtigungen an.
 
-Die Ansicht zeigt alle Android-Eingabegeräte und deren Bewegungsachsen.
+Die Kameraansicht öffnet sie über „HID-Diagnose“. Die Ansicht zeigt alle Android-Eingabegeräte und deren Bewegungsachsen.
 „Normal“ protokolliert die normale Ereigniszustellung mit sichtbarem Cursor.
 „Capture“ fordert Pointer Capture für eine fokussierte View an. Nach erfolgreicher
 Aktivierung verschwindet der Cursor und Android liefert relative X/Y-Bewegungen.
@@ -59,15 +88,15 @@ Hardwaretest muss der Export beide Werte als 0 melden.
 
 ## Nächster Meilenstein
 
-Einmaliger Build mit Lint, danach [Pixel-8-Hardwaretest](docs/PIXEL8-TEST.md).
-Erst nach Auswertung und Bestätigung implementieren wir die Input-Abstraktion
-und anschließend den CameraX-Kern. Die Diagnose verwendet native Android Views;
-die spätere Kameraoberfläche legt das noch nicht fest.
+Build mit Lint, danach [Kameratest](docs/CAMERA-TEST.md) und getrennt
+[HID-Hardwaretest](docs/PIXEL8-TEST.md). Die Kamera funktioniert unabhängig von
+der späteren Input-Abstraktion. Beide Ansichten verwenden native Android Views.
+Build-Ergebnisse stehen in [BUILD-STATUS.md](docs/BUILD-STATUS.md).
 
 Geplante Bedienung: Links Macro/0,5×/1×, Hoch Zoom oder Macro-Crop, Runter
 Foto/Video, Klick Auslöser beziehungsweise Video Start/Stop, Rechts EV-Zyklus.
 RAW, Video-FPS, Weißabgleich und Kameraauswahl erfordern Capability-Prüfungen
-am realen Gerät. Keine dieser Funktionen ist in Version 0.1.0 implementiert.
+am realen Gerät. Diese erweiterten Funktionen sind in Version 0.2.0 noch nicht implementiert.
 
 ## Lizenz und Quellen
 
