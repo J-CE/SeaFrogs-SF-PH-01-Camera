@@ -32,6 +32,10 @@ import androidx.core.content.ContextCompat
 class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var controller: PhotoCameraController
     private lateinit var preview: PreviewView
+    private lateinit var screen: CameraScreenLayout
+    private lateinit var toolbar: android.widget.GridLayout
+    private lateinit var notice: TextView
+    private lateinit var setupDetails: TextView
     private lateinit var status: TextView
     private lateinit var lensSwitch: Button
     private lateinit var zoom: Button
@@ -206,8 +210,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.2-wb")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        val root = LinearLayout(this).apply {
-            orientation = if (landscape) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        screen = CameraScreenLayout(this).apply {
             setBackgroundColor(android.graphics.Color.BLACK)
             setOnApplyWindowInsetsListener { view, insets ->
                 view.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
@@ -215,15 +218,15 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
                 insets
             }
         }
-        val cameraPanel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val buttonsPanel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         status = TextView(this).apply {
-            textSize = 17f
+            textSize = 18f
             gravity = Gravity.CENTER
             setTextColor(android.graphics.Color.WHITE)
-            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            setBackgroundColor(0xB0000000.toInt())
+            maxLines = 3
         }
-        cameraPanel.addView(status)
         preview = PreviewView(this).apply {
             scaleType = PreviewView.ScaleType.FIT_CENTER
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
@@ -231,7 +234,6 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             isFocusableInTouchMode = true
             setOnCapturedPointerListener { _, event -> handleMouse(event, "captured"); true }
         }
-        cameraPanel.addView(preview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         lensSwitch = Button(this).apply {
             text = "KAMERA: 1×"
             textSize = 24f
@@ -399,14 +401,42 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         buttonsPanel.addView(autoControls)
         setupRows.addAll(listOf(footer, testControls, rawControls, autoControls))
         setupRows.forEach { it.visibility = android.view.View.GONE }
-        root.addView(cameraPanel, if (landscape)
-            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
-        else LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        buttonsView = android.widget.ScrollView(this).apply { addView(buttonsPanel) }
-        root.addView(buttonsView, LinearLayout.LayoutParams(
-            if (landscape) dp(244) else LinearLayout.LayoutParams.MATCH_PARENT,
-            if (landscape) LinearLayout.LayoutParams.MATCH_PARENT else dp(320)))
-        setContentView(root)
+        // Setup overlays the image; opening it never shrinks the photo viewport.
+        val closeSetup = Button(this).apply {
+            text = "SETUP SCHLIESSEN"
+            setOnClickListener { setupVisible = false; renderState() }
+        }
+        buttonsPanel.addView(closeSetup, 0)
+        setupDetails = TextView(this).apply {
+            textSize = 14f; setTextColor(android.graphics.Color.WHITE)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+        buttonsPanel.addView(setupDetails, 1)
+        toolbar = android.widget.GridLayout(this).apply { columnCount = if (landscape) 6 else 3 }
+        listOf(lensSwitch, zoom, exposure, modeSwitch, shutter, setupToggle).forEach { button ->
+            (button.parent as? android.view.ViewGroup)?.removeView(button)
+            button.textSize = 16f
+            button.minHeight = dp(48); button.minimumHeight = dp(48)
+            button.minWidth = 0; button.minimumWidth = 0
+            button.setPadding(dp(4), 0, dp(4), 0)
+            toolbar.addView(button, android.widget.GridLayout.LayoutParams().apply {
+                width = 0; height = dp(48)
+                columnSpec = android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f)
+            })
+        }
+        diveControls.clear(); diveControls.addAll(listOf(lensSwitch, zoom, exposure, modeSwitch, shutter))
+        buttonsView = android.widget.ScrollView(this).apply {
+            setBackgroundColor(0xF0000000.toInt()); addView(buttonsPanel)
+        }
+        notice = TextView(this).apply {
+            textSize = 22f; gravity = Gravity.CENTER
+            setTextColor(android.graphics.Color.WHITE)
+            setBackgroundColor(0xD0000000.toInt())
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+            visibility = android.view.View.GONE
+        }
+        screen.attach(preview, status, notice, toolbar, buttonsView)
+        setContentView(screen)
         controller = PhotoCameraController(this, { recorder.record(it) }) { state ->
             lastCameraState = state
             if (::automated.isInitialized) renderState()
@@ -494,6 +524,11 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         shutter.isEnabled = false
         status.text = "KAMERAZUGRIFF FEHLT\nBerechtigung freigeben. HID-Diagnose bleibt verfügbar."
         restart.text = "Zugriff freigeben"
+        setupVisible = true
+        setupRows.forEach { it.visibility = android.view.View.VISIBLE }
+        buttonsView.visibility = android.view.View.VISIBLE
+        toolbar.visibility = android.view.View.GONE
+        screen.requestLayout()
     }
 
     private fun requestPermissionOrSettings() {
@@ -534,23 +569,34 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             if (free < 256L*1024*1024) add("SPEICHER KNAPP")
             if (mouseDescriptor != null && !mouseConnected()) add("GEHÄUSE GETRENNT")
         }
+        val wbLabel = controller.whiteBalanceLabel()
+        val wbShort = wbLabel.substringBefore(" · ").replace("Unterwasser ", "").replace("Videolicht ", "") +
+            (if(wbLabel.startsWith("Unterwasser ")) " ${controller.whiteBalanceStrength()}%" else "")
         status.text = "${if(state.videoMode) "VIDEO 4K${state.videoFps}" else "PHOTO"} | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel}\n" +
-            (if(state.videoMode) "" else "${state.photoFormat} · ${state.quality} · ") + "WB ${controller.whiteBalanceLabel()}\n" +
-            "Akku ${if(battery in 0..100) "$battery%" else "?"} · ${free/(1024*1024)} MiB frei\n" +
-            warnings.joinToString(" · ") + (if(warnings.isEmpty()) "" else "\n") + cameraMessage + "\n" +
-            (if(wantsCapture) "STEUERUNG" else "MAUS / TOUCH") +
-            (if(setupVisible) "\n${state.resolution}\n${state.diagnostics}\n$hidStatus" else "") +
-            (if(exportStatus.isBlank()) "" else "\n$exportStatus") + (if(autoStatus.isBlank()) "" else "\n$autoStatus")
-        status.textSize = if(wantsCapture && !setupVisible) 20f else 17f
+            (if(state.videoMode) "OHNE TON" else state.photoFormat) + " · WB $wbShort · Akku ${if(battery in 0..100) "$battery%" else "?"} · ${String.format(java.util.Locale.GERMAN,"%.1f",free/1073741824.0)} GB"
+        val notices = warnings.toMutableList()
+        if (state.recording) notices.add(0, "● AUFNAHME")
+        if (cameraMessage != "Bereit" && cameraMessage.isNotBlank()) notices.add(cameraMessage)
+        if (wbLabel.contains("WB NICHT BESTÄTIGT")) notices.add("WB NICHT BESTÄTIGT")
+        if (wbLabel.contains("WB ABWEICHEND") || wbLabel.contains("Profil nicht verfügbar")) notices.add("WB BEGRENZT / NICHT VERFÜGBAR")
+        if (exportStatus.isNotBlank()) notices.add(exportStatus)
+        if (autoStatus.isNotBlank()) notices.add(autoStatus)
+        notice.text = notices.joinToString("\n")
+        notice.visibility = if (notices.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
+        notice.setTextColor(if (state.recording || warnings.isNotEmpty() || cameraMessage.contains("fehl",true)) android.graphics.Color.RED else android.graphics.Color.WHITE)
+        setupDetails.text = "${state.resolution}\nWB $wbLabel\n${state.diagnostics}\n$hidStatus"
         val bars = androidx.core.view.WindowCompat.getInsetsController(window,window.decorView)
-        if(wantsCapture && !setupVisible) {
-            bars.systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            bars.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-        } else bars.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-        diveControls.forEach { it.visibility = if(wantsCapture && !setupVisible) android.view.View.GONE else android.view.View.VISIBLE }
-        buttonsView.layoutParams = buttonsView.layoutParams.apply {
-            if(resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) height = dp(if(wantsCapture && !setupVisible) 56 else 320)
-        }
+        bars.systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        bars.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        diveControls.forEach { it.visibility = if(wantsCapture || setupVisible) android.view.View.GONE else android.view.View.VISIBLE }
+        setupRows.forEach { it.visibility = if(setupVisible) android.view.View.VISIBLE else android.view.View.GONE }
+        setupToggle.text = "SETUP"
+        toolbar.visibility = if(setupVisible) android.view.View.GONE else android.view.View.VISIBLE
+        toolbar.columnCount = if(wantsCapture) 1 else if(resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) 6 else 3
+        buttonsView.visibility = if(setupVisible) android.view.View.VISIBLE else android.view.View.GONE
+        screen.videoMode = state.videoMode
+        screen.housingControl = wantsCapture
+        screen.requestLayout()
         quality.text = state.quality
         quality.isEnabled = state.ready && !state.videoMode && !testing
         format.text = "FORMAT: ${state.photoFormat}"
@@ -563,14 +609,14 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         export.isEnabled = capabilityReport != null && !state.capturing && !testing
         mouse.isEnabled = !state.capturing && !testing
         zoom.isEnabled = state.ready && !testing
-        zoom.text = "ZOOM: ${state.zoomLabel}"
+        zoom.text = state.zoomLabel
         exposure.isEnabled = state.ready && state.exposureSupported && !testing
         exposure.text = if (state.exposureSupported) "EV: ${state.exposureLabel}" else "EV: N/V"
         lensSwitch.isEnabled = state.ready && !state.recording && !testing
-        lensSwitch.text = "KAMERA: ${state.lens.label}"
+        lensSwitch.text = state.lens.label
         shutter.isEnabled = (state.ready || (state.recording && !state.capturing)) && !testing
         shutter.text = if (state.capturing) "WARTE …" else if (state.recording) "VIDEO STOP" else if (!state.ready) "WARTE …" else if (state.videoMode) "VIDEO START" else "FOTO"
-        modeSwitch.text = if (state.videoMode) "MODUS: VIDEO → FOTO" else "MODUS: FOTO → VIDEO"
+        modeSwitch.text = if (state.videoMode) "→ FOTO" else "→ VIDEO"
         modeSwitch.isEnabled = state.ready && !state.recording && !testing
         setupToggle.isEnabled = !state.capturing && !state.recording && !testing
         status.setTextColor(if (state.recording || warnings.isNotEmpty() || state.message.contains("fehl",true) || state.message.contains("nicht verfügbar",true)) android.graphics.Color.RED else android.graphics.Color.WHITE)
@@ -758,7 +804,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             HidCommandGate.Command.CLICK -> controller.triggerCapture()
             HidCommandGate.Command.DOWN -> controller.toggleCaptureMode()
         }
-        android.widget.Toast.makeText(this, hidStatus, android.widget.Toast.LENGTH_SHORT).show()
+        renderState()
     }
 
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
