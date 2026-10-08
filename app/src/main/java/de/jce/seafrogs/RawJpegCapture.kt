@@ -46,6 +46,7 @@ class RawJpegCapture(context: Context) {
     private lateinit var route: CameraLensRoute
     private var zoom = 1f
     private var ev = 0f
+    private var manualWb: ManualWhiteBalance? = null
     private var wbMode = CaptureRequest.CONTROL_AWB_MODE_AUTO
     private var orientation = 0
     private var limits = ExposureLimits()
@@ -95,6 +96,7 @@ class RawJpegCapture(context: Context) {
               fuse: Boolean = false,
               keepDng: Boolean = true,
               whiteBalanceMode: Int = CaptureRequest.CONTROL_AWB_MODE_AUTO,
+              manualWb: ManualWhiteBalance? = null,
               onProgress: ((String) -> Unit)? = null,
               complete: (RawPairOutcome) -> Unit) {
         worker.post {
@@ -109,7 +111,7 @@ class RawJpegCapture(context: Context) {
             if (fuse) check(frameCount == 5 && rawSize != null && processingVariant == ProcessingVariant.DEFAULT)
 
             evidence.put("seriesCountRequested", frameCount).put("seriesFrameIndex", 0)
-            route = selected; zoom = zoomRatio; ev = exposureEv; wbMode = whiteBalanceMode
+            route = selected; zoom = zoomRatio; ev = exposureEv; wbMode = whiteBalanceMode; this.manualWb=manualWb
             orientation = jpegOrientation; description = metadata; limits = exposureLimits
             processing = processingVariant; suppliedReference = reference
             evidence.put("processingVariantRequested", processing.name)
@@ -213,6 +215,12 @@ class RawJpegCapture(context: Context) {
         builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
         builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
         builder.set(CaptureRequest.CONTROL_AWB_MODE, wbMode)
+        manualWb?.let { wb ->
+            setSensorKey(builder,CaptureRequest.CONTROL_AWB_MODE,CaptureRequest.CONTROL_AWB_MODE_OFF)
+            setSensorKey(builder,CaptureRequest.COLOR_CORRECTION_MODE,CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+            setSensorKey(builder,CaptureRequest.COLOR_CORRECTION_GAINS,wb.gains)
+            setSensorKey(builder,CaptureRequest.COLOR_CORRECTION_TRANSFORM,wb.transform)
+        }
         builder.set(CaptureRequest.CONTROL_AF_MODE, if (route.supportsPhotoAutofocus)
             CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE else CaptureRequest.CONTROL_AF_MODE_OFF)
         val c = checkNotNull(logicalCharacteristics)
@@ -280,7 +288,7 @@ class RawJpegCapture(context: Context) {
                 it == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED }, sensor?.get(CaptureResult.SENSOR_TIMESTAMP), now)
             val ae = sensor?.get(CaptureResult.CONTROL_AE_STATE)
             val aeReady = ae == CaptureResult.CONTROL_AE_STATE_CONVERGED || ae == CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED
-            val wbReady = processing == ProcessingVariant.NONE ||
+            val wbReady = manualWb != null || processing == ProcessingVariant.NONE ||
                 sensor?.get(CaptureResult.CONTROL_AWB_STATE) == CaptureResult.CONTROL_AWB_STATE_CONVERGED
             if (!shotRequested && now - firstFrameAt >= 1500 && aeReady && wbReady &&
                 (!route.supportsPhotoAutofocus || focus.stable(now))) {
@@ -347,6 +355,7 @@ class RawJpegCapture(context: Context) {
                 val sizes = c[CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP]?.getOutputSizes(ImageFormat.RAW_SENSOR)
                 check(sizes?.any { it.width == raw.width && it.height == raw.height } == true) { "RAW-Größe passt nicht zum Sensor" }
             }
+            evidence.put("manualWbVerification",manualWb?.verification(sensor) ?: JSONObject.NULL)
             evidence.put("sensorTimestampNs", timestamp).put("jpegTimestampNs", timestamp)
                 .put("rawTimestampNs", raw?.timestamp ?: JSONObject.NULL).put("sameExposureVerified", true)
                 .put("rawWidth", raw?.width ?: JSONObject.NULL).put("rawHeight", raw?.height ?: JSONObject.NULL)

@@ -403,3 +403,20 @@ Update-kompatibel mit 0.7.2 und 0.8.0 SeaFrogs Test. apksigner/zipalign geprüft
 Kein Gerätetest. Neue Tests prüfen beide Ankunftsreihenfolgen der Umschaltgesten,
 Sperre anderer Kombinationen und UW-Standardzyklus. Plattform-Cursorverhalten,
 Macro-Nahfokus, WB-Sensorwirkung und kodierte Video-FPS bleiben offen.
+
+
+## 0.8.2-wb, 2026-10-08
+
+Unterwasser flach (0–8 m), mittel (>8–20 m), tief (>20 m) und DL08-Flutlicht.
+Pope/Fry-Absorption, CIE D65/1931 und routenspezifische D65-Kameramatrizen;
+Modellannahmen, Datenlizenzen und Reproduktion: WB-0.8.2.md. UW-Stärke
+25/50/75/100 %, Default 50 %. Vorschau/JPEG/RAW+JPEG/Video erhalten manuelle
+Gains/CCM; gemeldete CaptureResult-Werte werden auf Übernahme geprüft.
+Softwaretest umfasst sechs neue WB-Mathematiktests. Gerätewirkung und
+Unterwasser-Bildqualität bleiben unbestätigt.
+
+Finale Softwareprüfung: assembleDebug, lintDebug und testDebugUnitTest erfolgreich.
+52 Tests, keine Fehler/übersprungenen Tests; Lint 0 Fehler, 101 Warnungen.
+APK: de.jce.seafrogs.test, versionCode 21, versionName 0.8.2-wb.
+Signatur unverändert gegenüber 0.8.1 (SHA-256 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57).
+APK-SHA-256: 8f5ab3e3bcd5c374d9cfc9def67f0bc4e50c0f1f77a4099d50781ef92b37f7d6.

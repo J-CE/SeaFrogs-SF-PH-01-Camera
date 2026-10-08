@@ -1,4 +1,4 @@
-# Ziel und verbleibende Arbeit nach 0.8.1
+# Ziel und verbleibende Arbeit nach 0.8.2
 
 Das Produktziel bleibt eine zuverlässige Pixel-8-Unterwasserkamera mit fünf SeaFrogs-Eingaben. Ein Build oder Unit-Test beweist keine Unterwasser-Bildqualität und keinen funktionierenden Nahfokus.
 
@@ -8,6 +8,8 @@ Kamerasteuerung, JPEG/RAW+JPEG, EXIF, UW-/Macro-Sensorauswahl, Zoom/EV,
 Foto/Video, stille 4K-Konfiguration, Tauchprofil (Helligkeit/Ausrichtung),
 gespeicherte Mausauswahl, Wiederverbindung, reduzierter Steuerungsmodus,
 Akku-/Speicher-/Temperaturstatus, unterstützte WB-Presets, editierbare Zyklen.
+Modellbasierte WB-Profile flach/mittel/tief und DL08-Flutlicht; einstellbare
+UW-Stärke und Abgleich der gemeldeten Gains/Farbmatrix (WB-0.8.2.md).
 Aktuelle Belegung und Implementierungsgrenzen: DIVE-0.8.1.md.
 
 ## Offen, in dieser Reihenfolge
@@ -15,7 +17,7 @@ Aktuelle Belegung und Implementierungsgrenzen: DIVE-0.8.1.md.
 1. Spätere Geräteabnahme der beiden Maus-Umschaltgesten einschließlich Cursor-Rand und Wiederverbindung. Keine Änderungen der klassischen Android-Maus außerhalb des App-Fensters.
 2. Macro-Nahfokus sowie tatsächliche UW-Wirkung von Zoom/AF/EV bestätigen; falls notwendig gezielte Korrektur statt neuer allgemeiner Testserie.
 3. Video 4K30 abnehmen, anschließend 4K60 und UW/Macro; kodierte Auflösung/FPS und finalisierte Datei zählen, nicht angeforderte Parameter.
-4. Unterwasser-WB flach/mittel/tief und Videolicht definieren und implementieren. Ein Tageslicht-Preset ersetzt diese Arbeit nicht.
+4. Gerätewirkung und Farbergebnis der implementierten WB-Profile bestätigen. Reines Absorptionsmodell und nominales DL08-5000-K-Modell sind noch keine Kalibrierung realer Tauchbedingungen.
 5. Speicherzielauswahl, sofern weiterhin gewünscht. Aktuell feste, galeriefähige MediaStore-Ordner.
 6. Kurzer Praxisvergleich mit Pixel-Kamera, anschließend Entscheidung über den ausreichend guten Produktions-Aufnahmeweg. Mehrbild bleibt bis zu neuer ausdrücklicher Entscheidung eingefroren.
 

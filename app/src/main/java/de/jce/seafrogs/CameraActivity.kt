@@ -203,7 +203,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.1-dive")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.2-wb")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -293,7 +293,13 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
                         controller.setWhiteBalance(controller.whiteBalanceChoices()[index].second)
                     }.show()
         } }
-        listOf(profile,cycles,wb).forEach { buttonsPanel.addView(it); setupRows.add(it) }
+        val strength = Button(this).apply { text="UW-WB STÄRKE"; setOnClickListener {
+            if(lastCameraState.ready && !lastCameraState.recording) AlertDialog.Builder(this@CameraActivity)
+                .setTitle("Unterwasser-Korrektur").setSingleChoiceItems(arrayOf("25%", "50%", "75%", "100%"),listOf(25,50,75,100).indexOf(controller.whiteBalanceStrength())) { dialog,index ->
+                    controller.setWhiteBalanceStrength(listOf(25,50,75,100)[index]); dialog.dismiss()
+                }.setNegativeButton("Zurück",null).show()
+        } }
+        listOf(profile,cycles,wb,strength).forEach { buttonsPanel.addView(it); setupRows.add(it) }
         val videoSettings = Button(this).apply {
             text = "VIDEO: 4K30 / 4K60"
             setOnClickListener {
@@ -529,7 +535,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             if (mouseDescriptor != null && !mouseConnected()) add("GEHÄUSE GETRENNT")
         }
         status.text = "${if(state.videoMode) "VIDEO 4K${state.videoFps}" else "PHOTO"} | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel}\n" +
-            (if(state.videoMode) "" else "${state.photoFormat} · ${state.quality} · WB ${controller.whiteBalanceLabel()}\n") +
+            (if(state.videoMode) "" else "${state.photoFormat} · ${state.quality} · ") + "WB ${controller.whiteBalanceLabel()}\n" +
             "Akku ${if(battery in 0..100) "$battery%" else "?"} · ${free/(1024*1024)} MiB frei\n" +
             warnings.joinToString(" · ") + (if(warnings.isEmpty()) "" else "\n") + cameraMessage + "\n" +
             (if(wantsCapture) "STEUERUNG" else "MAUS / TOUCH") +

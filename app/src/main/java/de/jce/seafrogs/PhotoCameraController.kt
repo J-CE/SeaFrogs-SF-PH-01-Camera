@@ -97,17 +97,32 @@ class PhotoCameraController(
     private var videoMode = false
     private val wbPreferences = appContext.getSharedPreferences("whiteBalance", Context.MODE_PRIVATE)
     private var whiteBalanceMode = wbPreferences.getInt("mode", CaptureRequest.CONTROL_AWB_MODE_AUTO)
+    private var manualWhiteBalance: ManualWhiteBalance? = null
+    private var manualWbStatus=""
+    private var wbStrength=wbPreferences.getInt("strength",50).coerceIn(0,100)
+    fun whiteBalanceStrength()=wbStrength
+    fun setWhiteBalanceStrength(value: Int) {
+        if(!isReady() || recording!=null) return
+        wbStrength=value.coerceIn(0,100); wbPreferences.edit().putInt("strength",wbStrength).apply()
+        open(activeLens)
+    }
     private var appliedWhiteBalanceMode = CaptureRequest.CONTROL_AWB_MODE_AUTO
     private val wbNames = listOf("Auto" to CaptureRequest.CONTROL_AWB_MODE_AUTO,
         "Tageslicht" to CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT,
         "Bewölkt" to CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT,
         "Schatten" to CaptureRequest.CONTROL_AWB_MODE_SHADE)
-    fun whiteBalanceLabel() = wbNames.firstOrNull { it.second == appliedWhiteBalanceMode }?.first ?: "Auto"
+    fun whiteBalanceLabel(): String = if(manualWhiteBalance!=null)
+        ManualWhiteBalance.names[whiteBalanceMode-100]+(if(whiteBalanceMode!=103) " · $wbStrength%" else "")+" · $manualWbStatus"
+        else (wbNames.firstOrNull { it.second == appliedWhiteBalanceMode }?.first ?: "Auto") + manualWbStatus
     fun whiteBalanceChoices(): List<Pair<String,Int>> {
         val route = activeRoute ?: return wbNames.take(1)
         val manager = appContext.getSystemService(android.hardware.camera2.CameraManager::class.java)
         val available = manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)[android.hardware.camera2.CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES] ?: intArrayOf(CaptureRequest.CONTROL_AWB_MODE_AUTO)
-        return wbNames.filter { it.second in available }
+        val presets=wbNames.filter { it.second in available }
+        return presets + ManualWhiteBalance.names.mapIndexedNotNull { index,name ->
+            val c=manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
+            if(runCatching { ManualWhiteBalance.build(appContext,c,100+index,wbStrength) }.isSuccess) name to 100+index else null
+        }
     }
     fun setWhiteBalance(mode: Int) {
         if (!isReady() || recording != null || whiteBalanceChoices().none { it.second == mode }) return
@@ -358,12 +373,25 @@ class PhotoCameraController(
             Camera2Interop.Extender(previewBuilder).setPhysicalCameraId(physicalId)
             Camera2Interop.Extender(captureBuilder).setPhysicalCameraId(physicalId)
         }
+        manualWhiteBalance=null; manualWbStatus=""
+        if(whiteBalanceMode in 100..103) {
+            val c=appContext.getSystemService(android.hardware.camera2.CameraManager::class.java).getCameraCharacteristics(route.physicalId ?: route.logicalId)
+            val prepared=runCatching { ManualWhiteBalance.build(appContext,c,whiteBalanceMode,wbStrength) }
+            manualWhiteBalance=prepared.getOrNull()
+            manualWbStatus=if(prepared.isSuccess) "WB NICHT BESTÄTIGT" else " · Profil nicht verfügbar: ${prepared.exceptionOrNull()?.message}"
+        }
         val wbAvailable = appContext.getSystemService(android.hardware.camera2.CameraManager::class.java)
             .getCameraCharacteristics(route.physicalId ?: route.logicalId)[android.hardware.camera2.CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES] ?: intArrayOf(CaptureRequest.CONTROL_AWB_MODE_AUTO)
-        appliedWhiteBalanceMode = if(qualityMode == ExtensionMode.NONE && whiteBalanceMode in wbAvailable) whiteBalanceMode else CaptureRequest.CONTROL_AWB_MODE_AUTO
+        appliedWhiteBalanceMode = if(manualWhiteBalance!=null) CaptureRequest.CONTROL_AWB_MODE_OFF else if(qualityMode == ExtensionMode.NONE && whiteBalanceMode in wbAvailable) whiteBalanceMode else CaptureRequest.CONTROL_AWB_MODE_AUTO
         if(qualityMode == ExtensionMode.NONE) {
             Camera2Interop.Extender(previewBuilder).setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, appliedWhiteBalanceMode)
             Camera2Interop.Extender(captureBuilder).setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, appliedWhiteBalanceMode)
+        }
+        manualWhiteBalance?.let { wb ->
+            Camera2Interop.Extender(previewBuilder).setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_MODE,CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_GAINS,wb.gains).setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_TRANSFORM,wb.transform)
+            Camera2Interop.Extender(captureBuilder).setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_MODE,CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_GAINS,wb.gains).setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_TRANSFORM,wb.transform)
         }
         val token = generation
         latestResult = "{}"
@@ -402,6 +430,7 @@ class PhotoCameraController(
                     // A logical AF result cannot confirm focus on a pinned sensor.
                     val focusResult: CaptureResult? = if (Build.VERSION.SDK_INT >= 28 && route.physicalId != null)
                         result.physicalCameraResults[route.physicalId] else result
+                    manualWhiteBalance?.let { manualWbStatus=it.verification(focusResult) }
                     val af = focusResult?.get(CaptureResult.CONTROL_AF_STATE)
                     val focused = af?.let { it == CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED ||
                         it == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED }
@@ -427,6 +456,10 @@ class PhotoCameraController(
             val videoBuilder = VideoCapture.Builder(recorder).setTargetRotation(rotation)
                 .setTargetFrameRate(android.util.Range(videoFps, videoFps))
             Camera2Interop.Extender(videoBuilder).setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, appliedWhiteBalanceMode)
+            manualWhiteBalance?.let { wb ->
+                Camera2Interop.Extender(videoBuilder).setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_MODE,CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                    .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_GAINS,wb.gains).setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_TRANSFORM,wb.transform)
+            }
             if (Build.VERSION.SDK_INT >= 28) route.physicalId?.let {
                 Camera2Interop.Extender(videoBuilder).setPhysicalCameraId(it)
             }
@@ -885,7 +918,7 @@ class PhotoCameraController(
         emit()
         val operation = RawJpegCapture(appContext)
         rawCapture = operation
-        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount, fuse, includeRaw, whiteBalanceMode = appliedWhiteBalanceMode, onProgress = { stage ->
+        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount, fuse, includeRaw, whiteBalanceMode = appliedWhiteBalanceMode, manualWb = manualWhiteBalance, onProgress = { stage ->
             if (generation == token && busy) { message = stage; emit() }
         }) { outcome ->
             val actualMetadata = JSONObject(metadata).put(if (includeRaw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence)).toString()
@@ -925,8 +958,8 @@ class PhotoCameraController(
         val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.8.1-dive")
-            .put("mode", "PHOTO").put("whiteBalanceRequested",whiteBalanceMode).put("whiteBalanceApplied",appliedWhiteBalanceMode)
+            .put("version", "0.8.2-wb")
+            .put("mode", "PHOTO").put("whiteBalanceRequested",whiteBalanceMode).put("whiteBalanceApplied",appliedWhiteBalanceMode).put("manualWhiteBalance",manualWhiteBalance?.json() ?: JSONObject.NULL).put("wbPreviewVerification",manualWbStatus)
             .put("testCase", testCase)
             .put("qualityMode", selectedQualityName())
             .put("processingVariantRequested", testProcessing.name)

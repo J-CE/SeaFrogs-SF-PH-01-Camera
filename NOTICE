@@ -13,3 +13,7 @@ Source: https://github.com/JetBrains/kotlin
 The application code does not include Google Jetpack Camera App source.
 SeaFrogs and Google Pixel are product names of their respective owners.
 This project is independent of those manufacturers.
+
+assets/wb/whitepoints.json contains adapted CIE spectral data under CC BY-SA 4.0.
+Attribution and changes: app/src/main/assets/licenses/CIE-WB-DATA.txt.
+The adaptation uses Pope/Fry (1997) absorption measurements transcribed by OMLC.
