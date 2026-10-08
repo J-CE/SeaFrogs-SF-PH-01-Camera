@@ -1,4 +1,4 @@
-# Ziel und verbleibende Arbeit nach 0.8.3
+# Ziel und verbleibende Arbeit nach 0.8.4
 
 Das Produktziel bleibt eine zuverlässige Pixel-8-Unterwasserkamera mit fünf SeaFrogs-Eingaben. Ein Build oder Unit-Test beweist keine Unterwasser-Bildqualität und keinen funktionierenden Nahfokus.
 
@@ -26,3 +26,7 @@ Kamera. Fehlende JPEG-/DNG-Dateien gelten als Aufnahmefehler.
 6. Kurzer Praxisvergleich mit Pixel-Kamera, anschließend Entscheidung über den ausreichend guten Produktions-Aufnahmeweg. Mehrbild bleibt bis zu neuer ausdrücklicher Entscheidung eingefroren.
 
 Fokus-Lock, manuelle Kelvin-Werte, Vibrations-/Audiofeedback und weitere Optionen bleiben optional. Keine Aufnahmegeräusche oder Vibrationen sind erforderlich. Videoton bleibt aus. Ein Gerätetest findet später gebündelt statt, nicht nach jeder Codeänderung; Diagnoseexport nur bei einer konkreten offenen Fehlerursache.
+
+## Dauerhafte Fotositzung (0.8.4)
+
+RAW+JPEG und JPEG mit ISO-/Digitalgrenze verwenden im normalen Fotomodus eine offene Camera2-Sitzung. Vorschau und Belichtungsmessung laufen vor dem Klick. Kein Kamera-Neustart und keine feste 1,5-s-Wartezeit pro Foto. Diagnosereihen behalten den unabhängigen Einzelsitzungsweg. Die neue Vorschau-/JPEG-/RAW-Streamkombination und die reale Auslösezeit brauchen noch eine Abnahme am Pixel 8.

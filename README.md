@@ -1,7 +1,7 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Stand: **0.8.3-dive**. Ziel bleibt zuverlässiges Aufnehmen und nahezu blinde Bedienung mit fünf Gehäuseeingaben.
+Aktueller Stand: **0.8.4-fast-shutter**. Ziel bleibt zuverlässiges Aufnehmen und nahezu blinde Bedienung mit fünf Gehäuseeingaben.
 
 Links wechselt Hauptkamera/Macro/UW, Hoch Zoom, Rechts EV, Runter Foto/Video,
 Klick Foto beziehungsweise Video Start/Stop. **Links + Hoch** aktiviert
@@ -42,3 +42,7 @@ enthält GPL-3.0-only-Komponenten und gehört nicht zur App.
 
 Die übrigen versionsbezogenen Dokumente beschreiben historische Versuche und
 ersetzen nicht die aktuelle Bedienung in DIVE-0.8.1.md.
+
+### Schnellere RAW-/ISO-Aufnahme ab 0.8.4
+
+Im normalen Fotomodus bleiben Vorschau und RAW-/JPEG-Ausgänge offen. Auslösen verwendet die laufenden Messwerte direkt, ohne Kamera-Neustart oder feste AF/AE-Wartezeit. Schärfe ist bei bewegten Motiven weiterhin vom laufenden Autofokus abhängig. JPEG/DNG werden anschließend gespeichert. NIGHT kann durch die Herstellerverarbeitung länger dauern. Details: [Auslöseweg](docs/FAST-SHUTTER-0.8.4.md).

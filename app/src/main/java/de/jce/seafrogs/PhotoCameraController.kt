@@ -137,6 +137,13 @@ class PhotoCameraController(
     private var owner: LifecycleOwner? = null
     private var previewView: PreviewView? = null
     private var generation = 0
+    private var persistentPhoto: RawJpegCapture? = null
+    private var persistentTexture: android.view.TextureView? = null
+    private var persistentSurface: android.view.Surface? = null
+    private var persistentSize: android.util.Size? = null
+    private var persistentEvSupported = false
+    private var persistentPreviewSize: android.util.Size? = null
+    private var persistentZoomMaximum = 1f
     private var cameraOpen = false
     private var streaming = false
     private var busy = false
@@ -271,6 +278,12 @@ class PhotoCameraController(
                     .put("extensionsOnLogicalSelector", org.json.JSONArray(modes.map(::qualityName)))
                     .put("extensionsAllowedOnRoute", route.physicalId == null))
                 if (whiteBalanceMode != CaptureRequest.CONTROL_AWB_MODE_AUTO || videoMode || usesRaw() || effectiveLimits().enabled || route.physicalId != null || qualityMode !in modes) qualityMode = ExtensionMode.NONE
+                if (!videoMode && !testNativeCapture && !usesNativeFusion() && testCase == "FREI" &&
+                    (usesRaw() || effectiveLimits().enabled)) {
+                    activeRoute = route; activeLens = target
+                    bindPersistentPhoto(view,route,token,notice)
+                    return@addListener
+                }
                 bind(availableProvider, lifecycleOwner, view, route)
                 activeRoute = route
                 activeLens = target
@@ -331,6 +344,112 @@ class PhotoCameraController(
             clearSession()
             message = "Kamera nicht verfügbar: $detail. Erneut starten."
             emit()
+        }
+    }
+
+    private fun bindPersistentPhoto(view: PreviewView, route: CameraLensRoute, token: Int, notice: String?) {
+        val lenses = checkNotNull(catalog)
+        val jpeg = lenses.commonOutputSizes(route, android.graphics.ImageFormat.JPEG)
+            .filter { kotlin.math.abs(it.width.toDouble()/it.height - 4.0/3.0)<0.02 }
+            .maxByOrNull { it.width.toLong()*it.height } ?: error("Keine 4:3-JPEG-Größe verfügbar")
+        val raw = if(usesRaw()) lenses.rawSize(route) ?: error("RAW nicht unterstützt") else null
+        val sizes = lenses.commonOutputSizes(route,android.graphics.ImageFormat.PRIVATE)
+        val previewSize = sizes.filter { it.width<=1920 && it.height<=1440 && kotlin.math.abs(it.width.toDouble()/it.height-4.0/3.0)<0.02 }
+            .maxByOrNull { it.width.toLong()*it.height } ?: sizes.minByOrNull { kotlin.math.abs(it.width.toDouble()/it.height-4.0/3.0) }
+            ?: error("Vorschaugröße fehlt")
+        val manager=appContext.getSystemService(android.hardware.camera2.CameraManager::class.java)
+        val c=manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
+        val logical=manager.getCameraCharacteristics(route.logicalId)
+        persistentZoomMaximum=(c[android.hardware.camera2.CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM] ?: 1f).coerceAtLeast(1f)
+        zoomRatio=zoomRatio.coerceIn(1f,persistentZoomMaximum)
+        val evStep=logical[android.hardware.camera2.CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP]?.toFloat() ?: 0f
+        val evRange=logical[android.hardware.camera2.CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE]
+        persistentEvSupported=evStep>0 && evRange!=null && evRange.lower<evRange.upper
+        exposureEv=if(persistentEvSupported) CameraControlCycles.exposureIndex(exposureEv,evStep,evRange!!.lower,evRange.upper)*evStep else 0f
+        manualWhiteBalance=if(whiteBalanceMode in 100..103) runCatching { ManualWhiteBalance.build(appContext,c,whiteBalanceMode,wbStrength) }.getOrNull() else null
+        val modes=c[android.hardware.camera2.CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES] ?: intArrayOf(CaptureRequest.CONTROL_AWB_MODE_AUTO)
+        appliedWhiteBalanceMode=if(manualWhiteBalance!=null) CaptureRequest.CONTROL_AWB_MODE_OFF else if(whiteBalanceMode in modes) whiteBalanceMode else CaptureRequest.CONTROL_AWB_MODE_AUTO
+        manualWbStatus=if(manualWhiteBalance!=null) "WB NICHT BESTÄTIGT" else if(whiteBalanceMode in 100..103) " · Profil nicht verfügbar: Auto" else ""
+        persistentSize=jpeg; persistentPreviewSize=previewSize
+        extensionSummary="Dauerhafte Camera2-Fotositzung · kein Neustart beim Auslösen"
+        val operation=RawJpegCapture(appContext); persistentPhoto=operation
+        val texture=android.view.TextureView(view.context); persistentTexture=texture
+        texture.surfaceTextureListener=object : android.view.TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
+                if(generation!=token) return
+                try {
+                surface.setDefaultBufferSize(previewSize.width,previewSize.height)
+                val output=android.view.Surface(surface);persistentSurface=output
+                transformPersistentPreview()
+                operation.openPersistent(route,jpeg,raw,output,zoomRatio,exposureEv,lenses.jpegOrientation(route,rotation),
+                    effectiveLimits(),appliedWhiteBalanceMode,manualWhiteBalance,onPreview={ result ->
+                        if(generation==token) {
+                            val first=!cameraOpen
+                            cameraOpen=true;streaming=true;zoomReady=true;exposureReady=true
+                            if(first) message=notice ?: "Bereit"
+                            manualWhiteBalance?.let { manualWbStatus=it.verification(result) }
+                            latestResult=JSONObject().put("iso",result[CaptureResult.SENSOR_SENSITIVITY] ?: JSONObject.NULL)
+                                .put("afState",result[CaptureResult.CONTROL_AF_STATE] ?: JSONObject.NULL)
+                                .put("focusDistanceDiopters",result[CaptureResult.LENS_FOCUS_DISTANCE] ?: JSONObject.NULL).toString()
+                            emit()
+                        }
+                    },onError={ error -> if(generation==token) { clearSession();message="Kamerafehler: $error. Erneut starten.";emit() } })
+                } catch(error: Exception) {
+                    if(generation==token) { clearSession();message="Kamerafehler: $error. Erneut starten.";emit() }
+                }
+            }
+            override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture,width: Int,height: Int) { transformPersistentPreview() }
+            override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) {}
+            override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean { operation.cancel();return true }
+        }
+        view.addView(texture,android.widget.FrameLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT,android.view.ViewGroup.LayoutParams.MATCH_PARENT))
+        emit()
+    }
+
+    private fun transformPersistentPreview() {
+        val texture=persistentTexture ?: return;val size=persistentPreviewSize ?: return;val route=activeRoute ?: return
+        if(texture.width==0 || texture.height==0) return
+        val angle=checkNotNull(catalog).jpegOrientation(route,rotation)
+        val rotated=angle==90 || angle==270
+        val fit=minOf(texture.width.toFloat()/(if(rotated) size.height else size.width),texture.height.toFloat()/(if(rotated) size.width else size.height))
+        val matrix=android.graphics.Matrix()
+        matrix.setScale(size.width.toFloat()/texture.width,size.height.toFloat()/texture.height)
+        matrix.postTranslate(-size.width/2f,-size.height/2f);matrix.postRotate(angle.toFloat())
+        matrix.postScale(fit,fit);matrix.postTranslate(texture.width/2f,texture.height/2f)
+        texture.setTransform(matrix)
+    }
+
+    private fun updatePersistentControls(nextZoom: Float, nextEv: Float) {
+        val operation=persistentPhoto ?: return;val route=activeRoute ?: return;val token=generation
+        controlPending=true;emit()
+        operation.updatePersistent(nextZoom,nextEv,checkNotNull(catalog).jpegOrientation(route,rotation)) { error ->
+            if(generation==token) {
+                controlPending=false
+                if(error==null) { zoomRatio=nextZoom;exposureEv=nextEv;message="Bereit" }
+                else message="Einstellung fehlgeschlagen: $error"
+                emit()
+            }
+        }
+    }
+
+    private fun capturePersistentPhoto(completed: ((android.net.Uri?,String?)->Unit)?) {
+        if(!isReady()) { completed?.invoke(null,"Kamera nicht bereit");return }
+        val free=android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes
+        if(free<(if(usesRaw()) 160L else 80L)*1024*1024) { message="Zu wenig Speicher für Foto";emit();completed?.invoke(null,message);return }
+        val token=generation;val snapshot=exifSnapshot();val requireRaw=usesRaw();val operation=checkNotNull(persistentPhoto)
+        busy=true;message="Foto wird aufgenommen";emit()
+        operation.takePersistent(snapshot,checkNotNull(catalog).jpegOrientation(checkNotNull(activeRoute),rotation)) { outcome ->
+            val metadata=JSONObject(snapshot).put("sensorCapture",JSONObject(outcome.evidence)).toString()
+            exifWriter.write(outcome.jpeg,metadata) { exifError -> mainExecutor.execute {
+                log(JSONObject(outcome.evidence).put("kind","persistentPhotoResult").put("error",outcome.error ?: exifError ?: JSONObject.NULL))
+                val failure=outcome.error ?: when { outcome.jpeg==null -> "JPEG fehlt";requireRaw && outcome.dng==null -> "DNG fehlt";else -> exifError }
+                completed?.invoke(outcome.jpeg,failure)
+                if(generation==token) {
+                    busy=false;lastRawOutcome=outcome
+                    message=if(failure==null) "${if(usesRaw()) "RAW + JPEG" else "JPEG"} gespeichert: Pictures/SeaFrogs" else "Aufnahmefehler: $failure"
+                    emit()
+                }
+            } }
         }
     }
 
@@ -635,6 +754,11 @@ class PhotoCameraController(
 
     fun cycleZoom() {
         if (!isReady()) return
+        if(persistentPhoto!=null) {
+            val next=CameraControlCycles.nextZoom(zoomRatio,activeLens==PhotoLens.MACRO,1f,persistentZoomMaximum,activeLens==PhotoLens.ULTRAWIDE)
+            if(next!=null && next!=zoomRatio) updatePersistentControls(next,exposureEv)
+            return
+        }
         val boundCamera = camera ?: return
         val zoomState = boundCamera.cameraInfo.zoomState.value ?: return
         val next = CameraControlCycles.nextZoom(zoomRatio, activeLens == PhotoLens.MACRO,
@@ -672,6 +796,13 @@ class PhotoCameraController(
 
     fun cycleExposure() {
         if (!isReady()) return
+        if(persistentPhoto!=null) {
+            val c=appContext.getSystemService(android.hardware.camera2.CameraManager::class.java).getCameraCharacteristics(checkNotNull(activeRoute).logicalId)
+            val step=c[android.hardware.camera2.CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP]?.toFloat() ?: 0f
+            val range=c[android.hardware.camera2.CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE]
+            if(step>0 && range!=null && persistentEvSupported) updatePersistentControls(zoomRatio,CameraControlCycles.nextExposure(kotlin.math.round(exposureEv/step).toInt(),step,range.lower,range.upper)*step)
+            return
+        }
         val boundCamera = camera ?: return
         val exposure = boundCamera.cameraInfo.exposureState
         if (!exposure.isExposureCompensationSupported) {
@@ -720,6 +851,7 @@ class PhotoCameraController(
     fun setRotation(targetRotation: Int) {
         if (recording != null) return
         rotation = targetRotation
+        transformPersistentPreview()
         videoCapture?.targetRotation = targetRotation
         imageCapture?.targetRotation = targetRotation
     }
@@ -818,6 +950,7 @@ class PhotoCameraController(
     fun capturePhoto(completed: ((android.net.Uri?, String?) -> Unit)? = null) {
         if (videoMode) { completed?.invoke(null, "Videomodus aktiv"); return }
         lastRawOutcome = null
+        if(persistentPhoto!=null) { capturePersistentPhoto(completed);return }
         if (usesNativeFusion() || usesRaw() || effectiveLimits().enabled || testNativeCapture) { captureSensorPhoto(completed); return }
         val free = android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes
         if(free < 80L*1024*1024) { message="Zu wenig Speicher für Foto"; emit(); completed?.invoke(null,message); return }
@@ -975,10 +1108,10 @@ class PhotoCameraController(
     private fun exifSnapshot(): String {
         val exposure = camera?.cameraInfo?.exposureState
         val zoom = camera?.cameraInfo?.zoomState?.value
-        val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else imageCapture?.resolutionInfo?.resolution
+        val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else persistentSize ?: imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.8.3-dive")
+            .put("version", "0.8.4-fast-shutter")
             .put("mode", "PHOTO").put("whiteBalanceRequested",whiteBalanceMode).put("whiteBalanceApplied",appliedWhiteBalanceMode).put("manualWhiteBalance",manualWhiteBalance?.json() ?: JSONObject.NULL).put("wbPreviewVerification",manualWbStatus)
             .put("testCase", testCase)
             .put("qualityMode", selectedQualityName())
@@ -1027,6 +1160,10 @@ class PhotoCameraController(
     }
 
     private fun releaseUseCases() {
+        persistentPhoto?.cancel();persistentPhoto=null
+        persistentTexture?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) };persistentTexture=null
+        persistentSurface?.release();persistentSurface=null
+        persistentSize=null;persistentPreviewSize=null;persistentEvSupported=false
         recording?.stop()
         recording = null
         val useCases = listOfNotNull(preview, imageCapture, videoCapture)
@@ -1049,12 +1186,12 @@ class PhotoCameraController(
     }
 
     private fun emit() {
-        val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else imageCapture?.resolutionInfo?.resolution
+        val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else persistentSize ?: imageCapture?.resolutionInfo?.resolution
         publish(PhotoCameraState(
             lens = activeLens,
             zoomLabel = zoomLabel(),
             exposureLabel = (if (exposureEv > 0f) "+" else "") + number(exposureEv),
-            exposureSupported = camera?.cameraInfo?.exposureState?.isExposureCompensationSupported == true,
+            exposureSupported = persistentEvSupported || camera?.cameraInfo?.exposureState?.isExposureCompensationSupported == true,
             ready = isReady(),
             capturing = busy,
             message = message,

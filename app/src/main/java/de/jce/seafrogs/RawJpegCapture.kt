@@ -80,12 +80,88 @@ class RawJpegCapture(context: Context) {
     private var targetJpegSize: Size? = null
     private val fusionTimestamps = mutableListOf<Long>()
     private val cancelRequested = java.util.concurrent.atomic.AtomicBoolean(false)
-    private val evidence = JSONObject()
+    private var evidence = JSONObject()
     private var finishedOutcome: RawPairOutcome? = null
     private var delivered = false
     private var seriesCount = 1
     private val seriesFrames = mutableListOf<RawSeriesFrame>()
     private var opening = false
+
+    private var previewSurface: android.view.Surface? = null
+    private var persistent = false
+    private var latestMeter: CaptureResult? = null
+    private var previewUpdate: ((CaptureResult) -> Unit)? = null
+    private var sessionError: ((String) -> Unit)? = null
+    private var shotTimeout: Runnable? = null
+    private var startupTimeout: Runnable? = null
+    private var telemetryAt = 0L
+    private var controlVersion = 0L
+    private var controlCompletion: ((String?) -> Unit)? = null
+    private var controlTimeout: Runnable? = null
+
+    /** Open once before diving. The repeating stream meters continuously. */
+    fun openPersistent(selected: CameraLensRoute, jpegSize: Size, rawSize: Size?, surface: android.view.Surface,
+                       zoomRatio: Float, exposureEv: Float, jpegOrientation: Int, exposureLimits: ExposureLimits,
+                       whiteBalanceMode: Int, wb: ManualWhiteBalance?,
+                       onPreview: (CaptureResult) -> Unit, onError: (String) -> Unit) {
+        persistent = true; previewSurface = surface; previewUpdate = onPreview; sessionError = onError
+        start(selected, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, "{}",
+            exposureLimits, whiteBalanceMode = whiteBalanceMode, manualWb = wb) { }
+    }
+
+    fun updatePersistent(zoomRatio: Float, exposureEv: Float, jpegOrientation: Int, complete: (String?) -> Unit) {
+        worker.post {
+            val previousZoom = zoom; val previousEv = ev; val previousOrientation = orientation
+            val error = runCatching {
+                check(persistent && !finished && !shotRequested && controlCompletion == null) { "Aufnahmesitzung nicht bereit" }
+                zoom = zoomRatio; ev = exposureEv; orientation = jpegOrientation
+                val request = request(CameraDevice.TEMPLATE_PREVIEW)
+                request.setTag(++controlVersion)
+                request.addTarget(checkNotNull(previewSurface))
+                checkNotNull(session).setRepeatingRequest(request.build(), captureCallback, worker)
+                controlCompletion = complete
+                controlTimeout = Runnable {
+                    cancelRequested.set(true)
+                    finish("Zoom/EV nach 5 Sekunden nicht bestätigt; Kamera erneut starten")
+                }.also { worker.postDelayed(it,5000) }
+            }.exceptionOrNull()?.toString()
+            if (error != null) {
+                zoom = previousZoom; ev = previousEv; orientation = previousOrientation
+                main.execute { complete(error) }
+            }
+        }
+    }
+
+    /** Submit immediately from the latest already-running meter; no AF/AE wait on click. */
+    fun takePersistent(metadata: String, jpegOrientation: Int, complete: (RawPairOutcome) -> Unit) {
+        val clickAt = SystemClock.uptimeMillis()
+        worker.post {
+            if (!persistent || finished || shotRequested || controlCompletion != null || latestMeter == null || session == null) {
+                main.execute { complete(RawPairOutcome(null,null,"{}","Aufnahmesitzung nicht bereit")) }
+                return@post
+            }
+            callback = complete; description = metadata; orientation = jpegOrientation
+            evidence = JSONObject(evidence.toString()).apply {
+                listOf("underexposedByLimits", "brightnessDifferenceEvSensor", "limitsVerified",
+                    "postRawBoostActual", "postRawBoostVerified").forEach { remove(it) }
+            }
+            latestMeter?.let { evidence.put("preCaptureAfState",it[CaptureResult.CONTROL_AF_STATE] ?: JSONObject.NULL)
+                .put("preCaptureAeState",it[CaptureResult.CONTROL_AE_STATE] ?: JSONObject.NULL)
+                .put("meterSensorTimestampNs",it[CaptureResult.SENSOR_TIMESTAMP] ?: JSONObject.NULL) }
+            savedJpeg = null; savedDng = null; seriesFrames.clear(); manualExposure = null; requestedBoost = null
+            stillResult = null; jpegFrames.clear(); rawImage?.close(); rawImage = null
+            evidence.put("zoomRequested",zoom.toDouble()).put("evRequested",ev.toDouble())
+                .put("persistentSession",true).put("fixedShutterDelayMs",0)
+                .put("shutterRequestUptimeMs",clickAt)
+                .put("workerQueueDelayMs",SystemClock.uptimeMillis()-clickAt)
+            shotTimeout = Runnable { if (shotRequested) {
+                cancelRequested.set(true)
+                finish("Aufnahme nach 20 Sekunden nicht gespeichert; Kamera erneut starten")
+            } }
+                .also { worker.postDelayed(it,20000) }
+            submitStill(checkNotNull(session), latestMeter, captureCallback)
+        }
+    }
 
     fun start(selected: CameraLensRoute, jpegSize: Size, rawSize: Size?, zoomRatio: Float,
               exposureEv: Float, jpegOrientation: Int, metadata: String,
@@ -146,11 +222,13 @@ class RawJpegCapture(context: Context) {
                 }, worker)
                 rawReader?.setOnImageAvailableListener({ reader ->
                     val image = reader.acquireNextImage() ?: return@setOnImageAvailableListener
-                    if (finished || rawImage != null) image.close()
+                    if (finished || persistent && !shotRequested || rawImage != null) image.close()
                     else { rawImage = image; trySave() }
                 }, worker)
                 openedAt = SystemClock.uptimeMillis()
-                worker.postDelayed({ finish("RAW-Aufnahme/Serie nach 60 Sekunden nicht beendet") }, 60000)
+                if (!persistent) worker.postDelayed({ finish("RAW-Aufnahme/Serie nach 60 Sekunden nicht beendet") }, 60000)
+                else startupTimeout = Runnable { finish("Fotositzung nach 20 Sekunden nicht bereit; Kamera erneut starten") }
+                    .also { worker.postDelayed(it,20000) }
                 open(manager)
             } catch (error: Exception) { finish(error.toString()) }
         }
@@ -165,19 +243,21 @@ class RawJpegCapture(context: Context) {
                 if (finished) { camera.close(); return }
                 device = camera
                 try {
-                    val surfaces = listOfNotNull(jpegReader!!.surface, rawReader?.surface)
+                    val surfaces = listOfNotNull(previewSurface, jpegReader!!.surface, rawReader?.surface)
                     val state = object : CameraCaptureSession.StateCallback() {
                         override fun onConfigured(value: CameraCaptureSession) {
                             if (finished) { value.close(); return }
                             session = value
                             try {
                                 val request = request(CameraDevice.TEMPLATE_PREVIEW)
-                                request.addTarget(jpegReader!!.surface)
+                                request.addTarget(previewSurface ?: jpegReader!!.surface)
                                 value.setRepeatingRequest(request.build(), captureCallback, worker)
+                                // A fresh continuous-picture AF session starts focusing itself.
+                                // Do not trigger START here: that would lock CAF after its first scan.
                             } catch (error: Exception) { finish(error.toString()) }
                         }
                         override fun onConfigureFailed(value: CameraCaptureSession) {
-                            value.close(); finish("RAW+JPEG-Streamkombination nicht unterstützt")
+                            value.close(); cancelRequested.set(true); finish("RAW+JPEG-Streamkombination nicht unterstützt")
                         }
                     }
                     if (Build.VERSION.SDK_INT >= 28 && route.physicalId != null) {
@@ -187,7 +267,7 @@ class RawJpegCapture(context: Context) {
                 } catch (error: Exception) { finish(error.toString()) }
             }
             override fun onDisconnected(camera: CameraDevice) {
-                opening = false; camera.close(); finish("RAW-Kamera getrennt")
+                opening = false; camera.close(); cancelRequested.set(true); finish("RAW-Kamera getrennt")
                 if (finished) deliver()
             }
             override fun onError(camera: CameraDevice, error: Int) {
@@ -196,7 +276,7 @@ class RawJpegCapture(context: Context) {
                 if (finished) { deliver(); return }
                 if (device == null && error == ERROR_CAMERA_IN_USE && SystemClock.uptimeMillis() - openedAt < 5000)
                     worker.postDelayed({ if (!finished) try { open(manager) } catch (e: Exception) { finish(e.toString()) } }, 250)
-                else finish("RAW-Kamerafehler $error")
+                else { cancelRequested.set(true); finish("RAW-Kamerafehler $error") }
             }
             override fun onClosed(camera: CameraDevice) { if (finished) deliver() }
         }, worker) } catch (error: Exception) { opening = false; throw error }
@@ -206,10 +286,7 @@ class RawJpegCapture(context: Context) {
         val camera = checkNotNull(device)
         // setPhysicalCameraKey requires an explicitly initialized physical-ID
         // builder. Pinning OutputConfiguration alone does not initialize it.
-        val physical = route.physicalId?.takeIf {
-            Build.VERSION.SDK_INT >= 28 && (limits.enabled && template == CameraDevice.TEMPLATE_STILL_CAPTURE ||
-                processing != ProcessingVariant.NONE && requestedReference != null)
-        }
+        val physical = route.physicalId?.takeIf { Build.VERSION.SDK_INT >= 28 }
         val builder = if (Build.VERSION.SDK_INT >= 28 && physical != null)
             camera.createCaptureRequest(template, setOf(physical)) else camera.createCaptureRequest(template)
         builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
@@ -267,9 +344,33 @@ class RawJpegCapture(context: Context) {
         else result
 
     private val captureCallback = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureStarted(value: CameraCaptureSession, request: CaptureRequest, timestamp: Long, frameNumber: Long) {
+            if (!finished && shotRequested && request.tag == "SENSOR_PHOTO") {
+                val now = SystemClock.uptimeMillis()
+                evidence.put("captureStartedCallbackUptimeMs",now).put("captureStartedSensorTimestampNs",timestamp)
+                if (persistent) evidence.put("clickToStartedCallbackMs",now-evidence.getLong("shutterRequestUptimeMs"))
+            }
+        }
         override fun onCaptureCompleted(value: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
             if (finished) return
             if (request.tag == "SENSOR_PHOTO") { stillResult = result; trySave(); return }
+            if (persistent) {
+                sensorResult(result)?.let { sensor ->
+                    latestMeter = sensor
+                    startupTimeout?.let { worker.removeCallbacks(it) }; startupTimeout = null
+                    if (request.tag == controlVersion && controlCompletion != null) {
+                        controlTimeout?.let { worker.removeCallbacks(it) }; controlTimeout = null
+                        val completed = controlCompletion; controlCompletion = null
+                        main.execute { completed?.invoke(null) }
+                    }
+                    val now = SystemClock.uptimeMillis()
+                    if (now - telemetryAt >= 500) {
+                        telemetryAt = now
+                        main.execute { if (!cancelRequested.get()) previewUpdate?.invoke(sensor) }
+                    }
+                }
+                return
+            }
             if (manualSettling) {
                 if (request.tag == "QUALITY_LOCK") {
                     val sensor = sensorResult(result)
@@ -319,6 +420,7 @@ class RawJpegCapture(context: Context) {
             } else if (!shotRequested && now - openedAt > 15000) finish("RAW: AF/AE nicht rechtzeitig bestätigt")
         }
         override fun onCaptureFailed(value: CameraCaptureSession, request: CaptureRequest, failure: CaptureFailure) {
+            if (persistent && request.tag != "SENSOR_PHOTO") cancelRequested.set(true)
             finish("RAW-Capture fehlgeschlagen: ${failure.reason}")
         }
     }
@@ -328,12 +430,14 @@ class RawJpegCapture(context: Context) {
             if (cancelRequested.get()) { finish("Aufnahme abgebrochen; gespeicherte Fotos erhalten"); return }
             reportProgress("${if (nativeFusion) "MEHRBILD" else "Aufnahme"}: ${seriesFrames.size + 1}/$seriesCount")
             shotRequested = true
-            value.stopRepeating()
+            if (!persistent) value.stopRepeating()
             val still = request(CameraDevice.TEMPLATE_STILL_CAPTURE)
             if (limits.enabled) applyExposureLimit(still, checkNotNull(sensor))
             evidence.put("noiseReductionRequested", still.get(CaptureRequest.NOISE_REDUCTION_MODE) ?: JSONObject.NULL)
                 .put("edgeRequested", still.get(CaptureRequest.EDGE_MODE) ?: JSONObject.NULL)
             still.setTag("SENSOR_PHOTO")
+            evidence.put("captureSubmittedUptimeMs",SystemClock.uptimeMillis())
+            previewSurface?.let { still.addTarget(it) }
             still.addTarget(jpegReader!!.surface)
             rawReader?.surface?.let { still.addTarget(it) }
             value.capture(still.build(), callback, worker)
@@ -655,6 +759,21 @@ class RawJpegCapture(context: Context) {
 
     private fun finish(error: String?) {
         if (finished) return
+        startupTimeout?.let { worker.removeCallbacks(it) }; startupTimeout = null
+        shotTimeout?.let { worker.removeCallbacks(it) }; shotTimeout = null
+        if (persistent && error == null && !cancelRequested.get() && session != null && latestMeter != null) {
+            evidence.put("savedUptimeMs",SystemClock.uptimeMillis())
+            val result = RawPairOutcome(savedJpeg,savedDng,evidence.toString(),error,actualReference,seriesFrames.toList())
+            val completed = callback; callback = null
+            rawImage?.close(); rawImage = null; stillResult = null; jpegFrames.clear()
+            shotRequested = false
+            main.execute { completed?.invoke(result) }
+            return
+        }
+        controlTimeout?.let { worker.removeCallbacks(it) }; controlTimeout = null
+        val pendingControl = controlCompletion; controlCompletion = null
+        if (pendingControl != null) main.execute { pendingControl(error ?: "Kamerasitzung geschlossen") }
+        if (persistent && error != null && !error.contains("Lifecycle")) main.execute { sessionError?.invoke(error) }
         finished = true
         rawStack = null; fusionSensor = null; fallbackBytes = null
         if (nativeFusion && !evidence.optBoolean("nativeFusionApplied"))

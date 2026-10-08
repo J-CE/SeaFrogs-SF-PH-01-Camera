@@ -440,3 +440,23 @@ Signatur SHA-256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e
 APK SHA-256: 580d25b36a97fc8565ab6ccb9599db484e8b12fccb3d95e2c9ffab4de27f25f8.
 Signatur und ZIP-Ausrichtung geprüft. Geräteabnahme von UI, HID-Umschaltung,
 Macro-Nahfokus, WB-Wirkung und Videoauflösung/FPS bleibt ausstehend.
+
+## 0.8.4-fast-shutter, 2026-10-08
+
+Normale RAW+JPEG- und ISO-/Digitalgrenzen-Fotos verwenden eine dauerhafte
+Camera2-Sitzung mit Vorschau. Der Kamera-Neustart und die feste mindestens
+1.500-ms-AF/AE-Wartezeit nach jedem Klick entfallen. Erfolgreiches Speichern
+lässt die Sitzung offen. Zoom/EV bestätigen sich anhand einer neuen
+Vorschauanforderung. Fehler schließen die Sitzung gegen verspätete Ergebnisse.
+Messwerte trennen Auslöseaufruf, Capture-Start-Callback und Speicherung.
+Details und Grenzen: FAST-SHUTTER-0.8.4.md.
+
+APK-Paket de.jce.seafrogs.test, versionCode 23, versionName 0.8.4-fast-shutter.
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich: 52 Tests,
+0 Fehler, 0 übersprungene Tests. Lint: 0 Fehler, 91 Warnungen.
+Signatur SHA-256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57.
+APK SHA-256: 2732eaeb577a95db4d2f431a2a9563d72d9147813698af807ba0c811787d7452.
+Signatur, Paketversion und 16-KiB-ZIP-Ausrichtung geprüft. Bestehende JVM-Tests
+prüfen unter anderem HID/Zyklen/Belichtungsgrenzen; kein Hardwaretest der neuen Sitzung.
+Die neue Streamkombination, Vorschau-Ausrichtung und reale Auslösezeit sind
+noch nicht am Pixel 8 bestätigt. Keine Garantie einer Millisekunden-Latenz.
