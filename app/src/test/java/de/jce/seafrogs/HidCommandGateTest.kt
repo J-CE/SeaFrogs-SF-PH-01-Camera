@@ -52,4 +52,45 @@ class HidCommandGateTest {
         assertNull(gate.modeSwitch(setOf(HidCommandGate.Command.LEFT,HidCommandGate.Command.RIGHT)))
         assertNull(gate.modeSwitch(setOf(HidCommandGate.Command.LEFT,HidCommandGate.Command.UP,HidCommandGate.Command.CLICK)))
     }
+    @Test fun heldChordSwitchesBeforeQuietAndOnlyOnce() {
+        val gate = HidCommandGate()
+        gate.movement(-16f, -16f, 10)
+        assertEquals(HidCommandGate.ModeSwitch.CAMERA, gate.takeModeSwitch())
+        gate.reset(preserveChord = true) // capture/focus transition must not re-arm it
+        for (time in 20L..1000L step 20L) {
+            gate.movement(-16f, 0f, time)
+            assertNull(gate.takeModeSwitch())
+            assertNull(gate.finish(time + 90))
+        }
+        assertNull(gate.finish(1150))
+        gate.movement(0f, -16f, 1300)
+        assertEquals(setOf(HidCommandGate.Command.UP), gate.finish(1450))
+    }
+    @Test fun classicChordConsumesReleaseTail() {
+        val gate = HidCommandGate()
+        gate.movement(16f, 0f, 10)
+        assertNull(gate.takeModeSwitch())
+        gate.movement(0f, 16f, 20)
+        assertEquals(HidCommandGate.ModeSwitch.CLASSIC, gate.takeModeSwitch())
+        gate.movement(0f, 16f, 100)
+        assertNull(gate.finish(250))
+        gate.movement(-16f, -16f, 400)
+        assertEquals(HidCommandGate.ModeSwitch.CAMERA, gate.takeModeSwitch())
+    }
+    @Test fun lifecycleResetRearmsChord() {
+        val gate = HidCommandGate()
+        gate.movement(-16f, -16f, 10)
+        assertNotNull(gate.takeModeSwitch())
+        gate.reset()
+        gate.movement(-16f, -16f, 20)
+        assertNotNull(gate.takeModeSwitch())
+    }
+    @Test fun nextPressAfterQuietRearmsEvenWithoutTimerCallback() {
+        val gate = HidCommandGate()
+        gate.movement(-16f, -16f, 10)
+        assertNotNull(gate.takeModeSwitch())
+        gate.reset(preserveChord = true)
+        gate.movement(0f, -16f, 500)
+        assertEquals(setOf(HidCommandGate.Command.UP), gate.finish(650))
+    }
 }

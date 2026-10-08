@@ -8,7 +8,11 @@ class HidCommandGate {
     enum class Command { LEFT, RIGHT, UP, DOWN, CLICK }
     private val commands = linkedSetOf<Command>()
     private var lastSignal = Long.MIN_VALUE
-    fun signal(command: Command, time: Long) { commands.add(command); lastSignal = time }
+    private var chordConsumed = false
+    fun signal(command: Command, time: Long) {
+        if (chordConsumed && time - lastSignal >= QUIET_MS) reset()
+        commands.add(command); lastSignal = time
+    }
     fun movement(x: Float, y: Float, time: Long) {
         if (x < 0) signal(Command.LEFT, time)
         if (x > 0) signal(Command.RIGHT, time)
@@ -17,7 +21,9 @@ class HidCommandGate {
     }
     fun finish(time: Long): Set<Command>? {
         if (commands.isEmpty() || time - lastSignal < QUIET_MS) return null
-        return commands.toSet().also { reset() }
+        val result = if (chordConsumed) null else commands.toSet()
+        reset()
+        return result
     }
     enum class ModeSwitch { CAMERA, CLASSIC }
     fun modeSwitch(commands: Set<Command>): ModeSwitch? = when(commands) {
@@ -25,6 +31,14 @@ class HidCommandGate {
         setOf(Command.RIGHT,Command.DOWN) -> ModeSwitch.CLASSIC
         else -> null
     }
-    fun reset() { commands.clear(); lastSignal = Long.MIN_VALUE }
+    /** Switch while held; consume trailing reports until the same burst ends. */
+    fun takeModeSwitch(): ModeSwitch? {
+        if (chordConsumed) return null
+        return modeSwitch(commands)?.also { chordConsumed = true }
+    }
+    fun reset(preserveChord: Boolean = false) {
+        if (preserveChord && chordConsumed) return
+        commands.clear(); lastSignal = Long.MIN_VALUE; chordConsumed = false
+    }
     companion object { const val QUIET_MS = 150L }
 }

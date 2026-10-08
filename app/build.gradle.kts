@@ -11,8 +11,8 @@ android {
         minSdk = 26
         targetSdk = 35
         ndk { abiFilters += "arm64-v8a" }
-        versionCode = 27
-        versionName = "0.8.8-ui-clean"
+        versionCode = 28
+        versionName = "0.8.9-hid-fix"
     }
     providers.gradleProperty("seafrogsDebugKeystore").orNull?.let { keyPath ->
         signingConfigs.getByName("debug").storeFile = file(keyPath)
@@ -22,11 +22,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    testOptions { unitTests.isIncludeAndroidResources = true }
 }
 dependencies {
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     implementation("androidx.camera:camera-extensions:1.6.2")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
     implementation("androidx.activity:activity:1.10.1")
     implementation("androidx.camera:camera-camera2:1.6.2")
     implementation("androidx.camera:camera-lifecycle:1.6.2")

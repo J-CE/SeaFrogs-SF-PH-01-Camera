@@ -65,10 +65,10 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         }
     }
 
-    private fun setMouseMode(capture: Boolean) {
+    private fun setMouseMode(capture: Boolean, fromChord: Boolean = false) {
         wantsCapture = capture
         divePreferences.edit().putBoolean("capture", capture).apply()
-        resetInput("mode:$capture")
+        resetInput("mode:$capture", preserveChord = fromChord)
         if (capture) { setupVisible=false; setupRows.forEach { it.visibility=android.view.View.GONE }; setupToggle.text="SETUP"; preview.post { capturePointer() } }
         else preview.releasePointerCapture()
         hidStatus = if (capture) "STEUERUNG AKTIV" else "KLASSISCHE MAUS"
@@ -203,7 +203,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.8-ui-clean")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.9-hid-fix")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         screen = CameraScreenLayout(this).apply {
@@ -550,7 +550,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         setupRows.forEach { it.visibility = if(setupVisible) android.view.View.VISIBLE else android.view.View.GONE }
         setupToggle.text = "SETUP"
         toolbar.visibility = if(setupVisible) android.view.View.GONE else android.view.View.VISIBLE
-        toolbar.columnCount = if(wantsCapture) 1 else if(resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) 6 else 3
+        // CameraScreenLayout owns toolbar columns and resets assigned cell specs.
         buttonsView.visibility = if(setupVisible) android.view.View.VISIBLE else android.view.View.GONE
         if (screen.videoMode != state.videoMode || screen.housingControl != wantsCapture) {
             screen.videoMode = state.videoMode
@@ -561,6 +561,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         format.isEnabled = state.ready && !state.videoMode && !testing
         exposureSetup.isEnabled = state.ready && !state.videoMode && !testing
         exposureSetup.text = if (state.exposureLimits.enabled) "ISO / DIGITAL" else "ISO: AUTO"
+        mouse.text = if (wantsCapture) "STEUERUNG AUS / KLASSISCHE MAUS" else "SEAFROGS-MAUS AUSWÄHLEN"
         mouse.isEnabled = !state.capturing && !testing
         zoom.isEnabled = state.ready && !testing
         zoom.text = state.zoomLabel
@@ -647,8 +648,6 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private fun chooseMouse() {
         if (wantsCapture) {
             setMouseMode(false)
-            mouse.text = "MAUS AUS"
-            hidStatus = "MAUS AUS"
             return
         }
         val devices = InputDevice.getDeviceIds().toList().mapNotNull { InputDevice.getDevice(it) }
@@ -665,7 +664,6 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
                 divePreferences.edit().putString("mouse", device.descriptor).apply()
                 recorder.record(EventEncoder.device(device).put("kind", "selectedMouse"))
                 setMouseMode(true)
-                mouse.text = "MAUS AN"
                 preview.post { capturePointer() }
             }.show()
     }
@@ -686,14 +684,15 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     override fun onPointerCaptureChanged(hasCapture: Boolean) {
         super.onPointerCaptureChanged(hasCapture)
         if (!initialized) return
-        resetInput("captureChanged:$hasCapture")
-        hidStatus = if (hasCapture) "MAUS BEREIT" else if (wantsCapture) "MAUS-CAPTURE FEHLT" else "MAUS AUS"
+        resetInput("captureChanged:$hasCapture", preserveChord = true)
+        hidStatus = if (hasCapture) "MAUS BEREIT" else if (wantsCapture) "MAUS-CAPTURE FEHLT" else "KLASSISCHE MAUS"
         recorder.record(JSONObject().put("kind", "captureChanged").put("captured", hasCapture))
     }
 
-    private fun resetInput(reason: String) {
+    private fun resetInput(reason: String, preserveChord: Boolean = false) {
         handler.removeCallbacks(finishBurst)
-        gate.reset()
+        gate.reset(preserveChord)
+        if (preserveChord) handler.postDelayed(finishBurst, HidCommandGate.QUIET_MS)
         primaryDown = false
         normalX = null; normalY = null
         if (initialized) recorder.record(JSONObject().put("kind", "inputReset").put("reason", reason))
@@ -727,6 +726,9 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
                 if(relativeX != 0f || relativeY != 0f) { gate.movement(relativeX,relativeY,now); normalX=event.x; normalY=event.y }
                 else { for(i in 0 until event.historySize) sample(event.getHistoricalX(i),event.getHistoricalY(i)); sample(event.x,event.y) }
             }
+        }
+        gate.takeModeSwitch()?.let { mode ->
+            setMouseMode(mode == HidCommandGate.ModeSwitch.CAMERA, fromChord = true)
         }
         handler.removeCallbacks(finishBurst)
         handler.postDelayed(finishBurst, HidCommandGate.QUIET_MS)
