@@ -48,7 +48,7 @@ class CameraScreenLayout(context: Context) : ViewGroup(context) {
             landscape -> 6
             else -> 3
         }
-        (controls as? android.widget.GridLayout)?.let { reflowToolbar(it, columns) }
+        (controls as? CameraToolbarLayout)?.columns = columns
         controls.measure(exact(controlsWidth), atMost(availableHeight))
         setup.measure(exact(min(availableWidth, dp(360))), exact(availableHeight))
     }
@@ -74,20 +74,4 @@ class CameraScreenLayout(context: Context) : ViewGroup(context) {
     private fun exact(value: Int) = MeasureSpec.makeMeasureSpec(value, MeasureSpec.EXACTLY)
     private fun atMost(value: Int) = MeasureSpec.makeMeasureSpec(value, MeasureSpec.AT_MOST)
     private fun dp(value: Int) = (value * resources.displayMetrics.density).roundToInt()
-}
-
-/** GridLayout resolves UNDEFINED specs during measurement. Discard those resolved
- * cells before reducing columnCount, otherwise old cells violate the new grid. */
-internal fun reflowToolbar(grid: android.widget.GridLayout, columns: Int) {
-    if (grid.columnCount == columns) return
-    val children = (0 until grid.childCount).map { grid.getChildAt(it) }
-    val parameters = children.map { child ->
-        android.widget.GridLayout.LayoutParams(child.layoutParams as android.widget.GridLayout.LayoutParams).apply {
-            rowSpec = android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED)
-            columnSpec = android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f)
-        }
-    }
-    grid.removeAllViews()
-    grid.columnCount = columns
-    children.forEachIndexed { index, child -> grid.addView(child, parameters[index]) }
 }

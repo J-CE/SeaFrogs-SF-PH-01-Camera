@@ -33,7 +33,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var controller: PhotoCameraController
     private lateinit var preview: PreviewView
     private lateinit var screen: CameraScreenLayout
-    private lateinit var toolbar: android.widget.GridLayout
+    private lateinit var toolbar: CameraToolbarLayout
     private lateinit var notice: TextView
     private lateinit var setupDetails: TextView
     private lateinit var status: TextView
@@ -49,8 +49,18 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private val divePreferences by lazy { getSharedPreferences("dive", MODE_PRIVATE) }
     private val diveControls = mutableListOf<android.view.View>()
     private lateinit var buttonsView: android.widget.ScrollView
-    private var normalX: Float? = null
-    private var normalY: Float? = null
+    private val motionDecoder = MouseMotionDecoder()
+    private var pendingMouseMode: Boolean? = null
+    private val applyMouseMode = Runnable {
+        val mode = pendingMouseMode
+        pendingMouseMode = null
+        if (mode != null && initialized && active && !isDestroyed) setMouseMode(mode, fromChord = true)
+    }
+    private fun queueMouseMode(capture: Boolean) {
+        pendingMouseMode = capture
+        handler.removeCallbacks(applyMouseMode)
+        handler.post(applyMouseMode)
+    }
     private val healthTick = object : Runnable {
         override fun run() { if (active) { renderState(); handler.postDelayed(this, 2000) } }
     }
@@ -66,6 +76,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     }
 
     private fun setMouseMode(capture: Boolean, fromChord: Boolean = false) {
+        CrashReport.note("setMouseMode capture=$capture fromChord=$fromChord")
         wantsCapture = capture
         divePreferences.edit().putBoolean("capture", capture).apply()
         resetInput("mode:$capture", preserveChord = fromChord)
@@ -188,6 +199,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        CrashReport.install(applicationContext)
         super.onCreate(savedInstanceState)
         exportGroupOnly = savedInstanceState?.getString("exportGroupOnly")
         inputManager = getSystemService(InputManager::class.java)
@@ -203,7 +215,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.9-hid-fix")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.10-hid-transition")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         screen = CameraScreenLayout(this).apply {
@@ -341,6 +353,12 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         footer.addView(restart, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         footer.addView(diagnosis, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         buttonsPanel.addView(footer)
+        val crashDetails = Button(this).apply {
+            text = "LETZTER ABSTURZ"
+            setOnClickListener { CrashReport.show(this@CameraActivity) }
+        }
+        buttonsPanel.addView(crashDetails)
+        setupRows.add(crashDetails)
         mouse = Button(this).apply { text = "MAUS AUS"; setOnClickListener { chooseMouse() } }
         buttonsPanel.addView(mouse)
         setupRows.addAll(listOf(footer, mouse))
@@ -356,17 +374,14 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
         buttonsPanel.addView(setupDetails, 1)
-        toolbar = android.widget.GridLayout(this).apply { columnCount = if (landscape) 6 else 3 }
+        toolbar = CameraToolbarLayout(this)
         listOf(lensSwitch, zoom, exposure, modeSwitch, shutter, setupToggle).forEach { button ->
             (button.parent as? android.view.ViewGroup)?.removeView(button)
             button.textSize = 16f
             button.minHeight = dp(48); button.minimumHeight = dp(48)
             button.minWidth = 0; button.minimumWidth = 0
             button.setPadding(dp(4), 0, dp(4), 0)
-            toolbar.addView(button, android.widget.GridLayout.LayoutParams().apply {
-                width = 0; height = dp(48)
-                columnSpec = android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f)
-            })
+            toolbar.addView(button, android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
         }
         diveControls.clear(); diveControls.addAll(listOf(lensSwitch, zoom, exposure, modeSwitch, shutter))
         buttonsView = android.widget.ScrollView(this).apply {
@@ -516,7 +531,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         val wbLabel = controller.whiteBalanceLabel()
         val wbShort = wbLabel.substringBefore(" · ").replace("Unterwasser ", "").replace("Videolicht ", "") +
             (if(wbLabel.startsWith("Unterwasser ")) " ${controller.whiteBalanceStrength()}%" else "")
-        status.text = "${if(state.videoMode) "VIDEO 4K${state.videoFps}" else "PHOTO"} | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel}\n" +
+        status.text = "${if(wantsCapture) "HID" else "MAUS"} | ${if(state.videoMode) "VIDEO 4K${state.videoFps}" else "PHOTO"} | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel}\n" +
             (if(state.videoMode) "OHNE TON" else state.photoFormat) + " · WB $wbShort · Akku ${if(battery in 0..100) "$battery%" else "?"} · ${String.format(java.util.Locale.GERMAN,"%.1f",free/1073741824.0)} GB"
         val notices = warnings.toMutableList()
         if (state.recording) notices.add(0, "● AUFNAHME")
@@ -694,19 +709,20 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         gate.reset(preserveChord)
         if (preserveChord) handler.postDelayed(finishBurst, HidCommandGate.QUIET_MS)
         primaryDown = false
-        normalX = null; normalY = null
+        motionDecoder.reset()
         if (initialized) recorder.record(JSONObject().put("kind", "inputReset").put("reason", reason))
     }
 
     private fun handleMouse(event: MotionEvent, route: String) {
         if (!initialized) return
+        CrashReport.note("mouse $route action=${event.actionMasked} x=${event.x} y=${event.y} rx=${event.getAxisValue(MotionEvent.AXIS_RELATIVE_X)} ry=${event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y)} capture=$wantsCapture")
         recorder.record(EventEncoder.motion(event, route))
         val selected = InputDevice.getDevice(event.deviceId)?.descriptor == mouseDescriptor
-        if (automated.running || exporting || !selected) return
+        if (automated.running || exporting || !selected || pendingMouseMode != null) return
         if (wantsCapture && (route != "captured" || !preview.hasPointerCapture())) return
         if (!wantsCapture && route == "captured") return
         val now = SystemClock.uptimeMillis()
-        if (!wantsCapture && event.actionMasked == MotionEvent.ACTION_HOVER_ENTER) { normalX=event.x; normalY=event.y }
+        if (!wantsCapture && event.actionMasked == MotionEvent.ACTION_HOVER_ENTER) motionDecoder.position(event.rawX, event.rawY)
         // Button transitions unify DOWN/BUTTON_PRESS and UP/BUTTON_RELEASE.
         val down = event.buttonState and MotionEvent.BUTTON_PRIMARY != 0
         if (wantsCapture && down && !primaryDown) gate.signal(HidCommandGate.Command.CLICK, now)
@@ -716,19 +732,24 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
                 for (i in 0 until event.historySize) gate.movement(event.getHistoricalX(i), event.getHistoricalY(i), now)
                 gate.movement(event.x, event.y, now)
             } else {
-                fun sample(x: Float, y: Float) {
-                    val dx = normalX?.let { x-it } ?: 0f; val dy = normalY?.let { y-it } ?: 0f
-                    normalX=x; normalY=y
-                    gate.movement(dx,dy,now)
+                // Activity coordinates can differ from raw screen coordinates. Keep
+                // the same raw basis across hover targets and include batched deltas.
+                val rawOffsetX = event.rawX - event.x
+                val rawOffsetY = event.rawY - event.y
+                for (i in 0 until event.historySize) {
+                    val delta = motionDecoder.sample(
+                        event.getHistoricalX(i) + rawOffsetX, event.getHistoricalY(i) + rawOffsetY,
+                        event.getHistoricalAxisValue(MotionEvent.AXIS_RELATIVE_X, i),
+                        event.getHistoricalAxisValue(MotionEvent.AXIS_RELATIVE_Y, i))
+                    gate.movement(delta.first, delta.second, now)
                 }
-                val relativeX=event.getAxisValue(MotionEvent.AXIS_RELATIVE_X)
-                val relativeY=event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y)
-                if(relativeX != 0f || relativeY != 0f) { gate.movement(relativeX,relativeY,now); normalX=event.x; normalY=event.y }
-                else { for(i in 0 until event.historySize) sample(event.getHistoricalX(i),event.getHistoricalY(i)); sample(event.x,event.y) }
+                val delta = motionDecoder.sample(event.rawX, event.rawY,
+                    event.getAxisValue(MotionEvent.AXIS_RELATIVE_X), event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y))
+                gate.movement(delta.first, delta.second, now)
             }
         }
         gate.takeModeSwitch()?.let { mode ->
-            setMouseMode(mode == HidCommandGate.ModeSwitch.CAMERA, fromChord = true)
+            queueMouseMode(mode == HidCommandGate.ModeSwitch.CAMERA)
         }
         handler.removeCallbacks(finishBurst)
         handler.postDelayed(finishBurst, HidCommandGate.QUIET_MS)
@@ -736,7 +757,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
 
     private fun finishInput() {
         val commands = gate.finish(SystemClock.uptimeMillis()) ?: return
-        gate.modeSwitch(commands)?.let { mode -> setMouseMode(mode == HidCommandGate.ModeSwitch.CAMERA); return }
+        gate.modeSwitch(commands)?.let { mode -> queueMouseMode(mode == HidCommandGate.ModeSwitch.CAMERA); return }
         if (!wantsCapture) return
         val name = commands.joinToString("+") { it.name }
         val decision = when {
@@ -796,6 +817,8 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     }
 
     override fun onPause() {
+        handler.removeCallbacks(applyMouseMode)
+        pendingMouseMode = null
         inputManager.unregisterInputDeviceListener(this)
         resetInput("paused")
         super.onPause()
