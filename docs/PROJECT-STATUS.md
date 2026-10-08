@@ -1,4 +1,4 @@
-# Ziel und verbleibende Arbeit nach 0.8.5
+# Ziel und verbleibende Arbeit nach 0.8.6
 
 Das Produktziel bleibt eine zuverlässige Pixel-8-Unterwasserkamera mit fünf SeaFrogs-Eingaben. Ein Build oder Unit-Test beweist keine Unterwasser-Bildqualität und keinen funktionierenden Nahfokus.
 
@@ -34,3 +34,7 @@ RAW+JPEG und JPEG mit ISO-/Digitalgrenze verwenden im normalen Fotomodus eine of
 ## Rückmeldung 0.8.4 und Korrektur 0.8.5
 
 Nutzer meldet rechtsgedrehte Vorschau und Sitzungsabbruch nach gespeichertem Foto mit Grenz-Warnung. Korrigiert: doppelte Sensorrotation entfernt; gespeicherte Aufnahme mit Grenz-Warnung bleibt in der offenen Sitzung. Sensorgrenzen bleiben streng geprüft. Tatsächliche AE-/ISO-/Zeitursache aus dem Screenshot nicht bestimmbar; Anzeige und Metadaten benennen nun die konkrete Abweichung.
+
+## WB-/EV-Korrektur 0.8.6
+
+WB-Statusanzeige und Sitzungsabschluss verhindern veraltete Profilindizes bei Presetwechseln. EV zeigt sofort die gewünschte Stufe; schnelle Folgen verwerfen veraltete Rückmeldungen. Camera2-Requestbestätigung ist von physischer Sensormetadaten-Verfügbarkeit getrennt. AE-Konvergenz bleibt hardwareabhängig.

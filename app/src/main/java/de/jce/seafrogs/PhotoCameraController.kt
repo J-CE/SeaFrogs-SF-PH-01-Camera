@@ -43,6 +43,7 @@ data class PhotoCameraState(
     val zoomLabel: String = "1×",
     val exposureLabel: String = "0",
     val exposureSupported: Boolean = false,
+    val exposureAdjustable: Boolean = false,
     val ready: Boolean = false,
     val capturing: Boolean = false,
     val message: String = "Kamera startet",
@@ -112,9 +113,8 @@ class PhotoCameraController(
         "Tageslicht" to CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT,
         "Bewölkt" to CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT,
         "Schatten" to CaptureRequest.CONTROL_AWB_MODE_SHADE)
-    fun whiteBalanceLabel(): String = if(manualWhiteBalance!=null)
-        ManualWhiteBalance.names[whiteBalanceMode-100]+(if(whiteBalanceMode!=103) " · $wbStrength%" else "")+" · $manualWbStatus"
-        else (wbNames.firstOrNull { it.second == appliedWhiteBalanceMode }?.first ?: "Auto") + manualWbStatus
+    fun whiteBalanceLabel(): String = WhiteBalanceLabels.label(whiteBalanceMode,appliedWhiteBalanceMode,
+        manualWhiteBalance!=null,wbStrength,manualWbStatus,wbNames,ManualWhiteBalance.names)
     fun whiteBalanceChoices(): List<Pair<String,Int>> {
         val route = activeRoute ?: return wbNames.take(1)
         val manager = appContext.getSystemService(android.hardware.camera2.CameraManager::class.java)
@@ -154,6 +154,8 @@ class PhotoCameraController(
     private var exposureEv = 0f
     private var exposureReady = false
     private var controlPending = false
+    private var exposureOperation = 0
+    private var persistentEvPending = false
     private var zoomReady = false
     private var focusPending = false
     private var focusTriggered = false
@@ -420,14 +422,18 @@ class PhotoCameraController(
         texture.setTransform(matrix)
     }
 
-    private fun updatePersistentControls(nextZoom: Float, nextEv: Float) {
+    private fun updatePersistentControls(nextZoom: Float, nextEv: Float, rapidEv: Boolean = false) {
         val operation=persistentPhoto ?: return;val route=activeRoute ?: return;val token=generation
-        controlPending=true;emit()
+        val requestId=++exposureOperation
+        val previousEv=exposureEv
+        persistentEvPending=rapidEv;controlPending=true
+        if(rapidEv) { exposureEv=nextEv;message="EV angefordert" }
+        emit()
         operation.updatePersistent(nextZoom,nextEv,checkNotNull(catalog).jpegOrientation(route,rotation)) { error ->
-            if(generation==token) {
-                controlPending=false
-                if(error==null) { zoomRatio=nextZoom;exposureEv=nextEv;message="Bereit" }
-                else message="Einstellung fehlgeschlagen: $error"
+            if(generation==token && exposureOperation==requestId) {
+                controlPending=false;persistentEvPending=false
+                if(error==null) { zoomRatio=nextZoom;exposureEv=nextEv;message=if(rapidEv) "EV-Anforderung übernommen" else "Bereit" }
+                else { exposureEv=previousEv;message="Einstellung fehlgeschlagen: $error" }
                 emit()
             }
         }
@@ -797,13 +803,16 @@ class PhotoCameraController(
         }
     }
 
+    private fun canAdjustExposure() = isReady() ||
+        (persistentEvPending && cameraOpen && streaming && !busy && !focusPending)
+
     fun cycleExposure() {
-        if (!isReady()) return
+        if (!canAdjustExposure()) return
         if(persistentPhoto!=null) {
             val c=appContext.getSystemService(android.hardware.camera2.CameraManager::class.java).getCameraCharacteristics(checkNotNull(activeRoute).logicalId)
             val step=c[android.hardware.camera2.CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP]?.toFloat() ?: 0f
             val range=c[android.hardware.camera2.CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE]
-            if(step>0 && range!=null && persistentEvSupported) updatePersistentControls(zoomRatio,CameraControlCycles.nextExposure(kotlin.math.round(exposureEv/step).toInt(),step,range.lower,range.upper)*step)
+            if(step>0 && range!=null && persistentEvSupported) updatePersistentControls(zoomRatio,CameraControlCycles.nextExposure(kotlin.math.round(exposureEv/step).toInt(),step,range.lower,range.upper)*step,rapidEv=true)
             return
         }
         val boundCamera = camera ?: return
@@ -817,19 +826,21 @@ class PhotoCameraController(
         try {
             val step = exposure.exposureCompensationStep.toFloat()
             val range = exposure.exposureCompensationRange
-            val next = CameraControlCycles.nextExposure(exposure.exposureCompensationIndex,
+            val previous = exposureEv
+            val next = CameraControlCycles.nextExposure(kotlin.math.round(exposureEv/step).toInt(),
                 step, range.lower, range.upper)
-            controlPending = true
-            message = "Belichtung wird eingestellt"
+            val requestId = ++exposureOperation
+            exposureEv = next * step
+            message = "EV angefordert"
             emit()
             val operation = boundCamera.cameraControl.setExposureCompensationIndex(next)
             operation.addListener({
-                if (generation == token) {
-                    controlPending = false
+                if (generation == token && exposureOperation == requestId) {
                     message = try {
                         exposureEv = operation.get() * step
-                        "Belichtung eingestellt"
+                        "EV bestätigt"
                     } catch (error: Exception) {
+                        exposureEv = previous
                         "Belichtung fehlgeschlagen: ${error.cause?.message ?: error.message}"
                     }
                     emit()
@@ -1114,7 +1125,7 @@ class PhotoCameraController(
         val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else persistentSize ?: imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.8.5-preview-fix")
+            .put("version", "0.8.6-wb-ev-fix")
             .put("mode", "PHOTO").put("whiteBalanceRequested",whiteBalanceMode).put("whiteBalanceApplied",appliedWhiteBalanceMode).put("manualWhiteBalance",manualWhiteBalance?.json() ?: JSONObject.NULL).put("wbPreviewVerification",manualWbStatus)
             .put("testCase", testCase)
             .put("qualityMode", selectedQualityName())
@@ -1167,6 +1178,8 @@ class PhotoCameraController(
         persistentTexture?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) };persistentTexture=null
         persistentSurface?.release();persistentSurface=null
         persistentSize=null;persistentPreviewSize=null;persistentEvSupported=false
+        manualWhiteBalance=null;manualWbStatus="";appliedWhiteBalanceMode=CaptureRequest.CONTROL_AWB_MODE_AUTO
+        exposureOperation++
         recording?.stop()
         recording = null
         val useCases = listOfNotNull(preview, imageCapture, videoCapture)
@@ -1183,6 +1196,7 @@ class PhotoCameraController(
         zoomReady = false
         exposureReady = false
         controlPending = false
+        persistentEvPending = false
         focusPending = false
         focusTriggered = false
         autofocusStability.reset()
@@ -1195,6 +1209,7 @@ class PhotoCameraController(
             zoomLabel = zoomLabel(),
             exposureLabel = (if (exposureEv > 0f) "+" else "") + number(exposureEv),
             exposureSupported = persistentEvSupported || camera?.cameraInfo?.exposureState?.isExposureCompensationSupported == true,
+            exposureAdjustable = canAdjustExposure(),
             ready = isReady(),
             capturing = busy,
             message = message,

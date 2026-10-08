@@ -114,12 +114,15 @@ class RawJpegCapture(context: Context) {
         worker.post {
             val previousZoom = zoom; val previousEv = ev; val previousOrientation = orientation
             val error = runCatching {
-                check(persistent && !finished && !shotRequested && controlCompletion == null) { "Aufnahmesitzung nicht bereit" }
+                check(persistent && !finished && !shotRequested) { "Aufnahmesitzung nicht bereit" }
                 zoom = zoomRatio; ev = exposureEv; orientation = jpegOrientation
                 val request = request(CameraDevice.TEMPLATE_PREVIEW)
                 request.setTag(++controlVersion)
                 request.addTarget(checkNotNull(previewSurface))
                 checkNotNull(session).setRepeatingRequest(request.build(), captureCallback, worker)
+                val superseded = controlCompletion
+                controlTimeout?.let { worker.removeCallbacks(it) };controlTimeout=null
+                if(superseded!=null) main.execute { superseded("Durch neuere Einstellung ersetzt") }
                 controlCompletion = complete
                 controlTimeout = Runnable {
                     cancelRequested.set(true)
@@ -358,14 +361,16 @@ class RawJpegCapture(context: Context) {
             if (finished) return
             if (request.tag == "SENSOR_PHOTO") { stillResult = result; trySave(); return }
             if (persistent) {
+                // The tagged request confirms submission even if this frame has no
+                // physical sensor metadata. Metering still uses physical results only.
+                if (request.tag == controlVersion && controlCompletion != null) {
+                    controlTimeout?.let { worker.removeCallbacks(it) }; controlTimeout = null
+                    val completed = controlCompletion; controlCompletion = null
+                    main.execute { completed?.invoke(null) }
+                }
                 sensorResult(result)?.let { sensor ->
                     latestMeter = sensor
                     startupTimeout?.let { worker.removeCallbacks(it) }; startupTimeout = null
-                    if (request.tag == controlVersion && controlCompletion != null) {
-                        controlTimeout?.let { worker.removeCallbacks(it) }; controlTimeout = null
-                        val completed = controlCompletion; controlCompletion = null
-                        main.execute { completed?.invoke(null) }
-                    }
                     val now = SystemClock.uptimeMillis()
                     if (now - telemetryAt >= 500) {
                         telemetryAt = now

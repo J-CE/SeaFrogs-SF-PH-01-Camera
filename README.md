@@ -1,7 +1,7 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Stand: **0.8.5-preview-fix**. Ziel bleibt zuverlässiges Aufnehmen und nahezu blinde Bedienung mit fünf Gehäuseeingaben.
+Aktueller Stand: **0.8.6-wb-ev-fix**. Ziel bleibt zuverlässiges Aufnehmen und nahezu blinde Bedienung mit fünf Gehäuseeingaben.
 
 Links wechselt Hauptkamera/Macro/UW, Hoch Zoom, Rechts EV, Runter Foto/Video,
 Klick Foto beziehungsweise Video Start/Stop. **Links + Hoch** aktiviert
@@ -50,3 +50,7 @@ Im normalen Fotomodus bleiben Vorschau und RAW-/JPEG-Ausgänge offen. Auslösen 
 ### Korrektur 0.8.5
 
 Die Camera2-TextureView rotiert nicht mehr zusätzlich um die bereits vom System korrigierte Sensororientierung. Die vollständige 4:3-Fotovorschau bleibt unverzerrt. Eine ISO-/Zeit-/Digitalgrenzen-Warnung nach erfolgreich gespeicherten Dateien lässt die Fotositzung offen. Die UI zeigt die gemeldeten Werte in Gelb; sie bestätigt überschrittene oder fehlende Grenzen nicht als eingehalten. Details: [Korrektur 0.8.5](docs/FIXES-0.8.5.md).
+
+### Korrektur 0.8.6
+
+WB-Presetwechsel sichern die Statusanzeige gegen vorbereitete Matrizen des vorherigen Profils ab. EV zeigt den gewünschten Wert sofort; weitere EV-Schritte warten nicht auf die vorige AE-Bestätigung. Nur die jüngste Rückmeldung aktualisiert die UI. [Details](docs/FIXES-0.8.6.md).

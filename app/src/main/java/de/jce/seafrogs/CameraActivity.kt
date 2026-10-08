@@ -209,7 +209,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.5-preview-fix")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.6-wb-ev-fix")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         screen = CameraScreenLayout(this).apply {
@@ -628,7 +628,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         mouse.isEnabled = !state.capturing && !testing
         zoom.isEnabled = state.ready && !testing
         zoom.text = state.zoomLabel
-        exposure.isEnabled = state.ready && state.exposureSupported && !testing
+        exposure.isEnabled = state.exposureAdjustable && state.exposureSupported && !testing
         exposure.text = if (state.exposureSupported) "EV: ${state.exposureLabel}" else "EV: N/V"
         lensSwitch.isEnabled = state.ready && !state.recording && !testing
         lensSwitch.text = state.lens.label
