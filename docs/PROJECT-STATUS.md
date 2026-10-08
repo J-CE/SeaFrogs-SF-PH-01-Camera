@@ -1,4 +1,4 @@
-# Ziel und verbleibende Arbeit nach 0.8.6
+# Ziel und verbleibende Arbeit nach 0.8.7
 
 Das Produktziel bleibt eine zuverlässige Pixel-8-Unterwasserkamera mit fünf SeaFrogs-Eingaben. Ein Build oder Unit-Test beweist keine Unterwasser-Bildqualität und keinen funktionierenden Nahfokus.
 
@@ -16,14 +16,15 @@ Bedienung in Randflächen und Setup als Overlay. Aufnahmeoperationen trennen
 alte Video-Rückmeldungen; RAW-Startfehler führen über den Abschluss zurück zur
 Kamera. Fehlende JPEG-/DNG-Dateien gelten als Aufnahmefehler.
 
-## Offen, in dieser Reihenfolge
+## Nutzerabnahme und nächste Meilensteine (2026-10-08)
 
-1. Spätere Geräteabnahme der beiden Maus-Umschaltgesten einschließlich Cursor-Rand und Wiederverbindung. Keine Änderungen der klassischen Android-Maus außerhalb des App-Fensters.
-2. Macro-Nahfokus sowie tatsächliche UW-Wirkung von Zoom/AF/EV bestätigen; falls notwendig gezielte Korrektur statt neuer allgemeiner Testserie.
-3. Video 4K30 abnehmen, anschließend 4K60 und UW/Macro; kodierte Auflösung/FPS und finalisierte Datei zählen, nicht angeforderte Parameter.
-4. Gerätewirkung und Farbergebnis der implementierten WB-Profile bestätigen. Reines Absorptionsmodell und nominales DL08-5000-K-Modell sind noch keine Kalibrierung realer Tauchbedingungen.
-5. Speicherzielauswahl, sofern weiterhin gewünscht. Aktuell feste, galeriefähige MediaStore-Ordner.
-6. Kurzer Praxisvergleich mit Pixel-Kamera, anschließend Entscheidung über den ausreichend guten Produktions-Aufnahmeweg. Mehrbild bleibt bis zu neuer ausdrücklicher Entscheidung eingefroren.
+Nach 0.8.6 meldet der Nutzer: Alles, was er ohne SeaFrogs-Maus testen kann, funktioniert. Dies ist eine positive Funktionsabnahme am Telefon, kein unabhängiger Beleg jeder Codec-/Sensoreigenschaft oder der Unterwasser-Bildqualität. Nach der gewünschten Setup-Sortierung plant das Projekt keine weitere große Pflichtfunktion.
+
+1. **SeaFrogs-HID:** Links/Oben/Unten/Rechts/Klick, schnelle und wiederholte Eingaben, Links+Oben für App-Steuerung, Rechts+Unten für klassische Maus, Cursor am Rand, Trennung/Wiederverbindung und zuverlässiges Auslösen. Die beiden vereinbarten Umschaltgesten bleiben die einzigen vorgesehenen Kombinationen.
+2. **Gehäuse und Wasser:** Freies Kamerafenster für beide Sensoren, Nahfokus hinter dem Gehäusefenster, WB-Farben mit und ohne DL08-Licht, ausreichende Displayhelligkeit und tatsächliche Aufnahmeverzögerung.
+3. **Dauerbetrieb:** längere stille 4K30/4K60-Aufnahmen, gespeicherte und abspielbare Dateien, Wärme, Akku und Speicher im realen Betrieb. Bei einem konkreten Fehler nur die betroffene Funktion prüfen; keine erneute allgemeine Diagnoseserie.
+
+Speicherzielauswahl bleibt optional; die aktuellen MediaStore-Ziele funktionieren als Pictures/SeaFrogs und Movies/SeaFrogs. Ein kurzer Praxisvergleich mit der Pixel-Kamera dient der Bildqualitätsbewertung. Mehrbild bleibt eingefroren.
 
 Fokus-Lock, manuelle Kelvin-Werte, Vibrations-/Audiofeedback und weitere Optionen bleiben optional. Keine Aufnahmegeräusche oder Vibrationen sind erforderlich. Videoton bleibt aus. Ein Gerätetest findet später gebündelt statt, nicht nach jeder Codeänderung; Diagnoseexport nur bei einer konkreten offenen Fehlerursache.
 
@@ -38,3 +39,7 @@ Nutzer meldet rechtsgedrehte Vorschau und Sitzungsabbruch nach gespeichertem Fot
 ## WB-/EV-Korrektur 0.8.6
 
 WB-Statusanzeige und Sitzungsabschluss verhindern veraltete Profilindizes bei Presetwechseln. EV zeigt sofort die gewünschte Stufe; schnelle Folgen verwerfen veraltete Rückmeldungen. Camera2-Requestbestätigung ist von physischer Sensormetadaten-Verfügbarkeit getrennt. AE-Konvergenz bleibt hardwareabhängig.
+
+## Gemeinsamer Setup-Block 0.8.7
+
+Fotoformat und ISO-/Digitalgrenzen sind jetzt einzelne Setup-Einträge neben den übrigen Voreinstellungen; die separate Zeile entfällt. Tauchansicht und 4:3-Fotovorschau behalten ihre Anordnung.

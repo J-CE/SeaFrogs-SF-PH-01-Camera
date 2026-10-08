@@ -1125,7 +1125,7 @@ class PhotoCameraController(
         val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else persistentSize ?: imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.8.6-wb-ev-fix")
+            .put("version", "0.8.7-setup")
             .put("mode", "PHOTO").put("whiteBalanceRequested",whiteBalanceMode).put("whiteBalanceApplied",appliedWhiteBalanceMode).put("manualWhiteBalance",manualWhiteBalance?.json() ?: JSONObject.NULL).put("wbPreviewVerification",manualWbStatus)
             .put("testCase", testCase)
             .put("qualityMode", selectedQualityName())

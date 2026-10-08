@@ -494,3 +494,15 @@ Signatur SHA-256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e
 APK SHA-256: b549a93a0e389ad4a579821cbb71ad3d5933aeeb66219add25161156b73df8ae.
 Signatur, Paketversion und 16-KiB-ZIP-Ausrichtung geprüft.
 Geräteabnahme von WB-Wechsel und EV-Reaktionszeit bleibt ausstehend.
+
+## 0.8.7-setup, 2026-10-08
+
+Fotoformat und ISO-/Digitalgrenzen stehen im gemeinsamen Setup-Block.
+Die separate Zweierzeile entfällt. Nutzer bestätigt den ohne SeaFrogs-Maus
+prüfbaren Betrieb von 0.8.6; nächste Meilensteine sind HID und Wasserpraxis.
+APK-Paket de.jce.seafrogs.test, versionCode 26, versionName 0.8.7-setup.
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich.
+66 Tests, 0 Fehler, 0 übersprungene Tests. Lint: 0 Fehler, 91 Warnungen.
+Signatur SHA-256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57.
+APK SHA-256: 6e98008c4844363e33df18708e52aed8df60080ba3f6fb0388c6e4b68c2e2c82.
+Signatur, Paketversion und 16-KiB-ZIP-Ausrichtung geprüft.

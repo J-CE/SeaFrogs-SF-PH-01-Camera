@@ -209,7 +209,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.6-wb-ev-fix")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.7-setup")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         screen = CameraScreenLayout(this).apply {
@@ -303,7 +303,20 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
                     controller.setWhiteBalanceStrength(listOf(25,50,75,100)[index]); dialog.dismiss()
                 }.setNegativeButton("Zurück",null).show()
         } }
-        listOf(profile,cycles,wb,strength).forEach { buttonsPanel.addView(it); setupRows.add(it) }
+        format = Button(this).apply {
+            text = "FORMAT: JPEG"
+            setOnClickListener {
+                AlertDialog.Builder(this@CameraActivity).setTitle("Fotoformat vor dem Tauchgang")
+                    .setItems(arrayOf("JPEG only", "RAW + JPEG (DNG)")) { _, choice ->
+                        controller.setRawEnabled(choice == 1)
+                    }.show()
+            }
+        }
+        exposureSetup = Button(this).apply {
+            text = "ISO: AUTO"
+            setOnClickListener { chooseExposureLimits() }
+        }
+        listOf(profile,format,exposureSetup,cycles,wb,strength).forEach { buttonsPanel.addView(it); setupRows.add(it) }
         val videoSettings = Button(this).apply {
             text = "VIDEO: 4K30 / 4K60"
             setOnClickListener {
@@ -351,24 +364,6 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             testControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
         buttonsPanel.addView(testControls)
-        val rawControls = LinearLayout(this)
-        format = Button(this).apply {
-            text = "FORMAT: JPEG"
-            setOnClickListener {
-                AlertDialog.Builder(this@CameraActivity).setTitle("Fotoformat vor dem Tauchgang")
-                    .setItems(arrayOf("JPEG only", "RAW + JPEG (DNG)")) { _, choice ->
-                        controller.setRawEnabled(choice == 1)
-                    }.show()
-            }
-        }
-        exposureSetup = Button(this).apply {
-            text = "ISO: AUTO"
-            setOnClickListener { chooseExposureLimits() }
-        }
-        listOf(format, exposureSetup).forEach {
-            rawControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        buttonsPanel.addView(rawControls)
         val libraryControls = LinearLayout(this)
         libraryTest = Button(this).apply {
             text = "MEHRBILD TEST"
@@ -401,7 +396,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         autoControls.addView(cancelTest, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         autoControls.addView(macroTest, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         buttonsPanel.addView(autoControls)
-        setupRows.addAll(listOf(footer, testControls, rawControls, autoControls))
+        setupRows.addAll(listOf(footer, testControls, autoControls))
         setupRows.forEach { it.visibility = android.view.View.GONE }
         // Setup overlays the image; opening it never shrinks the photo viewport.
         val closeSetup = Button(this).apply {
