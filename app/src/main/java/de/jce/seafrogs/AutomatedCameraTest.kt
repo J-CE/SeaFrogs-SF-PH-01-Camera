@@ -159,7 +159,7 @@ class AutomatedCameraTest(context: Context, private val controller: PhotoCameraC
         display(reason, false)
     }
 
-    fun report(groupOnly: String? = null): String = JSONObject().put("version", "0.7.2-color-gain")
+    fun report(groupOnly: String? = null): String = JSONObject().put("version", "0.8.0-photo-video")
         .put("device", android.os.Build.MODEL).put("androidBuild", android.os.Build.FINGERPRINT)
         .put("note", "HAL reference JPEGs and processed MEHRBILD when requested; actual capture settings and fusion outcome in report/EXIF. No automated sharpness score.")
         .put("results", selectedResults(groupOnly)).toString(2)

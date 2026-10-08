@@ -37,6 +37,11 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var zoom: Button
     private lateinit var exposure: Button
     private lateinit var shutter: Button
+    private lateinit var modeSwitch: Button
+    private lateinit var setupToggle: Button
+    private val setupRows = mutableListOf<android.view.View>()
+    private var setupVisible = false
+    private var orientationBeforeRecording: Int? = null
     private lateinit var diagnosis: Button
     private lateinit var restart: Button
     private lateinit var orientation: OrientationEventListener
@@ -102,7 +107,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.7.2-color-gain")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.0-photo-video")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -162,9 +167,36 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             textSize = 28f
             minHeight = dp(88)
             isEnabled = false
-            setOnClickListener { controller.capturePhoto() }
+            setOnClickListener { controller.triggerCapture() }
         }
         buttonsPanel.addView(shutter)
+        modeSwitch = Button(this).apply {
+            text = "MODUS: FOTO"; minHeight = dp(56)
+            setOnClickListener { controller.toggleCaptureMode() }
+        }
+        buttonsPanel.addView(modeSwitch)
+        setupToggle = Button(this).apply {
+            text = "SETUP"; minHeight = dp(48)
+            setOnClickListener {
+                if (!lastCameraState.capturing && !lastCameraState.recording) {
+                    setupVisible = !setupVisible
+                    setupRows.forEach { it.visibility = if (setupVisible) android.view.View.VISIBLE else android.view.View.GONE }
+                    text = if (setupVisible) "SETUP SCHLIESSEN" else "SETUP"
+                }
+            }
+        }
+        buttonsPanel.addView(setupToggle)
+        val videoSettings = Button(this).apply {
+            text = "VIDEO: 4K30 / 4K60"
+            setOnClickListener {
+                if (!lastCameraState.recording && lastCameraState.ready)
+                    AlertDialog.Builder(this@CameraActivity).setTitle("Video vor dem Tauchgang")
+                        .setSingleChoiceItems(arrayOf("4K30 ohne Ton", "4K60 ohne Ton"), if (controller.savedVideoFps()==60) 1 else 0) { dialog, choice ->
+                            controller.setVideoFps(if (choice==0) 30 else 60); dialog.dismiss()
+                        }.setNegativeButton("Zurück",null).show()
+            }
+        }
+        buttonsPanel.addView(videoSettings); setupRows.add(videoSettings)
         val footer = LinearLayout(this)
         restart = Button(this).apply {
             text = "Erneut starten"
@@ -236,7 +268,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         listOf(libraryTest, libraryExport).forEach {
             libraryControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
-        buttonsPanel.addView(libraryControls)
+        // Mehrbild test controls are frozen and no longer exposed.
         val autoControls = LinearLayout(this)
         cancelTest = Button(this).apply {
             text = "ABBRECHEN"
@@ -251,6 +283,8 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         autoControls.addView(cancelTest, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         autoControls.addView(macroTest, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         buttonsPanel.addView(autoControls)
+        setupRows.addAll(listOf(footer, testControls, rawControls, autoControls))
+        setupRows.forEach { it.visibility = android.view.View.GONE }
         root.addView(cameraPanel, if (landscape)
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
         else LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -362,21 +396,32 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         if (isDestroyed || !active) return
         val state = lastCameraState
         val testing = automated.running || exporting
+        if (state.recording && orientationBeforeRecording == null) {
+            orientationBeforeRecording = requestedOrientation
+            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+        } else if (!state.recording) {
+            orientationBeforeRecording?.let { requestedOrientation = it }
+            orientationBeforeRecording = null
+        }
+        if (state.recording && setupVisible) {
+            setupVisible = false; setupRows.forEach { it.visibility = android.view.View.GONE }
+            setupToggle.text = "SETUP"
+        }
         val cameraMessage = if (state.message == "Bereit" && !state.ready) "Warte auf Vorschau/Fokus …" else state.message
         status.text = (if (exportStatus.isBlank()) "" else "$exportStatus\n") +
             (if (autoStatus.isBlank()) "" else "$autoStatus\n") +
-            "PHOTO | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | ${state.quality} | ${state.photoFormat}\n" +
-            state.resolution + (if (state.exposureLimits.enabled)
+            "${if (state.videoMode) "VIDEO · 4K${state.videoFps}" else "PHOTO"} | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | ${state.quality} | ${state.photoFormat}\n" +
+            state.resolution + (if (state.exposureLimits.enabled && !state.videoMode)
                 " | Sensor-ISO ${if (state.exposureLimits.isoCap > 0) "≤ ${state.exposureLimits.isoCap}" else "AUTO"} | Digital ${if (state.exposureLimits.boostCap > 0) "≤ ${state.exposureLimits.boostCap / 100f}×" else "AUTO"} | Zeit ${if (state.exposureLimits.isoCap == 0) "AUTO" else "≤ " + when (state.exposureLimits.longestTimeNs) {
                     8_000_000L -> "1/125 s"
                     16_666_666L -> "1/60 s"
                     else -> "1/30 s"
-                }}" else "") + "\n" + "Speicher: ${android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes / (1024 * 1024)} MiB frei\n" + cameraMessage + "\n" + state.diagnostics + "\n" + hidStatus
+                }}" else "") + "\n" + "Speicher: ${android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes / (1024 * 1024)} MiB frei\n" + cameraMessage + (if (setupVisible) "\n" + state.diagnostics else "") + "\n" + hidStatus
         quality.text = state.quality
-        quality.isEnabled = state.ready && !testing
+        quality.isEnabled = state.ready && !state.videoMode && !testing
         format.text = "FORMAT: ${state.photoFormat}"
-        format.isEnabled = state.ready && !testing
-        exposureSetup.isEnabled = state.ready && !testing
+        format.isEnabled = state.ready && !state.videoMode && !testing
+        exposureSetup.isEnabled = state.ready && !state.videoMode && !testing
         exposureSetup.text = if (state.exposureLimits.enabled) "ISO / DIGITAL" else "ISO: AUTO"
         libraryTest.isEnabled = state.ready && !testing
         libraryExport.isEnabled = capabilityReport != null && !testing && !state.capturing
@@ -387,14 +432,18 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         zoom.text = "ZOOM: ${state.zoomLabel}"
         exposure.isEnabled = state.ready && state.exposureSupported && !testing
         exposure.text = if (state.exposureSupported) "EV: ${state.exposureLabel}" else "EV: N/V"
-        lensSwitch.isEnabled = state.ready && !testing
+        lensSwitch.isEnabled = state.ready && !state.recording && !testing
         lensSwitch.text = "KAMERA: ${state.lens.label}"
-        shutter.isEnabled = state.ready && !testing
-        shutter.text = if (state.capturing) "AUFNAHME …" else if (state.ready) "FOTO" else "WARTE …"
-        diagnosis.isEnabled = !state.capturing && !testing
-        restart.isEnabled = !state.capturing && !testing
+        shutter.isEnabled = (state.ready || (state.recording && !state.capturing)) && !testing
+        shutter.text = if (state.capturing) "WARTE …" else if (state.recording) "VIDEO STOP" else if (!state.ready) "WARTE …" else if (state.videoMode) "VIDEO START" else "FOTO"
+        modeSwitch.text = if (state.videoMode) "MODUS: VIDEO → FOTO" else "MODUS: FOTO → VIDEO"
+        modeSwitch.isEnabled = state.ready && !state.recording && !testing
+        setupToggle.isEnabled = !state.capturing && !state.recording && !testing
+        status.setTextColor(if (state.recording) android.graphics.Color.RED else android.graphics.Color.WHITE)
+        diagnosis.isEnabled = !state.capturing && !state.recording && !testing
+        restart.isEnabled = !state.capturing && !state.recording && !testing
         cancelTest.isEnabled = automated.running
-        macroTest.isEnabled = state.ready && !testing
+        macroTest.isEnabled = state.ready && !state.videoMode && !testing
     }
 
     private fun beginAutomated(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false, libraries: Boolean = false, fusion: Boolean = false) {
@@ -545,22 +594,18 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             !preview.hasPointerCapture() || !hasWindowFocus() || !active ||
                 !InputDevice.getDeviceIds().any { InputDevice.getDevice(it)?.descriptor == mouseDescriptor } -> "INACTIVE"
             commands.size != 1 -> "COMBINATION_BLOCKED"
-            commands.single() == HidCommandGate.Command.DOWN -> "VIDEO_NOT_IMPLEMENTED"
-            !controller.readyForCommand() -> "CAMERA_BUSY"
+            controller.isRecording() && commands.single() in listOf(HidCommandGate.Command.LEFT, HidCommandGate.Command.DOWN) -> "RECORDING"
+            !controller.readyForCommand() && !(commands.single() == HidCommandGate.Command.CLICK && controller.isRecording() && !lastCameraState.capturing) -> "CAMERA_BUSY"
             else -> "EXECUTED"
         }
         hidStatus = "$name: $decision"
-        if (commands.singleOrNull() == HidCommandGate.Command.DOWN) {
-            downCount++
-            hidStatus = "RUNTER $downCount: Video noch nicht implementiert"
-        }
         recorder.record(JSONObject().put("kind", "hidCommand").put("command", name).put("decision", decision))
         if (decision == "EXECUTED") when (commands.single()) {
             HidCommandGate.Command.LEFT -> controller.cycleLens()
             HidCommandGate.Command.UP -> controller.cycleZoom()
             HidCommandGate.Command.RIGHT -> controller.cycleExposure()
-            HidCommandGate.Command.CLICK -> controller.capturePhoto()
-            HidCommandGate.Command.DOWN -> Unit
+            HidCommandGate.Command.CLICK -> controller.triggerCapture()
+            HidCommandGate.Command.DOWN -> controller.toggleCaptureMode()
         }
         android.widget.Toast.makeText(this, hidStatus, android.widget.Toast.LENGTH_SHORT).show()
     }

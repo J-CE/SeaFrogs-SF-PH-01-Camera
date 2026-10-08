@@ -18,6 +18,13 @@ import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.CameraState
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.MediaStoreOutputOptions
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
@@ -43,6 +50,9 @@ data class PhotoCameraState(
     val quality: String = "STANDARD",
     val diagnostics: String = "",
     val photoFormat: String = "JPEG",
+    val videoMode: Boolean = false,
+    val recording: Boolean = false,
+    val videoFps: Int = 30,
     val exposureLimits: ExposureLimits = ExposureLimits()
 )
 
@@ -82,6 +92,12 @@ class PhotoCameraController(
     private var camera: Camera? = null
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
+    private var videoCapture: VideoCapture<Recorder>? = null
+    private var recording: Recording? = null
+    private var videoMode = false
+    private var videoSeconds = 0L
+    private var videoFps = appContext.getSharedPreferences("video", Context.MODE_PRIVATE).getInt("fps", 30)
+        .takeIf { it == 30 || it == 60 } ?: 30
     private var owner: LifecycleOwner? = null
     private var previewView: PreviewView? = null
     private var generation = 0
@@ -102,7 +118,7 @@ class PhotoCameraController(
     private var message = "Kamera startet"
     private val formatPreferences = appContext.getSharedPreferences("photoFormat", Context.MODE_PRIVATE)
     private var rawEnabled = formatPreferences.getBoolean("rawJpeg", false)
-    private var nativeEnabled = formatPreferences.getBoolean("nativeFusion", false)
+    private var nativeEnabled = false // Experimental fusion is frozen.
     private var testNativeFusionOverride: Boolean? = null
     private fun usesNativeFusion() = testNativeFusionOverride ?: nativeEnabled
     private fun selectedQualityName() = if (usesNativeFusion()) "MEHRBILD" else qualityName(qualityMode)
@@ -124,7 +140,7 @@ class PhotoCameraController(
     fun savedExposureLimits() = exposureLimits
 
     fun setExposureLimits(value: ExposureLimits) {
-        if (!isReady() || value.isoCap !in ExposureLimits.isoChoices || value.longestTimeNs !in ExposureLimits.timeChoices || value.boostCap !in ExposureLimits.boostChoices) return
+        if (videoMode || !isReady() || value.isoCap !in ExposureLimits.isoChoices || value.longestTimeNs !in ExposureLimits.timeChoices || value.boostCap !in ExposureLimits.boostChoices) return
         exposureLimits = value
         exposurePreferences.edit().putInt("isoCap", value.isoCap).putLong("longestTimeNs", value.longestTimeNs).putInt("boostCap", value.boostCap).apply()
         if (value.enabled) qualityMode = ExtensionMode.NONE
@@ -132,7 +148,7 @@ class PhotoCameraController(
     }
 
     fun setRawEnabled(value: Boolean) {
-        if (!isReady()) return
+        if (videoMode || !isReady()) return
         rawEnabled = value
         formatPreferences.edit().putBoolean("rawJpeg", value).apply()
         if (value) qualityMode = ExtensionMode.NONE
@@ -163,6 +179,7 @@ class PhotoCameraController(
 
     /** Touch and HID share the same lens command and readiness guard. */
     fun cycleLens() {
+        if (recording != null) return
         if (!isReady()) return
         cyclePosition = cyclePosition.next()
         val target = cyclePosition
@@ -217,7 +234,7 @@ class PhotoCameraController(
                     .put("logicalId", route.logicalId).put("physicalId", route.physicalId ?: JSONObject.NULL)
                     .put("extensionsOnLogicalSelector", org.json.JSONArray(modes.map(::qualityName)))
                     .put("extensionsAllowedOnRoute", route.physicalId == null))
-                if (usesRaw() || effectiveLimits().enabled || route.physicalId != null || qualityMode !in modes) qualityMode = ExtensionMode.NONE
+                if (videoMode || usesRaw() || effectiveLimits().enabled || route.physicalId != null || qualityMode !in modes) qualityMode = ExtensionMode.NONE
                 bind(availableProvider, lifecycleOwner, view, route)
                 activeRoute = route
                 activeLens = target
@@ -261,6 +278,11 @@ class PhotoCameraController(
 
     private fun recover(target: PhotoLens, fallback: PhotoLens?, error: Exception) {
         val detail = error.cause?.message ?: error.message
+        if (videoMode) {
+            videoMode = false
+            open(target, fallback, "Video nicht verfügbar: $detail. Zurück zu FOTO.")
+            return
+        }
         log(JSONObject().put("kind", "cameraFailure").put("message", detail))
         if (qualityMode != ExtensionMode.NONE) {
             qualityMode = ExtensionMode.NONE
@@ -283,7 +305,7 @@ class PhotoCameraController(
         route: CameraLensRoute
     ) {
         val previewResolution = ResolutionSelector.Builder()
-            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+            .setAspectRatioStrategy(if (videoMode) AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY else AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
         val captureResolution = ResolutionSelector.Builder()
             .setAllowedResolutionMode(ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE)
             .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
@@ -330,6 +352,8 @@ class PhotoCameraController(
                     .put("focusDistanceDiopters", result.get(CaptureResult.LENS_FOCUS_DISTANCE)?.toDouble() ?: JSONObject.NULL)
                     .put("afState", result.get(CaptureResult.CONTROL_AF_STATE) ?: JSONObject.NULL)
                     .put("afMode", result.get(CaptureResult.CONTROL_AF_MODE) ?: JSONObject.NULL)
+                    .put("aeFpsRange", result.get(CaptureResult.CONTROL_AE_TARGET_FPS_RANGE)?.toString() ?: JSONObject.NULL)
+                    .put("frameDurationNs", result.get(CaptureResult.SENSOR_FRAME_DURATION) ?: JSONObject.NULL)
                     .put("cropRegion", result.get(CaptureResult.SCALER_CROP_REGION)?.toShortString() ?: JSONObject.NULL)
                     .put("activePhysicalId", if (Build.VERSION.SDK_INT >= 29)
                         result.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID) ?: JSONObject.NULL else JSONObject.NULL)
@@ -365,10 +389,25 @@ class PhotoCameraController(
         val selector = if (qualityMode == ExtensionMode.NONE) route.selector()
             else checkNotNull(extensions).getExtensionEnabledCameraSelector(route.selector(), qualityMode)
         preview = previewBuilder.build().also { it.setSurfaceProvider(view.surfaceProvider) }
-        imageCapture = captureBuilder.build()
-        camera = availableProvider.bindToLifecycle(
-            lifecycleOwner, selector, preview!!, imageCapture!!
-        )
+        if (videoMode) {
+            val info = availableProvider.getCameraInfo(route.selector())
+            check(Quality.UHD in QualitySelector.getSupportedQualities(info)) { "4K nicht unterstützt" }
+            val manager = appContext.getSystemService(android.hardware.camera2.CameraManager::class.java)
+            val sensor = manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
+            check(sensor[android.hardware.camera2.CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES]
+                ?.any { it.contains(videoFps) } == true) { "$videoFps FPS nicht unterstützt" }
+            val recorder = Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.UHD)).build()
+            val videoBuilder = VideoCapture.Builder(recorder).setTargetRotation(rotation)
+                .setTargetFrameRate(android.util.Range(videoFps, videoFps))
+            if (Build.VERSION.SDK_INT >= 28) route.physicalId?.let {
+                Camera2Interop.Extender(videoBuilder).setPhysicalCameraId(it)
+            }
+            videoCapture = videoBuilder.build()
+            camera = availableProvider.bindToLifecycle(lifecycleOwner, route.selector(), preview!!, videoCapture!!)
+        } else {
+            imageCapture = captureBuilder.build()
+            camera = availableProvider.bindToLifecycle(lifecycleOwner, selector, preview!!, imageCapture!!)
+        }
     }
 
     private fun maybeRestartMacroFocus(token: Int) {
@@ -464,11 +503,11 @@ class PhotoCameraController(
     }
 
     fun cycleQuality() {
-        if (!isReady()) return
+        if (!isReady() || videoMode) return
         val route = activeRoute ?: return
         val nativeMode = 100
         val supported = mutableListOf(ExtensionMode.NONE)
-        if (runCatching { catalog?.rawSize(route) }.getOrNull() != null) supported.add(nativeMode)
+        // Keep the experimental kernel available only to explicit diagnostic code.
         if (!usesRaw() && !effectiveLimits().enabled && route.physicalId == null)
             supported.addAll(qualityModes.drop(1).filter {
                 runCatching { extensions?.isExtensionAvailable(route.selector(), it) == true }.getOrDefault(false)
@@ -523,6 +562,7 @@ class PhotoCameraController(
         kotlin.math.abs(zoomRatio - step.zoom) < 0.01f && selectedQualityName() == step.quality
 
     fun readyForCommand() = isReady()
+    fun isRecording() = recording != null
 
     fun autoTestFocusStatus(): String = when {
         qualityMode != ExtensionMode.NONE -> "UNVERIFIED_EXTENSION"
@@ -616,11 +656,100 @@ class PhotoCameraController(
         .trimEnd('0').trimEnd(',')
 
     fun setRotation(targetRotation: Int) {
+        if (recording != null) return
         rotation = targetRotation
+        videoCapture?.targetRotation = targetRotation
         imageCapture?.targetRotation = targetRotation
     }
 
+    fun toggleCaptureMode() {
+        if (!isReady() || recording != null) return
+        videoMode = !videoMode
+        qualityMode = ExtensionMode.NONE
+        open(activeLens)
+    }
+
+    fun savedVideoFps() = videoFps
+    fun setVideoFps(value: Int) {
+        if (!isReady() || recording != null || value !in listOf(30,60)) return
+        videoFps = value
+        appContext.getSharedPreferences("video", Context.MODE_PRIVATE).edit().putInt("fps",value).apply()
+        if (videoMode) open(activeLens) else emit()
+    }
+
+    fun triggerCapture() {
+        if (!videoMode) { capturePhoto(); return }
+        recording?.let {
+            if (busy) return
+            busy = true; message = "Video wird gespeichert …"; emit(); it.stop(); return
+        }
+        if (!isReady()) return
+        val capture = videoCapture ?: return
+        val free = android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes
+        if (free < 256L * 1024 * 1024) { message = "Zu wenig Speicher für Video"; emit(); return }
+        val token = generation
+        val requestedFps = videoFps
+        val requestedLens = activeLens.name
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, "SeaFrogs_${System.currentTimeMillis()}.mp4")
+            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            if (Build.VERSION.SDK_INT >= 29) put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/SeaFrogs")
+        }
+        val output = MediaStoreOutputOptions.Builder(appContext.contentResolver,
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI).setContentValues(values)
+            .setFileSizeLimit(free - 128L * 1024 * 1024).build()
+        busy = true; message = "Video startet …"; videoSeconds = 0; emit()
+        try {
+            // Underwater milestone: silent MP4, no microphone permission needed.
+            recording = capture.output.prepareRecording(appContext, output).start(mainExecutor) { event ->
+                if (event is VideoRecordEvent.Finalize) {
+                    log(JSONObject().put("kind", "videoFinalized").put("uri", event.outputResults.outputUri.toString())
+                        .put("error", event.error).put("durationNs", event.recordingStats.recordedDurationNanos)
+                        .put("bytes", event.recordingStats.numBytesRecorded).put("requestedFps", requestedFps).put("lens",requestedLens))
+                    if (!event.hasError()) inspectVideo(event.outputResults.outputUri, requestedFps, requestedLens)
+                }
+                if (generation != token) return@start
+                when (event) {
+                    is VideoRecordEvent.Start -> { busy = false; message = "REC 0 s" }
+                    is VideoRecordEvent.Status -> {
+                        videoSeconds = event.recordingStats.recordedDurationNanos / 1_000_000_000L
+                        message = "REC $videoSeconds s"
+                    }
+                    is VideoRecordEvent.Finalize -> {
+                        recording = null; busy = false
+                        videoSeconds = event.recordingStats.recordedDurationNanos / 1_000_000_000L
+                        message = if (event.hasError()) "Videofehler ${event.error}: ${event.cause?.message ?: "Aufnahme beendet"}"
+                            else "Video gespeichert (${videoSeconds} s)"
+                    }
+                }
+                emit()
+            }
+        } catch (error: Exception) {
+            recording = null; busy = false; message = "Videostart fehlgeschlagen: ${error.message}"; emit()
+        }
+    }
+
+    private fun inspectVideo(uri: android.net.Uri, fps: Int, lens: String) {
+        Thread({
+            val metadata = android.media.MediaMetadataRetriever()
+            val value = JSONObject().put("kind","videoFileMetadata").put("uri",uri.toString())
+                .put("requestedFps",fps).put("lens",lens)
+            try {
+                metadata.setDataSource(appContext,uri)
+                value.put("width",metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH))
+                    .put("height",metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT))
+                    .put("durationMs",metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION))
+                    .put("captureFrameRate",metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
+                        ?: JSONObject.NULL)
+                    .put("rotation",metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION))
+            } catch (error: Exception) { value.put("error",error.toString()) }
+            finally { runCatching { metadata.release() } }
+            mainExecutor.execute { log(value) }
+        }, "SeaFrogs-video-metadata").start()
+    }
+
     fun capturePhoto(completed: ((android.net.Uri?, String?) -> Unit)? = null) {
+        if (videoMode) { completed?.invoke(null, "Videomodus aktiv"); return }
         lastRawOutcome = null
         if (usesNativeFusion() || usesRaw() || effectiveLimits().enabled || testNativeCapture) { captureSensorPhoto(completed); return }
         val capture = imageCapture
@@ -659,9 +788,8 @@ class PhotoCameraController(
                     put(MediaStore.Images.Media.DATA, java.io.File(directory, name).absolutePath)
                 }
             }
-            val output = ImageCapture.OutputFileOptions.Builder(
-                appContext.contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values
-            ).build()
+            val output = ImageCapture.OutputFileOptions.Builder(appContext.contentResolver,
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values).build()
             capture.takePicture(output, mainExecutor, object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(result: ImageCapture.OutputFileResults) {
                     // Finish metadata even when this session has stopped. Only
@@ -764,10 +892,10 @@ class PhotoCameraController(
     private fun exifSnapshot(): String {
         val exposure = camera?.cameraInfo?.exposureState
         val zoom = camera?.cameraInfo?.zoomState?.value
-        val size = imageCapture?.resolutionInfo?.resolution
+        val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.7.2-color-gain")
+            .put("version", "0.8.0-photo-video")
             .put("mode", "PHOTO")
             .put("testCase", testCase)
             .put("qualityMode", selectedQualityName())
@@ -815,10 +943,13 @@ class PhotoCameraController(
     }
 
     private fun releaseUseCases() {
-        val useCases = listOfNotNull(preview, imageCapture)
+        recording?.stop()
+        recording = null
+        val useCases = listOfNotNull(preview, imageCapture, videoCapture)
         if (useCases.isNotEmpty()) provider?.unbind(*useCases.toTypedArray())
         preview = null
         imageCapture = null
+        videoCapture = null
         camera = null
         activeRoute = null
         macroEntryFocusResult = "not_requested"
@@ -834,7 +965,7 @@ class PhotoCameraController(
     }
 
     private fun emit() {
-        val size = imageCapture?.resolutionInfo?.resolution
+        val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else imageCapture?.resolutionInfo?.resolution
         publish(PhotoCameraState(
             lens = activeLens,
             zoomLabel = zoomLabel(),
@@ -846,7 +977,8 @@ class PhotoCameraController(
             resolution = size?.let { "${it.width} × ${it.height}" } ?: "",
             quality = selectedQualityName(),
             diagnostics = extensionSummary + "\n" + resultSummary(),
-            photoFormat = if (usesRaw()) "RAW+JPEG" else "JPEG",
+            photoFormat = if (videoMode) "MP4 · ohne Ton" else if (usesRaw()) "RAW+JPEG" else "JPEG",
+            videoMode = videoMode, recording = recording != null, videoFps = videoFps,
             exposureLimits = effectiveLimits()
         ))
     }

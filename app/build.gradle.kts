@@ -11,8 +11,11 @@ android {
         minSdk = 26
         targetSdk = 35
         ndk { abiFilters += "arm64-v8a" }
-        versionCode = 18
-        versionName = "0.7.2-color-gain"
+        versionCode = 19
+        versionName = "0.8.0-photo-video"
+    }
+    providers.gradleProperty("seafrogsDebugKeystore").orNull?.let { keyPath ->
+        signingConfigs.getByName("debug").storeFile = file(keyPath)
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -28,5 +31,6 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.6.2")
     implementation("androidx.camera:camera-lifecycle:1.6.2")
     implementation("androidx.camera:camera-view:1.6.2")
+    implementation("androidx.camera:camera-video:1.6.2")
 }
 

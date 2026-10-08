@@ -372,3 +372,23 @@ und dient künftigen Test-Updates (Standard-Debug-Alias/Passwort).
 
 APK-SHA256: 99297c7612226798df3d5ee519934f0d7682ad5bdc3d687dfc4e738d355b32b7
 APK-Länge: 7472286 Byte.
+
+## Meilenstein 0.8.0-photo-video, 2026-10-08
+
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich. 43 bestehende
+Tests bestanden, 0 Fehler/übersprungen. Lint: 0 Fehler, 80 Warnungen.
+Die Tests bestätigen vorhandene Input-/Foto-/Grenzlogik; sie ersetzen keinen
+Pixel-Video-/Encoder-/Macrotest. Eine gemeldete Einrückung im Foto-Speicherpfad
+ist bereinigt. Kein Kamera-Hardwaretest auf dem Build-Rechner.
+
+Mehrbild eingefroren, normale UI reduziert, Setup getrennt. Preview+VideoCapture
+mit UHD/30 oder UHD/60 angefordert, Foto/Video per RUNTER, Aufnahme/Stop per
+KLICK. Start/Stop/Finalize, Speicherreserve, Lebenszyklus und Orientation-Lock
+implementiert. Tatsächliche Videoauflösung/FPS und physische Sensorbindung
+prüft erst PHOTO-VIDEO-0.8.md auf dem Pixel. Videos zunächst ohne Ton.
+
+Auslieferung: de.jce.seafrogs.test, versionCode 19, versionName 0.8.0-photo-video.
+Signierschlüssel aus 0.7.2 wiederverwendet, Update von SeaFrogs Test.
+Signatur-SHA256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57
+APK-SHA256: 2b85c33a10aecbd0a1a0692fa942f9e5cc6b60461ef6585f019f673e7f671a4a
+APK-Länge: 7645864 Byte.
