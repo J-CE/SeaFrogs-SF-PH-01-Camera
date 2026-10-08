@@ -1,279 +1,34 @@
 # SeaFrogs SF-PH-01 Camera
 
-Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.8.0-photo-video**. STANDARD bleibt voreingestellt.
-Mehrbild ist eingefroren und nicht mehr im Qualitätszyklus oder als Testschaltfläche verfügbar.
-Der experimentelle MIT-Kern bleibt für spätere Offline-Arbeit im Repository.
+Android-Kamera für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
+Aktueller Stand: **0.8.1-dive**. Ziel bleibt zuverlässiges Aufnehmen und nahezu blinde Bedienung mit fünf Gehäuseeingaben.
 
-Foto/Video wechseln über RUNTER oder MODUS. KLICK löst ein Foto aus oder startet/stoppt
-Video. Video: 4K30/4K60 als angeforderte Konfiguration, MP4 ohne Ton. Sensorbindung,
-Auflösung und tatsächliche FPS erfordern den Pixel-Meilenstein. Kein stiller FHD-Fallback.
-Während REC sperrt die App Kamera-/Moduswechsel und Ausrichtung. Zoom/EV bleiben bedienbar.
-RAW+JPEG und Sensor-/Digitalgrenzen gelten für Foto. Setup und Diagnose liegen hinter SETUP.
+Links wechselt Hauptkamera/Macro/UW, Hoch Zoom, Rechts EV, Runter Foto/Video,
+Klick Foto beziehungsweise Video Start/Stop. **Links + Hoch** aktiviert
+Kamerasteuerung; **Rechts + Runter** aktiviert klassische Maus.
 
-Details und nächster Gerätetest: [PHOTO-VIDEO-0.8.md](docs/PHOTO-VIDEO-0.8.md).
+Hauptkamera-Zoom 1/1,5/3/5, UW 1/1,5/3, Macro 0,5×/1× Crop.
+EV 0/+1/+2/−1/−2. Zoom-/EV-Zyklen sind im Setup editierbar.
 
-Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
-Pixel-8-Testbefunde und offene Punkte stehen im [Fähigkeitsbericht](docs/CAPABILITIES-0.6.1.md).
+Tauchprofil speichert App-Helligkeit, Ausrichtung, gewählte Maus und Steuerungsmodus.
+Kamerasteuerung zeigt große Statusangaben und möglichst viel Vorschau.
+SETUP enthält JPEG/RAW+JPEG, Foto-ISO-/Digitalgrenzen, Video 4K30/4K60,
+unterstützte WB-Presets, Tauchprofil, Zyklen und Diagnose.
+Video bleibt **ohne Ton**. Bilder: Pictures/SeaFrogs, Clips: Movies/SeaFrogs.
 
-0.7.1 verbindet die bisher übersprungene Farbentrauschung und entfernt die
-zusätzliche Tonwertaufhellung bei 1/1. Der RAW-Aufnahmeweg kontrolliert JPEG-
-Rotate/Crop und Videostabilisierung ausdrücklich und protokolliert die tatsächlich
-angewendete Geometrie. Sensor-/RAW-Grenzen fließen in den einmaligen Crop ein.
-Die 14-%-Abweichung im Pixel-Test ist noch nicht abschließend erklärt; kein
-fest geschätzter Zoomfaktor wird eingesetzt.
+Macro-Nahfokus, tatsächliche Video-FPS und zuverlässige Umschaltgesten sind
+noch nicht am Gerät abgenommen. Unterwasser-WB-Profile bleiben offen.
+STANDARD bleibt Default. RAW, aktive Belichtungsgrenzen und manuelles WB
+schalten Extensions aus. Mehrbild bleibt eingefroren, ohne sichtbare Testschaltflächen.
 
-Aufnahmestufen, Speicherprüfung, sichtbare Bereitschaft und getrennte Sensor-/
-JPEG-ISO-Anzeige ergänzen die Basics. Der kleine Mehrbildtest nutzt jetzt ISO 400
-statt 800, damit die bisherige Szene die Begrenzung tatsächlich beansprucht.
-[Änderungen und nächster Test](docs/QUALITY-BASICS-0.7.1.md).
+Details: [Tauchprofil 0.8.1](docs/DIVE-0.8.1.md),
+[Videoarchitektur](docs/PHOTO-VIDEO-0.8.md),
+[Buildstatus](docs/BUILD-STATUS.md).
 
-0.7.0 enthält den MIT-HDR+-Kern als Modus **MEHRBILD**: fünf fixierte RAW-
-Aufnahmen, Ausrichtung/Fusion, Sensor-Schwarzpegel, Objektivkorrektur, WB und
-Farbmatrix, JPEG-Ausgabe. STANDARD bleibt auswählbar; das erste normale JPEG
-bleibt bei Erfolg und Fehler erhalten. RAW+JPEG speichert zusätzlich das erste
-Referenz-DNG, nicht fünf DNGs pro Foto. Digitaler Crop wird einmal angewendet
-und nicht auf Sensorauflösung hochskaliert. Die Gehäusetasten bleiben gleich.
+Kotlin, CameraX 1.6.2, Camera2-Interop; Android Studio, JDK 17.
+Die App steht unter Apache 2.0. MIT-/Halide-Vermerke stehen in NOTICE und
+in der APK. Der separate Host-Bibliotheksvergleich unter tools/library-benchmark
+enthält GPL-3.0-only-Komponenten und gehört nicht zur App.
 
-**MEHRBILD TEST** führt automatisch drei Vergleiche durch: Hauptkamera, UW,
-Hauptkamera mit ISO 800. **TEST ZIP** exportiert sechs JPEGs plus Messdaten,
-keine RAW-Serie. Details: [MIT-Mehrbildtest](docs/MIT-MEHRBILD-0.7.md).
-Native Hostprüfung mit beiden echten RAW-Serien, Android-Link/Build und
-Unit-Tests sind erfolgreich; die Pixel-Laufzeit und Bildausgabe sind noch offen.
-
-Der [Bibliotheksvergleich](docs/LIBRARY-RESULTS-2026-10-08.md) begründet die
-Wahl des MIT-Kerns. Der separate Host-Testaufbau in tools/library-benchmark
-steht unter GPL-3.0-only und wird nicht in die App eingebunden. Die App bleibt
-Apache 2.0. MIT-Vermerke und Halide-Lizenz liegen auch in der APK.
-
-0.6.8 stellt das ZIP zuerst intern fertig, prüft jeden Eintrag auf Länge und CRC
-und kopiert es anschließend ins gewählte Ziel. Der Status zeigt Packen, Prüfung,
-Kopierfortschritt und dauerhafte Fehlermeldungen. Bereits komprimierte Fotos
-werden ohne zusätzliche ZIP-Kompression übertragen. Erfolg folgt erst nach
-Schließen des Zielstreams. Bestehende Testdaten bleiben erhalten. Frühere BIB-Daten lassen sich über
-DIAGNOSE ZIP exportieren; TEST ZIP ist jetzt dem kleinen Mehrbildtest zugeordnet.
-
-0.6.7 aktualisiert CameraX auf 1.6.2 und ergänzt BIB-TEST / BIB ZIP:
-je fünf originale RAW+JPEG-Paare aus einer Sitzung mit eingefrorenen,
-geprüften Einstellungen sowie unabhängige AUTO-/HDR-/NIGHT-Referenzen,
-sofern verfügbar. Camera2-Extensions werden zusätzlich direkt abgefragt.
-Die APK sammelt Vergleichseingaben; MotionCam/HDR+ sind noch nicht integriert.
-[LIBRARIES-0.6.7.md](docs/LIBRARIES-0.6.7.md) beschreibt Bibliotheksprüfung,
-Testablauf und Grenzen. Alte Normal-, RAW-, ISO- und Qualitätstest-Schaltflächen
-sind entfernt; BIB-TEST, Abbrechen, Macrotest und Diagnose bleiben.
-
-0.6.6 ergänzt QUALITÄTSTEST und QUALITÄT ZIP: je Kamera DEFAULT,
-HQ-Entrauschen und HQ-Entrauschen/HQ-Schärfung mit geprüften fixierten
-Belichtungs-, Weißabgleichs- und Fokuswerten, anschließend eine unabhängige
-NIGHT-Referenz der Hauptkamera. Der Test ändert keinen Produktionsstandard.
-[QUALITY-0.6.6.md](docs/QUALITY-0.6.6.md) beschreibt Ablauf und Aussagegrenzen.
-
-0.6.5 korrigiert den physisch adressierten Aufnahmeauftrag für ISO-begrenzte
-UW-/Macro-Aufnahmen. Die Sensor-ISO-Grenze begrenzt nicht zusätzlich den
-Post-RAW-Gain des JPEGs. Ergebnisse aus 0.6.4 und Korrektur stehen im
-[ISO-Testbericht](docs/ISO-0.6.4.md).
-
-0.6.4 ergänzt gespeicherte ISO-/Zeitgrenzen (Auto/400/800/1600 und
-1/30, 1/60, 1/125 s), einen automatischen ISO-Vergleich mit tatsächlichen
-Sensorwerten sowie ISO ZIP mit ausschließlich den neuen Vergleichsfotos.
-Auto bleibt die erste Startvorgabe. Begrenzte Aufnahmen verwenden STANDARD
-und pausieren temporär die Vorschau; reichen beide Grenzen nicht, meldet
-die App die reduzierte Sensorbelichtung. [ISO-0.6.4.md](docs/ISO-0.6.4.md)
-beschreibt Setup, Aufnahmeweg, Abnahme und die bestandene DNG-Prüfung.
-
-0.6.3 ergänzte FORMAT (JPEG only / RAW + JPEG), einen automatischen RAW-Test
-mit Original-DNGs im ZIP und entfernt Macro-Faktor 4. Der RAW-Aufnahmeweg
-pausiert vorübergehend die Vorschau. [RAW-0.6.3.md](docs/RAW-0.6.3.md) beschreibt
-Ablauf und Hardware-Abnahme.
-
-0.6.2 korrigierte die Auflösungswahl physisch gepinnter UW-/Macro-Ausgaben und
-wartet im automatischen Test auf frischen stabilen Vorschau-AF.
-Ablauf und Aussagegrenzen: [QUALITY-0.6.2.md](docs/QUALITY-0.6.2.md).
-
-Seit 0.6.1 fragt die App automatisch angebotene JPEG-/RAW-Auflösungen, Sensorflächen,
-ISO-Grenzen sowie AF-/AWB-Fähigkeiten aller öffentlichen und zugehörigen
-physischen Kameras ab. TEST ZIP enthält dafür `camera-capabilities.json`.
-Für den Fähigkeitsbericht müssen keine Fototests wiederholt werden. Die neue
-RAW/DNG-Aufnahme erfordert dagegen den RAW-TEST; angebotene Größen allein
-sind keine getesteten Aufnahmen.
-
-## Öffnen und bauen
-
-Repository in Android Studio öffnen, JDK 17 für Gradle wählen, Android SDK 35
-installieren und Gradle synchronisieren. Fest gepinnt: AGP 8.9.2, Kotlin 2.1.20,
-Gradle 8.11.1. Kamera: CameraX 1.4.2 und AndroidX Activity 1.10.1. Mindestversion Android 8.0 (API 26).
-
-```powershell
-.\gradlew.bat :app:assembleDebug :app:lintDebug
-```
-
-Linux/macOS: `./gradlew :app:assembleDebug :app:lintDebug`.
-APK: `app/build/outputs/apk/debug/app-debug.apk`.
-Android Studio kann die App per USB-Debugging direkt auf dem Pixel installieren.
-
-## Hauptkamera und JPEG
-
-Die App startet in der Kameraansicht. Kameraberechtigung erlauben und auf die
-Live-Vorschau warten. FOTO löst eine JPEG-Aufnahme aus; während der Aufnahme
-bleiben Auslöser, Neustart und Diagnosewechsel gesperrt. Aufnahmen landen unter
-Pictures/SeaFrogs und erscheinen über MediaStore in der Galerie. Auf Android 10
-und neuer braucht das keine allgemeine Speicherfreigabe; Android 8/9 benötigt
-die auf diese Versionen beschränkte Legacy-Speicherberechtigung.
-
-Der separate PhotoCameraController besitzt Vorschau und Aufnahme-Use-Case,
-setzt die rückseitige logische Kamera auf 1× und nutzt CameraXs kontinuierlichen
-Foto-Autofokus. Er verhandelt die höchste unterstützte 4:3-JPEG-Auflösung
-einschließlich High-Resolution-Ausgabegrößen zusammen mit der Vorschau. Die
-Statusanzeige zeigt die von CameraX konfigurierte Größe; der UW/Macro-Test
-zeigte eine Abweichung zur tatsächlichen JPEG-Dateigröße. Zusätzliche Ultra-High-Resolution-
-Sensormodi und die proprietäre Pixel-Bildverarbeitung gehören nicht dazu.
-
-Die Vorschau zeigt den vollständigen Ausschnitt mit FIT_CENTER. JPEG-Orientierung
-folgt der Geräteorientierung. Das App-Fenster bleibt während der Kameranutzung
-wach. Beim Verlassen gibt die App ihre Kamera-Use-Cases frei und bindet sie
-bei Rückkehr erneut. Fehlende Berechtigung und Kamera-/Aufnahmefehler erscheinen
-im Statusbereich. „Erneut starten“ initialisiert die Kamera neu.
-
-[Erster Kameratest](docs/CAMERA-TEST.md): Vorschau, AF, JPEGs, Orientierung,
-Berechtigungen und Freigabe nach Lifecycle-Wechsel auf dem Pixel 8 prüfen.
-Mausadapter und RAW-Aufnahme sind ergänzt. Video und Weißabgleichprofile
-folgen nach separater Abstimmung.
-
-## Kamerawechsel und Macro
-
-Die große KAMERA-Taste schaltet 1× → Macro → 0,5× → 1×.
-Während Aufnahme, Initialisierung und Macro-Fokusstart ist sie gesperrt.
-Macro verwendet eine zur Laufzeit ermittelte Ultraweitwinkelkamera mit
-kontinuierlichem Foto-AF und stößt mittigen Autofokus neu an. Anschließend
-wird die kurzzeitige Fokussperre wieder aufgehoben. Beide Ultraweitwinkelmodi
-starten ohne digitalen Crop; die Zoomtaste kann anschließend einen Crop wählen.
-
-Fehlende Kameras werden gemeldet; der nächste Tastendruck fährt im Zyklus fort.
-Bei einem fehlgeschlagenen Bind versucht die App, die vorherige Kamera erneut
-zu öffnen. Rückkehr aus der Diagnose bewahrt den gewählten Modus im selben
-Activity-Exemplar; eine neue Activity startet mit 1×.
-
-[Kameraerkennung und Grenzen](docs/LENS-MODES.md) sowie
-[Geräteprüfung](docs/CAMERA-TEST.md) beschreiben die noch offene Abnahme.
-
-## Zoom, Macro-Crop und EV
-
-ZOOM schaltet auf der Hauptkamera 1× → 1,5× → 3× → 5× → 1×.
-UW behält 1× → 1,5× → 2× → 3× → 1×, sensorrelativ. Im Macro-Modus schaltet die Taste
-0,5× → 1× Crop → 0,5×. Das entspricht Faktoren 1/2 auf dem
-Ultraweitwinkelsensor. Die Bezeichnungen beziehen sich nominal auf die Hauptkamera.
-Die App überspringt Faktoren außerhalb der aktuellen CameraX-Zoomgrenzen.
-Physische Kamera-Pins und tatsächlicher Crop erfordern die Geräteprüfung.
-
-EV schaltet nominell 0 → +1 → +2 → −1 → −2 → 0.
-Die App rundet auf unterstützte Indizes, begrenzt sie auf den gemeldeten Bereich
-und entfernt doppelte Stufen. Der Status zeigt den gesetzten Wert mit bis zu
-zwei Dezimalstellen, beispielsweise +0,67 bei einer Schrittweite von 1/3 EV.
-Ohne EV-Unterstützung bleibt die Taste deaktiviert.
-
-Alle drei Kamera-Befehle und der Auslöser warten auf die Bestätigung laufender
-Zoom-/EV-Operationen. Kamerawechsel setzen den Zoom auf den vollen Ausschnitt
-zurück und übernehmen den aktuellen EV-Wert innerhalb der neuen Grenzen.
-Lifecycle-Rückkehr im selben Activity-Exemplar stellt Zoom und EV erneut ein;
-eine neue Activity startet mit Zoom 1 und EV 0. Noch keine dauerhafte Speicherung.
-
-## Diagnose
-
-Das Gehäuse zuerst in Androids Bluetooth-Einstellungen koppeln. Die Diagnose
-braucht keine Bluetooth-, Kamera-, Mikrofon- oder Speicherberechtigung. Android
-liefert die HID-Eingaben; der Export verwendet den System-Dateidialog. Die
-Kameraansicht fordert ihre eigenen Berechtigungen an.
-
-Die Kameraansicht öffnet sie über „HID-Diagnose“. Die Ansicht zeigt alle Android-Eingabegeräte und deren Bewegungsachsen.
-„Normal“ protokolliert die normale Ereigniszustellung mit sichtbarem Cursor.
-„Capture“ fordert Pointer Capture für eine fokussierte View an. Nach erfolgreicher
-Aktivierung verschwindet der Cursor und Android liefert relative X/Y-Bewegungen.
-Die Statusanzeige unterscheidet Anforderung und tatsächlichen Capture-Zustand.
-Touch bleibt für die Diagnosebedienung verfügbar.
-
-Vor einer Gehäusetaste per Touch eine Markierung auswählen. Diese bleibt bis
-zur nächsten Markierung aktiv. Sie behauptet **keine** automatisch erkannte
-Richtung. „Loslassen“ ist eine optionale separate Testmarkierung; zum Prüfen der
-Rückbewegung genügt es, die ursprüngliche Markierung aktiv zu lassen.
-
-„Export ZIP“ beendet Capture und öffnet einen Speicherort. Das ZIP enthält
-`events.jsonl` und `summary.txt`. Hintergrundschreiben verhindert Datei-I/O
-in den Eingabe-Callbacks. Die Ansicht zeigt nur die letzten 14 Ereignisse;
-die Datei enthält die gesamte Sitzung. Ein neues Activity-Exemplar beginnt
-eine neue Sitzung. Vor Drehen, Beenden oder Neustarten exportieren.
-Lokale Sitzungsdateien bleiben im privaten App-Verzeichnis bis zum Löschen
-der App-Daten. Der Dateidialog kann Eingaben erzeugen; diese bleiben als solche
-im Protokoll sichtbar.
-
-Die Diagnose erfasst **Android-App-Ereignisse, keine Bluetooth-HID-Rohreports**.
-Sie beobachtet MotionEvent, KeyEvent, Button-State, Action-Button, Quellen,
-Geräte-IDs, Scroll-/relative Achsen und alle historischen Bewegungssamples.
-Normale X/Y-Werte sind Positionen. Deren Differenzen darf die spätere Auswertung
-nicht mit hardwareseitigen Rohdeltas gleichsetzen.
-Die Eingabeoberfläche übernimmt keine Cursorpositionierung.
-
-Bei extremer Ereignislast begrenzt die Schreibwarteschlange den Speicherbedarf.
-Die Zusammenfassung nennt verlorene Datensätze und Schreibfehler ausdrücklich.
-Ein solcher Export gilt nicht als vollständiger Trace. Für einen vergleichbaren
-Hardwaretest muss der Export beide Werte als 0 melden.
-
-## Nächster Meilenstein
-
-Build, Lint und Zyklustests, danach [Kameratest](docs/CAMERA-TEST.md) und getrennt
-[HID-Hardwaretest](docs/PIXEL8-TEST.md). Die Kamera funktioniert unabhängig von
-der späteren Input-Abstraktion. Beide Ansichten verwenden native Android Views.
-Build-Ergebnisse stehen in [BUILD-STATUS.md](docs/BUILD-STATUS.md).
-
-Geplante Bedienung: Links Macro/0,5×/1×, Hoch Zoom oder Macro-Crop, Runter
-Foto/Video, Klick Auslöser beziehungsweise Video Start/Stop, Rechts EV-Zyklus.
-RAW, Video-FPS, Weißabgleich und Kameraauswahl erfordern Capability-Prüfungen
-am realen Gerät. Diese erweiterten Funktionen sind in Version 0.4.0 noch nicht implementiert.
-
-## Lizenz und Quellen
-
-Apache 2.0, siehe LICENSE und NOTICE. Kein Quelltext der Google Jetpack Camera
-App übernommen. Nur der offizielle Gradle Wrapper stammt aus Gradle.
-
-- [Pointer Capture](https://developer.android.com/develop/ui/views/touch-and-input/gestures/movement#pointer-capture)
-- [MotionEvent einschließlich historischer Achsenwerte](https://developer.android.com/reference/android/view/MotionEvent)
-- [AGP-8.9-Kompatibilität](https://developer.android.com/build/releases/agp-8-9-0-release-notes)
-- [Gradle Wrapper 8.11.1](https://github.com/gradle/gradle/tree/v8.11.1/gradle/wrapper)
-
-Exporte enthalten Gerätebezeichnungen, Descriptor und Android-Buildinformationen.
-Vor Veröffentlichung in diesem öffentlichen Repository prüfen.
-
-## EXIF-Diagnose 0.4.1
-
-JPEGs behalten ihre vorhandenen Aufnahme-EXIF-Daten. Ergänzt werden Hersteller/Modell
-(wenn fehlend), Software und ein JSON-UserComment mit Objektivmodus, logischer und
-angeforderter physischer Kamera-ID, angewendetem CameraX-Zoom und EV, EV-Schrittweite
-und Grenzen, konfigurierter Fotoauflösung und Ergebnis des Macro-Einstiegs-AF.
-Es werden keine fehlenden ISO-, Verschlusszeit- oder Fokuswerte erfunden.
-Der gespeicherte AF-Wert beschreibt den Einstiegsversuch, nicht den Fokuszustand
-im Moment der Aufnahme. Die angeforderte Kamera-ID beweist nicht die aktive Kamera.
-Die EXIF-Ergänzung komprimiert die Bilddaten nicht erneut.
-
-Für die Auswertung Original-JPEGs als Datei oder ZIP senden. Screenshots und
-verkleinerte Bild-Anhänge können EXIF verlieren. Die Version enthält noch keine
-neue HDR-/Mehrbild-Verarbeitung oder Änderung der Crop-Stufen.
-
-## Gemeinsamer Testmeilenstein 0.5
-
-[Testprogramm für Kamera und Maus](docs/TESTPROGRAMM-0.5.md). Die App ergänzt
-CaptureResult-Diagnose, Laufzeitabfrage von AUTO/HDR/NIGHT, auswählbare unterstützte
-Extensions auf nicht physisch gepinnten Kamerarouten und eine gerätebezogene
-Pointer-Capture-Maussteuerung. TESTFALL markiert Aufnahmen und TEST ZIP exportiert
-Kamera-/Mausprotokolle. Der HID-Rohdiagnosemodus bietet alle zehn Tastenpaare.
-Runter protokolliert den Befehl; Videoaufnahme und Foto/Video-Wechsel fehlen noch.
-Extensions bieten keine Garantie auf die vollständige Pixel-Kamera-Pipeline.
-CameraX 1.4.2 bleibt für diesen Vergleich erhalten. Vor November 2026 muss ein
-separater CameraX-Update-Meilenstein die angekündigte Änderung des Extensions-
-Backends berücksichtigen: https://developer.android.com/media/camera/camerax/extensions-api
-
-## Automatischer Kameratest 0.6
-
-[Nur zwei Starts und ein ZIP-Export](docs/AUTOTEST-0.6.md). NORMALTEST verwendet
-50 cm Motivabstand, MACROTEST etwa 5 cm. Die App übernimmt Kamera, Zoom, EV,
-verfügbare Erweiterungen, Bereitschaftswartezeit und Fotoaufnahme. TEST ZIP
-enthält Originalfotos, EXIF, Ergebnistabelle und Sitzungsprotokoll.
-Hauptkamera-Zoomfolge jetzt 1/1,5/3/5×; UW und Macro behalten ihre Folgen.
+Die übrigen versionsbezogenen Dokumente beschreiben historische Versuche und
+ersetzen nicht die aktuelle Bedienung in DIVE-0.8.1.md.

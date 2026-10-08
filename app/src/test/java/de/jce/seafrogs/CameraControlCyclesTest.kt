@@ -37,4 +37,9 @@ class CameraControlCyclesTest {
         })
         assertEquals(0, CameraControlCycles.nextExposure(0, 1f, 0, 0))
     }
+    @Test fun ultraWideHasExactlyThreeDefaultStages() {
+        var zoom=1f
+        val observed=buildList { repeat(3) { zoom=CameraControlCycles.nextZoom(zoom,false,1f,5f,true)!!; add(zoom) } }
+        assertEquals(listOf(1.5f,3f,1f),observed)
+    }
 }

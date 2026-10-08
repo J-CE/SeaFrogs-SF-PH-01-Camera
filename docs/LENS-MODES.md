@@ -1,3 +1,5 @@
+Historisches Architekturprotokoll. Aktuell gelten nur zwei Macro-Stufen gemäß [DIVE-0.8.1.md](DIVE-0.8.1.md).
+
 # Objektivmodi 0.3.0-lenses
 
 Der Meilenstein 0.4.0 baut diesen Objektivcode erfolgreich. Pixel-8-Prüfung noch offen.

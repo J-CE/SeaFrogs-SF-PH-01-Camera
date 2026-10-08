@@ -42,6 +42,93 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private val setupRows = mutableListOf<android.view.View>()
     private var setupVisible = false
     private var orientationBeforeRecording: Int? = null
+    private val divePreferences by lazy { getSharedPreferences("dive", MODE_PRIVATE) }
+    private val diveControls = mutableListOf<android.view.View>()
+    private lateinit var buttonsView: android.widget.ScrollView
+    private var normalX: Float? = null
+    private var normalY: Float? = null
+    private val healthTick = object : Runnable {
+        override fun run() { if (active) { renderState(); handler.postDelayed(this, 2000) } }
+    }
+
+    private fun applyDiveSettings() {
+        window.attributes = window.attributes.apply { screenBrightness = divePreferences.getInt("brightness", 70).coerceIn(1,100) / 100f }
+        requestedOrientation = when (divePreferences.getInt("orientation", 0)) {
+            1 -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            2 -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            3 -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+            else -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    private fun setMouseMode(capture: Boolean) {
+        wantsCapture = capture
+        divePreferences.edit().putBoolean("capture", capture).apply()
+        resetInput("mode:$capture")
+        if (capture) { setupVisible=false; setupRows.forEach { it.visibility=android.view.View.GONE }; setupToggle.text="SETUP"; preview.post { capturePointer() } }
+        else preview.releasePointerCapture()
+        hidStatus = if (capture) "STEUERUNG AKTIV" else "KLASSISCHE MAUS"
+        renderState()
+    }
+
+    private fun diveSettings() {
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        val label = TextView(this)
+        val brightness = android.widget.SeekBar(this).apply { max = 99; progress = divePreferences.getInt("brightness",70)-1 }
+        label.text = "Displayhelligkeit: ${brightness.progress+1}%"
+        brightness.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(bar: android.widget.SeekBar?, value: Int, user: Boolean) {
+                label.text = "Displayhelligkeit: ${value+1}%"
+                window.attributes = window.attributes.apply { screenBrightness = (value+1)/100f }
+            }
+            override fun onStartTrackingTouch(bar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(bar: android.widget.SeekBar?) {}
+        })
+        panel.addView(label); panel.addView(brightness)
+        panel.addView(TextView(this).apply { text = "Ausrichtung" })
+        val direction = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@CameraActivity, android.R.layout.simple_spinner_dropdown_item,
+                listOf("Automatisch", "Hochformat", "Querformat", "Querformat umgekehrt"))
+            setSelection(divePreferences.getInt("orientation",0))
+        }
+        panel.addView(direction)
+        panel.addView(TextView(this).apply { text = "Display bleibt an. Fotos: Pictures/SeaFrogs · Video: Movies/SeaFrogs. Links + Hoch: Steuerung. Rechts + Runter: klassische Maus." })
+        AlertDialog.Builder(this).setTitle("Tauchprofil").setView(panel)
+            .setNegativeButton("Abbrechen") { _,_ -> applyDiveSettings() }
+            .setOnCancelListener { applyDiveSettings() }
+            .setPositiveButton("Speichern") { _,_ ->
+                divePreferences.edit().putInt("brightness",brightness.progress+1).putInt("orientation",direction.selectedItemPosition).apply()
+                applyDiveSettings()
+            }.show()
+    }
+
+    private fun cycleSettings() {
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16),dp(8),dp(16),dp(8)) }
+        fun field(title: String, values: List<Float>): android.widget.EditText {
+            panel.addView(TextView(this).apply { text = title })
+            return android.widget.EditText(this).apply { setText(values.joinToString(";")); isSingleLine = true; panel.addView(this) }
+        }
+        val main = field("Hauptkamera-Zoom", CameraControlCycles.zoomRatios)
+        val uw = field("UW-Zoom relativ zu 0,5×", CameraControlCycles.ultrawideZoomRatios)
+        val ev = field("EV-Zyklus", CameraControlCycles.exposureValues)
+        val dialog = AlertDialog.Builder(this).setTitle("Zyklen: Werte mit Semikolon trennen").setView(panel)
+            .setNegativeButton("Abbrechen",null).setPositiveButton("Speichern",null).create()
+        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            fun parse(text: String, min: Float, max: Float): List<Float>? = runCatching {
+                text.split(';').map { it.trim().replace(',','.').toFloat() }.also {
+                    require(it.size in 2..8 && it.all { v -> v.isFinite() && v in min..max } && it.distinct().size == it.size)
+                }
+            }.getOrNull()
+            val a = parse(main.text.toString(),1f,10f); val b = parse(uw.text.toString(),1f,10f); val c = parse(ev.text.toString(),-5f,5f)
+            if (a == null || b == null || c == null || a.first()!=1f || b.first()!=1f || c.first()!=0f) {
+                android.widget.Toast.makeText(this,"2–8 eindeutige Werte; Zoom beginnt mit 1, EV mit 0",android.widget.Toast.LENGTH_LONG).show()
+            } else {
+                CameraControlCycles.zoomRatios=a; CameraControlCycles.ultrawideZoomRatios=b; CameraControlCycles.exposureValues=c
+                divePreferences.edit().putString("mainZoom",a.joinToString(";")).putString("uwZoom",b.joinToString(";")).putString("ev",c.joinToString(";")).apply()
+                dialog.dismiss()
+            }
+        } }; dialog.show()
+    }
     private lateinit var diagnosis: Button
     private lateinit var restart: Button
     private lateinit var orientation: OrientationEventListener
@@ -104,10 +191,19 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         super.onCreate(savedInstanceState)
         exportGroupOnly = savedInstanceState?.getString("exportGroupOnly")
         inputManager = getSystemService(InputManager::class.java)
+        mouseDescriptor = divePreferences.getString("mouse",null)
+        wantsCapture = divePreferences.getBoolean("capture",false)
+        fun restored(key: String, defaults: List<Float>) = runCatching {
+            divePreferences.getString(key,null)?.split(';')?.map { it.toFloat() }?.takeIf { it.size in 2..8 && it.all(Float::isFinite) } ?: defaults
+        }.getOrDefault(defaults)
+        CameraControlCycles.zoomRatios = restored("mainZoom", listOf(1f,1.5f,3f,5f))
+        CameraControlCycles.ultrawideZoomRatios = restored("uwZoom", listOf(1f,1.5f,3f))
+        CameraControlCycles.exposureValues = restored("ev", listOf(0f,1f,2f,-1f,-2f))
+        applyDiveSettings()
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.0-photo-video")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.1-dive")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -182,10 +278,22 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
                     setupVisible = !setupVisible
                     setupRows.forEach { it.visibility = if (setupVisible) android.view.View.VISIBLE else android.view.View.GONE }
                     text = if (setupVisible) "SETUP SCHLIESSEN" else "SETUP"
+                    renderState()
                 }
             }
         }
         buttonsPanel.addView(setupToggle)
+        diveControls.addAll(listOf(lensSwitch, controls, shutter, modeSwitch))
+        val profile = Button(this).apply { text = "TAUCHPROFIL"; setOnClickListener { diveSettings() } }
+        val cycles = Button(this).apply { text = "ZOOM / EV ZYKLEN"; setOnClickListener { cycleSettings() } }
+        val wb = Button(this).apply { text = "WEISSABGLEICH"; setOnClickListener {
+            if (lastCameraState.ready && !lastCameraState.recording)
+                AlertDialog.Builder(this@CameraActivity).setTitle("Weißabgleich")
+                    .setItems(controller.whiteBalanceChoices().map { it.first }.toTypedArray()) { _,index ->
+                        controller.setWhiteBalance(controller.whiteBalanceChoices()[index].second)
+                    }.show()
+        } }
+        listOf(profile,cycles,wb).forEach { buttonsPanel.addView(it); setupRows.add(it) }
         val videoSettings = Button(this).apply {
             text = "VIDEO: 4K30 / 4K60"
             setOnClickListener {
@@ -288,7 +396,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         root.addView(cameraPanel, if (landscape)
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
         else LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        val buttonsView = android.widget.ScrollView(this).apply { addView(buttonsPanel) }
+        buttonsView = android.widget.ScrollView(this).apply { addView(buttonsPanel) }
         root.addView(buttonsView, LinearLayout.LayoutParams(
             if (landscape) dp(244) else LinearLayout.LayoutParams.MATCH_PARENT,
             if (landscape) LinearLayout.LayoutParams.MATCH_PARENT else dp(320)))
@@ -305,7 +413,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         initialized = true
         orientation = object : OrientationEventListener(this) {
             override fun onOrientationChanged(angle: Int) {
-                if (angle == ORIENTATION_UNKNOWN) return
+                if (angle == ORIENTATION_UNKNOWN || divePreferences.getInt("orientation",0) != 0) return
                 // JPEG orientation follows the handset even when Android
                 // rotation lock keeps the preview/UI in portrait.
                 controller.setRotation(when (angle) {
@@ -331,6 +439,8 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         active = true
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         orientation.enable()
+        handler.removeCallbacks(healthTick); handler.post(healthTick)
+        preview.post { capturePointer() }
         if (hasPermissions()) startCamera() else showPermissionRequired()
     }
 
@@ -346,7 +456,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         readCapabilities()
         sessionStarted = true
         restart.text = "Erneut starten"
-        controller.setRotation(preview.display?.rotation ?: Surface.ROTATION_0)
+        controller.setRotation(when(divePreferences.getInt("orientation",0)) { 1 -> Surface.ROTATION_0; 2 -> Surface.ROTATION_90; 3 -> Surface.ROTATION_270; else -> preview.display?.rotation ?: Surface.ROTATION_0 })
         controller.start(this, preview)
     }
 
@@ -394,6 +504,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
 
     private fun renderState() {
         if (isDestroyed || !active) return
+        if (!hasPermissions()) { showPermissionRequired(); return }
         val state = lastCameraState
         val testing = automated.running || exporting
         if (state.recording && orientationBeforeRecording == null) {
@@ -408,15 +519,32 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             setupToggle.text = "SETUP"
         }
         val cameraMessage = if (state.message == "Bereit" && !state.ready) "Warte auf Vorschau/Fokus …" else state.message
-        status.text = (if (exportStatus.isBlank()) "" else "$exportStatus\n") +
-            (if (autoStatus.isBlank()) "" else "$autoStatus\n") +
-            "${if (state.videoMode) "VIDEO · 4K${state.videoFps}" else "PHOTO"} | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | ${state.quality} | ${state.photoFormat}\n" +
-            state.resolution + (if (state.exposureLimits.enabled && !state.videoMode)
-                " | Sensor-ISO ${if (state.exposureLimits.isoCap > 0) "≤ ${state.exposureLimits.isoCap}" else "AUTO"} | Digital ${if (state.exposureLimits.boostCap > 0) "≤ ${state.exposureLimits.boostCap / 100f}×" else "AUTO"} | Zeit ${if (state.exposureLimits.isoCap == 0) "AUTO" else "≤ " + when (state.exposureLimits.longestTimeNs) {
-                    8_000_000L -> "1/125 s"
-                    16_666_666L -> "1/60 s"
-                    else -> "1/30 s"
-                }}" else "") + "\n" + "Speicher: ${android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes / (1024 * 1024)} MiB frei\n" + cameraMessage + (if (setupVisible) "\n" + state.diagnostics else "") + "\n" + hidStatus
+        val free = android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes
+        val battery = getSystemService(android.os.BatteryManager::class.java).getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val hot = Build.VERSION.SDK_INT >= 29 && getSystemService(android.os.PowerManager::class.java).currentThermalStatus >= android.os.PowerManager.THERMAL_STATUS_SEVERE
+        val warnings = buildList {
+            if (battery in 0..10) add("AKKU KRITISCH")
+            if (hot) add("ÜBERHITZUNG")
+            if (free < 256L*1024*1024) add("SPEICHER KNAPP")
+            if (mouseDescriptor != null && !mouseConnected()) add("GEHÄUSE GETRENNT")
+        }
+        status.text = "${if(state.videoMode) "VIDEO 4K${state.videoFps}" else "PHOTO"} | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel}\n" +
+            (if(state.videoMode) "" else "${state.photoFormat} · ${state.quality} · WB ${controller.whiteBalanceLabel()}\n") +
+            "Akku ${if(battery in 0..100) "$battery%" else "?"} · ${free/(1024*1024)} MiB frei\n" +
+            warnings.joinToString(" · ") + (if(warnings.isEmpty()) "" else "\n") + cameraMessage + "\n" +
+            (if(wantsCapture) "STEUERUNG" else "MAUS / TOUCH") +
+            (if(setupVisible) "\n${state.resolution}\n${state.diagnostics}\n$hidStatus" else "") +
+            (if(exportStatus.isBlank()) "" else "\n$exportStatus") + (if(autoStatus.isBlank()) "" else "\n$autoStatus")
+        status.textSize = if(wantsCapture && !setupVisible) 20f else 17f
+        val bars = androidx.core.view.WindowCompat.getInsetsController(window,window.decorView)
+        if(wantsCapture && !setupVisible) {
+            bars.systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            bars.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        } else bars.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        diveControls.forEach { it.visibility = if(wantsCapture && !setupVisible) android.view.View.GONE else android.view.View.VISIBLE }
+        buttonsView.layoutParams = buttonsView.layoutParams.apply {
+            if(resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) height = dp(if(wantsCapture && !setupVisible) 56 else 320)
+        }
         quality.text = state.quality
         quality.isEnabled = state.ready && !state.videoMode && !testing
         format.text = "FORMAT: ${state.photoFormat}"
@@ -439,7 +567,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         modeSwitch.text = if (state.videoMode) "MODUS: VIDEO → FOTO" else "MODUS: FOTO → VIDEO"
         modeSwitch.isEnabled = state.ready && !state.recording && !testing
         setupToggle.isEnabled = !state.capturing && !state.recording && !testing
-        status.setTextColor(if (state.recording) android.graphics.Color.RED else android.graphics.Color.WHITE)
+        status.setTextColor(if (state.recording || warnings.isNotEmpty() || state.message.contains("fehl",true) || state.message.contains("nicht verfügbar",true)) android.graphics.Color.RED else android.graphics.Color.WHITE)
         diagnosis.isEnabled = !state.capturing && !state.recording && !testing
         restart.isEnabled = !state.capturing && !state.recording && !testing
         cancelTest.isEnabled = automated.running
@@ -514,9 +642,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
 
     private fun chooseMouse() {
         if (wantsCapture) {
-            wantsCapture = false
-            preview.releasePointerCapture()
-            resetInput("disabled")
+            setMouseMode(false)
             mouse.text = "MAUS AUS"
             hidStatus = "MAUS AUS"
             return
@@ -532,15 +658,16 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             .setItems(devices.map { "${it.name} (${it.id})" }.toTypedArray()) { _, position ->
                 val device = devices[position]
                 mouseDescriptor = device.descriptor
+                divePreferences.edit().putString("mouse", device.descriptor).apply()
                 recorder.record(EventEncoder.device(device).put("kind", "selectedMouse"))
-                wantsCapture = true
+                setMouseMode(true)
                 mouse.text = "MAUS AN"
                 preview.post { capturePointer() }
             }.show()
     }
 
     private fun capturePointer() {
-        if (wantsCapture && active && hasWindowFocus()) {
+        if (wantsCapture && mouseConnected() && active && hasWindowFocus()) {
             preview.requestFocus()
             preview.requestPointerCapture()
         }
@@ -564,6 +691,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         handler.removeCallbacks(finishBurst)
         gate.reset()
         primaryDown = false
+        normalX = null; normalY = null
         if (initialized) recorder.record(JSONObject().put("kind", "inputReset").put("reason", reason))
     }
 
@@ -571,15 +699,30 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         if (!initialized) return
         recorder.record(EventEncoder.motion(event, route))
         val selected = InputDevice.getDevice(event.deviceId)?.descriptor == mouseDescriptor
-        if (automated.running || exporting || !wantsCapture || !selected || route != "captured" || !preview.hasPointerCapture()) return
+        if (automated.running || exporting || !selected) return
+        if (wantsCapture && (route != "captured" || !preview.hasPointerCapture())) return
+        if (!wantsCapture && route == "captured") return
         val now = SystemClock.uptimeMillis()
+        if (!wantsCapture && event.actionMasked == MotionEvent.ACTION_HOVER_ENTER) { normalX=event.x; normalY=event.y }
         // Button transitions unify DOWN/BUTTON_PRESS and UP/BUTTON_RELEASE.
         val down = event.buttonState and MotionEvent.BUTTON_PRIMARY != 0
-        if (down && !primaryDown) gate.signal(HidCommandGate.Command.CLICK, now)
+        if (wantsCapture && down && !primaryDown) gate.signal(HidCommandGate.Command.CLICK, now)
         primaryDown = down
         if (event.actionMasked == MotionEvent.ACTION_MOVE || event.actionMasked == MotionEvent.ACTION_HOVER_MOVE) {
-            for (i in 0 until event.historySize) gate.movement(event.getHistoricalX(i), event.getHistoricalY(i), now)
-            gate.movement(event.x, event.y, now)
+            if (route == "captured") {
+                for (i in 0 until event.historySize) gate.movement(event.getHistoricalX(i), event.getHistoricalY(i), now)
+                gate.movement(event.x, event.y, now)
+            } else {
+                fun sample(x: Float, y: Float) {
+                    val dx = normalX?.let { x-it } ?: 0f; val dy = normalY?.let { y-it } ?: 0f
+                    normalX=x; normalY=y
+                    gate.movement(dx,dy,now)
+                }
+                val relativeX=event.getAxisValue(MotionEvent.AXIS_RELATIVE_X)
+                val relativeY=event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y)
+                if(relativeX != 0f || relativeY != 0f) { gate.movement(relativeX,relativeY,now); normalX=event.x; normalY=event.y }
+                else { for(i in 0 until event.historySize) sample(event.getHistoricalX(i),event.getHistoricalY(i)); sample(event.x,event.y) }
+            }
         }
         handler.removeCallbacks(finishBurst)
         handler.postDelayed(finishBurst, HidCommandGate.QUIET_MS)
@@ -587,6 +730,8 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
 
     private fun finishInput() {
         val commands = gate.finish(SystemClock.uptimeMillis()) ?: return
+        gate.modeSwitch(commands)?.let { mode -> setMouseMode(mode == HidCommandGate.ModeSwitch.CAMERA); return }
+        if (!wantsCapture) return
         val name = commands.joinToString("+") { it.name }
         val decision = when {
             automated.running -> "AUTO_TEST_RUNNING"
@@ -611,12 +756,12 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     }
 
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
-        if (event.isFromSource(InputDevice.SOURCE_MOUSE)) { handleMouse(event, "generic"); return true }
+        if (event.isFromSource(InputDevice.SOURCE_MOUSE)) { handleMouse(event, "generic"); if(wantsCapture) return true }
         return super.dispatchGenericMotionEvent(event)
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (event.isFromSource(InputDevice.SOURCE_MOUSE)) { handleMouse(event, "touch"); return true }
+        if (event.isFromSource(InputDevice.SOURCE_MOUSE)) { handleMouse(event, "touch"); if(wantsCapture) return true }
         val result = super.dispatchTouchEvent(event)
         if (initialized && wantsCapture && event.actionMasked == MotionEvent.ACTION_UP) preview.post { capturePointer() }
         return result
@@ -626,18 +771,17 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     override fun onInputDeviceChanged(deviceId: Int) = deviceChanged(deviceId)
     override fun onInputDeviceRemoved(deviceId: Int) = deviceChanged(deviceId)
 
+    private fun mouseConnected() = InputDevice.getDeviceIds().any { InputDevice.getDevice(it)?.descriptor == mouseDescriptor }
+
     private fun deviceChanged(deviceId: Int) {
         if (!initialized) return
         recorder.record(JSONObject().put("kind", "inputDeviceChanged").put("deviceId", deviceId))
         val connected = InputDevice.getDeviceIds().any { InputDevice.getDevice(it)?.descriptor == mouseDescriptor }
         if (wantsCapture && !connected) {
-            wantsCapture = false
-            resetInput("mouseDisconnected")
-            preview.releasePointerCapture()
-            mouse.text = "MAUS AUS"
-            hidStatus = "MAUS GETRENNT: erneut auswählen"
-            android.widget.Toast.makeText(this, hidStatus, android.widget.Toast.LENGTH_LONG).show()
-        }
+            resetInput("mouseDisconnected"); preview.releasePointerCapture()
+            hidStatus = "GEHÄUSE GETRENNT"
+        } else if (wantsCapture && connected) preview.post { capturePointer() }
+        renderState()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -664,6 +808,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     override fun onStop() {
         automated.cancel("Test durch Verlassen der Kamera beendet. Gespeicherte Fotos bleiben erhalten.")
         active = false
+        handler.removeCallbacks(healthTick)
         resetInput("stopped")
         preview.releasePointerCapture()
         sessionStarted = false

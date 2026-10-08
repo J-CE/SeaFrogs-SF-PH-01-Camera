@@ -34,4 +34,22 @@ class HidCommandGateTest {
         assertNull(gate.finish(160))
         assertEquals(setOf(HidCommandGate.Command.UP), gate.finish(260))
     }
+    @Test fun modeChordsIgnoreDirectionArrivalOrder() {
+        for (pair in listOf(listOf(HidCommandGate.Command.LEFT,HidCommandGate.Command.UP),
+            listOf(HidCommandGate.Command.UP,HidCommandGate.Command.LEFT))) {
+            val gate=HidCommandGate(); gate.signal(pair[0],0); gate.signal(pair[1],20)
+            assertEquals(HidCommandGate.ModeSwitch.CAMERA,gate.modeSwitch(gate.finish(170)!!))
+        }
+        for (pair in listOf(listOf(HidCommandGate.Command.RIGHT,HidCommandGate.Command.DOWN),
+            listOf(HidCommandGate.Command.DOWN,HidCommandGate.Command.RIGHT))) {
+            val gate=HidCommandGate(); gate.signal(pair[0],0); gate.signal(pair[1],20)
+            assertEquals(HidCommandGate.ModeSwitch.CLASSIC,gate.modeSwitch(gate.finish(170)!!))
+        }
+    }
+    @Test fun systemChordsAndExtraClickCannotSwitchModes() {
+        val gate=HidCommandGate()
+        assertNull(gate.modeSwitch(setOf(HidCommandGate.Command.UP,HidCommandGate.Command.DOWN)))
+        assertNull(gate.modeSwitch(setOf(HidCommandGate.Command.LEFT,HidCommandGate.Command.RIGHT)))
+        assertNull(gate.modeSwitch(setOf(HidCommandGate.Command.LEFT,HidCommandGate.Command.UP,HidCommandGate.Command.CLICK)))
+    }
 }

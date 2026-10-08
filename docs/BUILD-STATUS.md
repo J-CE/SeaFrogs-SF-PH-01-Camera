@@ -392,3 +392,14 @@ Signierschlüssel aus 0.7.2 wiederverwendet, Update von SeaFrogs Test.
 Signatur-SHA256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57
 APK-SHA256: 2b85c33a10aecbd0a1a0692fa942f9e5cc6b60461ef6585f019f673e7f671a4a
 APK-Länge: 7645864 Byte.
+
+## 0.8.1-dive, 2026-10-08
+
+assembleDebug, lintDebug, testDebugUnitTest erfolgreich. 46 Tests, 0 Fehler;
+Lint 0 errors / 96 warnings. APK de.jce.seafrogs.test, VersionCode 20,
+7.675.618 Bytes, SHA256 679232a021a70644b40af0b578591a33de10a698c2750125276491c79839bad1.
+Signatur 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57,
+Update-kompatibel mit 0.7.2 und 0.8.0 SeaFrogs Test. apksigner/zipalign geprüft.
+Kein Gerätetest. Neue Tests prüfen beide Ankunftsreihenfolgen der Umschaltgesten,
+Sperre anderer Kombinationen und UW-Standardzyklus. Plattform-Cursorverhalten,
+Macro-Nahfokus, WB-Sensorwirkung und kodierte Video-FPS bleiben offen.

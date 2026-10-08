@@ -46,6 +46,7 @@ class RawJpegCapture(context: Context) {
     private lateinit var route: CameraLensRoute
     private var zoom = 1f
     private var ev = 0f
+    private var wbMode = CaptureRequest.CONTROL_AWB_MODE_AUTO
     private var orientation = 0
     private var limits = ExposureLimits()
     private var manualExposure: LimitedExposure? = null
@@ -93,6 +94,7 @@ class RawJpegCapture(context: Context) {
               frameCount: Int = 1,
               fuse: Boolean = false,
               keepDng: Boolean = true,
+              whiteBalanceMode: Int = CaptureRequest.CONTROL_AWB_MODE_AUTO,
               onProgress: ((String) -> Unit)? = null,
               complete: (RawPairOutcome) -> Unit) {
         worker.post {
@@ -107,7 +109,7 @@ class RawJpegCapture(context: Context) {
             if (fuse) check(frameCount == 5 && rawSize != null && processingVariant == ProcessingVariant.DEFAULT)
 
             evidence.put("seriesCountRequested", frameCount).put("seriesFrameIndex", 0)
-            route = selected; zoom = zoomRatio; ev = exposureEv
+            route = selected; zoom = zoomRatio; ev = exposureEv; wbMode = whiteBalanceMode
             orientation = jpegOrientation; description = metadata; limits = exposureLimits
             processing = processingVariant; suppliedReference = reference
             evidence.put("processingVariantRequested", processing.name)
@@ -210,7 +212,7 @@ class RawJpegCapture(context: Context) {
             camera.createCaptureRequest(template, setOf(physical)) else camera.createCaptureRequest(template)
         builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
         builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-        builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+        builder.set(CaptureRequest.CONTROL_AWB_MODE, wbMode)
         builder.set(CaptureRequest.CONTROL_AF_MODE, if (route.supportsPhotoAutofocus)
             CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE else CaptureRequest.CONTROL_AF_MODE_OFF)
         val c = checkNotNull(logicalCharacteristics)

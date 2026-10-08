@@ -95,6 +95,26 @@ class PhotoCameraController(
     private var videoCapture: VideoCapture<Recorder>? = null
     private var recording: Recording? = null
     private var videoMode = false
+    private val wbPreferences = appContext.getSharedPreferences("whiteBalance", Context.MODE_PRIVATE)
+    private var whiteBalanceMode = wbPreferences.getInt("mode", CaptureRequest.CONTROL_AWB_MODE_AUTO)
+    private var appliedWhiteBalanceMode = CaptureRequest.CONTROL_AWB_MODE_AUTO
+    private val wbNames = listOf("Auto" to CaptureRequest.CONTROL_AWB_MODE_AUTO,
+        "Tageslicht" to CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT,
+        "Bewölkt" to CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT,
+        "Schatten" to CaptureRequest.CONTROL_AWB_MODE_SHADE)
+    fun whiteBalanceLabel() = wbNames.firstOrNull { it.second == appliedWhiteBalanceMode }?.first ?: "Auto"
+    fun whiteBalanceChoices(): List<Pair<String,Int>> {
+        val route = activeRoute ?: return wbNames.take(1)
+        val manager = appContext.getSystemService(android.hardware.camera2.CameraManager::class.java)
+        val available = manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)[android.hardware.camera2.CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES] ?: intArrayOf(CaptureRequest.CONTROL_AWB_MODE_AUTO)
+        return wbNames.filter { it.second in available }
+    }
+    fun setWhiteBalance(mode: Int) {
+        if (!isReady() || recording != null || whiteBalanceChoices().none { it.second == mode }) return
+        whiteBalanceMode=mode; wbPreferences.edit().putInt("mode",mode).apply()
+        if(mode != CaptureRequest.CONTROL_AWB_MODE_AUTO) qualityMode=ExtensionMode.NONE
+        open(activeLens)
+    }
     private var videoSeconds = 0L
     private var videoFps = appContext.getSharedPreferences("video", Context.MODE_PRIVATE).getInt("fps", 30)
         .takeIf { it == 30 || it == 60 } ?: 30
@@ -234,7 +254,7 @@ class PhotoCameraController(
                     .put("logicalId", route.logicalId).put("physicalId", route.physicalId ?: JSONObject.NULL)
                     .put("extensionsOnLogicalSelector", org.json.JSONArray(modes.map(::qualityName)))
                     .put("extensionsAllowedOnRoute", route.physicalId == null))
-                if (videoMode || usesRaw() || effectiveLimits().enabled || route.physicalId != null || qualityMode !in modes) qualityMode = ExtensionMode.NONE
+                if (whiteBalanceMode != CaptureRequest.CONTROL_AWB_MODE_AUTO || videoMode || usesRaw() || effectiveLimits().enabled || route.physicalId != null || qualityMode !in modes) qualityMode = ExtensionMode.NONE
                 bind(availableProvider, lifecycleOwner, view, route)
                 activeRoute = route
                 activeLens = target
@@ -338,6 +358,13 @@ class PhotoCameraController(
             Camera2Interop.Extender(previewBuilder).setPhysicalCameraId(physicalId)
             Camera2Interop.Extender(captureBuilder).setPhysicalCameraId(physicalId)
         }
+        val wbAvailable = appContext.getSystemService(android.hardware.camera2.CameraManager::class.java)
+            .getCameraCharacteristics(route.physicalId ?: route.logicalId)[android.hardware.camera2.CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES] ?: intArrayOf(CaptureRequest.CONTROL_AWB_MODE_AUTO)
+        appliedWhiteBalanceMode = if(qualityMode == ExtensionMode.NONE && whiteBalanceMode in wbAvailable) whiteBalanceMode else CaptureRequest.CONTROL_AWB_MODE_AUTO
+        if(qualityMode == ExtensionMode.NONE) {
+            Camera2Interop.Extender(previewBuilder).setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, appliedWhiteBalanceMode)
+            Camera2Interop.Extender(captureBuilder).setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, appliedWhiteBalanceMode)
+        }
         val token = generation
         latestResult = "{}"
         lastTelemetry = 0L
@@ -399,6 +426,7 @@ class PhotoCameraController(
             val recorder = Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.UHD)).build()
             val videoBuilder = VideoCapture.Builder(recorder).setTargetRotation(rotation)
                 .setTargetFrameRate(android.util.Range(videoFps, videoFps))
+            Camera2Interop.Extender(videoBuilder).setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, appliedWhiteBalanceMode)
             if (Build.VERSION.SDK_INT >= 28) route.physicalId?.let {
                 Camera2Interop.Extender(videoBuilder).setPhysicalCameraId(it)
             }
@@ -752,6 +780,8 @@ class PhotoCameraController(
         if (videoMode) { completed?.invoke(null, "Videomodus aktiv"); return }
         lastRawOutcome = null
         if (usesNativeFusion() || usesRaw() || effectiveLimits().enabled || testNativeCapture) { captureSensorPhoto(completed); return }
+        val free = android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes
+        if(free < 80L*1024*1024) { message="Zu wenig Speicher für Foto"; emit(); completed?.invoke(null,message); return }
         val capture = imageCapture
         if (capture == null || !isReady()) {
             completed?.invoke(null, "Kamera nicht bereit")
@@ -855,7 +885,7 @@ class PhotoCameraController(
         emit()
         val operation = RawJpegCapture(appContext)
         rawCapture = operation
-        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount, fuse, includeRaw, onProgress = { stage ->
+        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount, fuse, includeRaw, whiteBalanceMode = appliedWhiteBalanceMode, onProgress = { stage ->
             if (generation == token && busy) { message = stage; emit() }
         }) { outcome ->
             val actualMetadata = JSONObject(metadata).put(if (includeRaw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence)).toString()
@@ -895,8 +925,8 @@ class PhotoCameraController(
         val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.8.0-photo-video")
-            .put("mode", "PHOTO")
+            .put("version", "0.8.1-dive")
+            .put("mode", "PHOTO").put("whiteBalanceRequested",whiteBalanceMode).put("whiteBalanceApplied",appliedWhiteBalanceMode)
             .put("testCase", testCase)
             .put("qualityMode", selectedQualityName())
             .put("processingVariantRequested", testProcessing.name)

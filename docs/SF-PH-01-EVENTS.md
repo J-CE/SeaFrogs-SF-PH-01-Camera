@@ -1,3 +1,5 @@
+Aktuelle Bedienung: [DIVE-0.8.1.md](DIVE-0.8.1.md). Die folgende Messung beschreibt den damaligen 0.5-Stand.
+
 # SF-PH-01 Pro: gemessene Einzelereignisse
 
 2026-10-07, Pixel 8. Quellen: capture.zip (287 Ereignisse) und normal.zip
