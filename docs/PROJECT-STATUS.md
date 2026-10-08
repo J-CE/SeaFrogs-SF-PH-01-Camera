@@ -1,4 +1,4 @@
-# Ziel und verbleibende Arbeit nach 0.8.7
+# Ziel und verbleibende Arbeit nach 0.8.8
 
 Das Produktziel bleibt eine zuverlässige Pixel-8-Unterwasserkamera mit fünf SeaFrogs-Eingaben. Ein Build oder Unit-Test beweist keine Unterwasser-Bildqualität und keinen funktionierenden Nahfokus.
 
@@ -43,3 +43,7 @@ WB-Statusanzeige und Sitzungsabschluss verhindern veraltete Profilindizes bei Pr
 ## Gemeinsamer Setup-Block 0.8.7
 
 Fotoformat und ISO-/Digitalgrenzen sind jetzt einzelne Setup-Einträge neben den übrigen Voreinstellungen; die separate Zeile entfällt. Tauchansicht und 4:3-Fotovorschau behalten ihre Anordnung.
+
+## Oberflächenbereinigung 0.8.8
+
+Entfernt aus der UI: Macrotest, Testabbruch, Kameradaten/Diagnose-ZIP, Qualitätsumschaltung sowie bereits verborgene Mehrbild-Test-/Exportbutton-Instanzen. Diagnosefunktionen bleiben als Quelltext erhalten. Mausauswahl, HID-Diagnose und Neustart bleiben im Setup bis zur Gehäuseabnahme.

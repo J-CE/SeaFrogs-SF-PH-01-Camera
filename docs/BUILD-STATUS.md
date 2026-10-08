@@ -506,3 +506,15 @@ assembleDebug, lintDebug und testDebugUnitTest erfolgreich.
 Signatur SHA-256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57.
 APK SHA-256: 6e98008c4844363e33df18708e52aed8df60080ba3f6fb0388c6e4b68c2e2c82.
 Signatur, Paketversion und 16-KiB-ZIP-Ausrichtung geprüft.
+
+## 0.8.8-ui-clean, 2026-10-08
+
+Test-/Export-/Qualitätsbuttons aus der Oberfläche entfernt; deren Backend
+bleibt im Quelltext. Setup behält Mausauswahl, HID-Diagnose und Neustart.
+Tauchansicht und Kameraabläufe behalten ihre bisherige Bedienung.
+APK-Paket de.jce.seafrogs.test, versionCode 27, versionName 0.8.8-ui-clean.
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich.
+66 Tests, 0 Fehler, 0 übersprungene Tests. Lint: 0 Fehler, 85 Warnungen.
+Signatur SHA-256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57.
+APK SHA-256: 2c016497c5e4e7c0cace543f3f418f0c1061c7da31cf3760b144160aad4678cd.
+Signatur, Paketversion und 16-KiB-ZIP-Ausrichtung geprüft.

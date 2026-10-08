@@ -139,22 +139,16 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var inputManager: InputManager
     private lateinit var recorder: EventRecorder
     private lateinit var automated: AutomatedCameraTest
-    private lateinit var cancelTest: Button
-    private lateinit var macroTest: Button
     private lateinit var format: Button
     private lateinit var exposureSetup: Button
     private var exportGroupOnly: String? = null
     private var exporting = false
     private var exportStatus = ""
-    private lateinit var libraryTest: Button
-    private lateinit var libraryExport: Button
     private var autoStatus = ""
     private var lastNoticeMessage = ""
     private var noticeUntil = 0L
     private var lastCameraState = PhotoCameraState()
-    private lateinit var quality: Button
     private lateinit var mouse: Button
-    private lateinit var export: Button
     private val capabilityWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var capabilityReport: String? = null
     private var capabilityQueryStarted = false
@@ -209,7 +203,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.7-setup")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.8-ui-clean")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         screen = CameraScreenLayout(this).apply {
@@ -347,56 +341,9 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         footer.addView(restart, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         footer.addView(diagnosis, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         buttonsPanel.addView(footer)
-        val testControls = LinearLayout(this)
-        quality = Button(this).apply { text = "STANDARD"; setOnClickListener { controller.cycleQuality() } }
         mouse = Button(this).apply { text = "MAUS AUS"; setOnClickListener { chooseMouse() } }
-        export = Button(this).apply {
-            text = "KAMERADATEN …"
-            isEnabled = false
-            setOnClickListener {
-                preview.releasePointerCapture()
-                resetInput("export")
-                exportGroupOnly = null
-                exportRequest.launch("seafrogs-test-${System.currentTimeMillis()}.zip")
-            }
-        }
-        listOf(quality, mouse, export).forEach {
-            testControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        buttonsPanel.addView(testControls)
-        val libraryControls = LinearLayout(this)
-        libraryTest = Button(this).apply {
-            text = "MEHRBILD TEST"
-            setOnClickListener { beginAutomated(false, fusion = true) }
-        }
-        libraryExport = Button(this).apply {
-            text = "TEST ZIP"
-            setOnClickListener {
-                preview.releasePointerCapture()
-                resetInput("libraryExport")
-                exportGroupOnly = "FUSION"
-                exportRequest.launch("seafrogs-mehrbild-${System.currentTimeMillis()}.zip")
-            }
-        }
-        listOf(libraryTest, libraryExport).forEach {
-            libraryControls.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        // Mehrbild test controls are frozen and no longer exposed.
-        val autoControls = LinearLayout(this)
-        cancelTest = Button(this).apply {
-            text = "ABBRECHEN"
-            minHeight = dp(64)
-            setOnClickListener { automated.cancel() }
-        }
-        macroTest = Button(this).apply {
-            text = "MACROTEST"
-            minHeight = dp(64)
-            setOnClickListener { beginAutomated(true) }
-        }
-        autoControls.addView(cancelTest, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        autoControls.addView(macroTest, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        buttonsPanel.addView(autoControls)
-        setupRows.addAll(listOf(footer, testControls, autoControls))
+        buttonsPanel.addView(mouse)
+        setupRows.addAll(listOf(footer, mouse))
         setupRows.forEach { it.visibility = android.view.View.GONE }
         // Setup overlays the image; opening it never shrinks the photo viewport.
         val closeSetup = Button(this).apply {
@@ -610,16 +557,10 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             screen.housingControl = wantsCapture
             screen.requestLayout()
         }
-        quality.text = state.quality
-        quality.isEnabled = state.ready && !state.videoMode && !testing
         format.text = "FORMAT: ${state.photoFormat}"
         format.isEnabled = state.ready && !state.videoMode && !testing
         exposureSetup.isEnabled = state.ready && !state.videoMode && !testing
         exposureSetup.text = if (state.exposureLimits.enabled) "ISO / DIGITAL" else "ISO: AUTO"
-        libraryTest.isEnabled = state.ready && !testing
-        libraryExport.isEnabled = capabilityReport != null && !testing && !state.capturing
-        export.text = if (capabilityReport == null) "KAMERADATEN …" else "DIAGNOSE ZIP"
-        export.isEnabled = capabilityReport != null && !state.capturing && !testing
         mouse.isEnabled = !state.capturing && !testing
         zoom.isEnabled = state.ready && !testing
         zoom.text = state.zoomLabel
@@ -635,8 +576,6 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         status.setTextColor(if (state.recording || warnings.isNotEmpty() || cameraError) android.graphics.Color.RED else android.graphics.Color.WHITE)
         diagnosis.isEnabled = !state.capturing && !state.recording && !testing
         restart.isEnabled = !state.capturing && !state.recording && !testing
-        cancelTest.isEnabled = automated.running
-        macroTest.isEnabled = state.ready && !state.videoMode && !testing
     }
 
     private fun beginAutomated(macro: Boolean, raw: Boolean = false, iso: Boolean = false, processing: Boolean = false, libraries: Boolean = false, fusion: Boolean = false) {
