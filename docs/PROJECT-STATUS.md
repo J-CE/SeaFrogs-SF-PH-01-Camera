@@ -1,4 +1,4 @@
-# Ziel und verbleibende Arbeit nach 0.8.4
+# Ziel und verbleibende Arbeit nach 0.8.5
 
 Das Produktziel bleibt eine zuverlässige Pixel-8-Unterwasserkamera mit fünf SeaFrogs-Eingaben. Ein Build oder Unit-Test beweist keine Unterwasser-Bildqualität und keinen funktionierenden Nahfokus.
 
@@ -30,3 +30,7 @@ Fokus-Lock, manuelle Kelvin-Werte, Vibrations-/Audiofeedback und weitere Optione
 ## Dauerhafte Fotositzung (0.8.4)
 
 RAW+JPEG und JPEG mit ISO-/Digitalgrenze verwenden im normalen Fotomodus eine offene Camera2-Sitzung. Vorschau und Belichtungsmessung laufen vor dem Klick. Kein Kamera-Neustart und keine feste 1,5-s-Wartezeit pro Foto. Diagnosereihen behalten den unabhängigen Einzelsitzungsweg. Die neue Vorschau-/JPEG-/RAW-Streamkombination und die reale Auslösezeit brauchen noch eine Abnahme am Pixel 8.
+
+## Rückmeldung 0.8.4 und Korrektur 0.8.5
+
+Nutzer meldet rechtsgedrehte Vorschau und Sitzungsabbruch nach gespeichertem Foto mit Grenz-Warnung. Korrigiert: doppelte Sensorrotation entfernt; gespeicherte Aufnahme mit Grenz-Warnung bleibt in der offenen Sitzung. Sensorgrenzen bleiben streng geprüft. Tatsächliche AE-/ISO-/Zeitursache aus dem Screenshot nicht bestimmbar; Anzeige und Metadaten benennen nun die konkrete Abweichung.

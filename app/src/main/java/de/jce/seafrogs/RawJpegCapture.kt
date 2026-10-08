@@ -23,7 +23,8 @@ data class RawSeriesFrame(val jpeg: Uri, val dng: Uri?, val evidence: String)
 
 data class RawPairOutcome(val jpeg: Uri?, val dng: Uri?, val evidence: String, val error: String?,
     val comparisonSettings: FrozenCaptureSettings? = null,
-    val frames: List<RawSeriesFrame> = emptyList())
+    val frames: List<RawSeriesFrame> = emptyList(),
+    val warning: String? = null)
 
 /** One Camera2 exposure with JPEG and optional RAW targets. CameraX must be unbound first.
  * All camera/image state lives on one worker. Match sensor timestamps before
@@ -143,7 +144,9 @@ class RawJpegCapture(context: Context) {
             callback = complete; description = metadata; orientation = jpegOrientation
             evidence = JSONObject(evidence.toString()).apply {
                 listOf("underexposedByLimits", "brightnessDifferenceEvSensor", "limitsVerified",
-                    "postRawBoostActual", "postRawBoostVerified").forEach { remove(it) }
+                    "postRawBoostActual", "postRawBoostVerified", "captureWarning", "savedUptimeMs",
+                    "captureStartedCallbackUptimeMs", "captureStartedSensorTimestampNs", "clickToStartedCallbackMs",
+                    "aeModeActual", "limitVerificationIssues").forEach { remove(it) }
             }
             latestMeter?.let { evidence.put("preCaptureAfState",it[CaptureResult.CONTROL_AF_STATE] ?: JSONObject.NULL)
                 .put("preCaptureAeState",it[CaptureResult.CONTROL_AE_STATE] ?: JSONObject.NULL)
@@ -519,7 +522,10 @@ class RawJpegCapture(context: Context) {
             rawImage?.close(); rawImage = null
             stillResult = null
             jpegFrames.clear()
-            if (exposureError != null) finish(exposureError)
+            if (exposureError != null) {
+                if (persistent && processing == ProcessingVariant.NONE) finish(null, exposureError)
+                else finish(exposureError)
+            }
             else if (seriesFrames.size >= seriesCount) {
                 if (nativeFusion) finishFusion() else finish(null)
             }
@@ -637,19 +643,23 @@ class RawJpegCapture(context: Context) {
         val iso = sensor[CaptureResult.SENSOR_SENSITIVITY]
         val time = sensor[CaptureResult.SENSOR_EXPOSURE_TIME]
         val boost = sensor[CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST]
-        val honored = iso != null && time != null && (limits.isoCap == 0 || iso <= limits.isoCap) &&
-            (limits.isoCap == 0 || time <= limits.longestTimeNs) && sensor[CaptureResult.CONTROL_AE_MODE] == CaptureResult.CONTROL_AE_MODE_OFF
-        val gainHonored = (requestedBoost == null || boost == requestedBoost) &&
-            (limits.boostCap == 0 || (boost != null && boost <= limits.boostCap))
+        val aeMode = sensor[CaptureResult.CONTROL_AE_MODE]
+        val verified = ExposureVerification.check(limits, iso, time, aeMode, boost, requestedBoost)
+        val honored = verified.exposureConfirmed
+        val gainHonored = verified.gainConfirmed
         evidence.put("limitsVerified", honored).put("postRawBoostActual", boost ?: JSONObject.NULL)
-            .put("postRawBoostVerified", gainHonored)
+            .put("postRawBoostVerified", gainHonored).put("aeModeActual",aeMode ?: JSONObject.NULL)
+            .put("limitVerificationIssues",org.json.JSONArray(verified.issues))
         if (iso != null && time != null) {
             val difference = ExposureLimitCalculator.differenceEv(meterIso, meterTimeNs, iso, time)
             evidence.put("brightnessDifferenceEvSensor", difference)
                 .put("underexposedByLimits", difference < -0.1)
         }
-        if (!honored) return "Foto gespeichert, aber Kamera hat ISO-/Zeitgrenzen nicht bestätigt"
-        if (!gainHonored) return "Foto gespeichert, aber JPEG-Verstärkung weicht vom Messwert ab"
+        if (!honored || !gainHonored) {
+            val isoText = iso?.toString() ?: "n/v"
+            val timeText = time?.let { String.format(java.util.Locale.GERMAN,"%.3f ms",it/1_000_000.0) } ?: "n/v"
+            return "WARNUNG: ${verified.issues.joinToString("; ")} · ISO $isoText · $timeText"
+        }
         return null
     }
 
@@ -757,13 +767,13 @@ class RawJpegCapture(context: Context) {
 
     fun cancel() { cancelRequested.set(true); worker.post { finish("RAW-Aufnahme durch Lifecycle-Wechsel abgebrochen") } }
 
-    private fun finish(error: String?) {
+    private fun finish(error: String?, warning: String? = null) {
         if (finished) return
         startupTimeout?.let { worker.removeCallbacks(it) }; startupTimeout = null
         shotTimeout?.let { worker.removeCallbacks(it) }; shotTimeout = null
         if (persistent && error == null && !cancelRequested.get() && session != null && latestMeter != null) {
-            evidence.put("savedUptimeMs",SystemClock.uptimeMillis())
-            val result = RawPairOutcome(savedJpeg,savedDng,evidence.toString(),error,actualReference,seriesFrames.toList())
+            evidence.put("savedUptimeMs",SystemClock.uptimeMillis()).put("captureWarning",warning ?: JSONObject.NULL)
+            val result = RawPairOutcome(savedJpeg,savedDng,evidence.toString(),error,actualReference,seriesFrames.toList(),warning)
             val completed = callback; callback = null
             rawImage?.close(); rawImage = null; stillResult = null; jpegFrames.clear()
             shotRequested = false

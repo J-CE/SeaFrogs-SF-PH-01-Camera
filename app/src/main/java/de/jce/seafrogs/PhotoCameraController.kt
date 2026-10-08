@@ -409,13 +409,14 @@ class PhotoCameraController(
     private fun transformPersistentPreview() {
         val texture=persistentTexture ?: return;val size=persistentPreviewSize ?: return;val route=activeRoute ?: return
         if(texture.width==0 || texture.height==0) return
-        val angle=checkNotNull(catalog).jpegOrientation(route,rotation)
-        val rotated=angle==90 || angle==270
-        val fit=minOf(texture.width.toFloat()/(if(rotated) size.height else size.width),texture.height.toFloat()/(if(rotated) size.width else size.height))
+        val manager=appContext.getSystemService(android.hardware.camera2.CameraManager::class.java)
+        val sensorOrientation=manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
+            .get(android.hardware.camera2.CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+        // TextureView has already applied sensor orientation. Rotate only for the display.
+        val geometry=TexturePreviewGeometry.fit(texture.width,texture.height,size.width,size.height,sensorOrientation,rotation)
         val matrix=android.graphics.Matrix()
-        matrix.setScale(size.width.toFloat()/texture.width,size.height.toFloat()/texture.height)
-        matrix.postTranslate(-size.width/2f,-size.height/2f);matrix.postRotate(angle.toFloat())
-        matrix.postScale(fit,fit);matrix.postTranslate(texture.width/2f,texture.height/2f)
+        matrix.setScale(geometry.scaleX,geometry.scaleY,texture.width/2f,texture.height/2f)
+        matrix.postRotate(geometry.rotationDegrees,texture.width/2f,texture.height/2f)
         texture.setTransform(matrix)
     }
 
@@ -441,12 +442,14 @@ class PhotoCameraController(
         operation.takePersistent(snapshot,checkNotNull(catalog).jpegOrientation(checkNotNull(activeRoute),rotation)) { outcome ->
             val metadata=JSONObject(snapshot).put("sensorCapture",JSONObject(outcome.evidence)).toString()
             exifWriter.write(outcome.jpeg,metadata) { exifError -> mainExecutor.execute {
-                log(JSONObject(outcome.evidence).put("kind","persistentPhotoResult").put("error",outcome.error ?: exifError ?: JSONObject.NULL))
+                log(JSONObject(outcome.evidence).put("kind","persistentPhotoResult").put("error",outcome.error ?: exifError ?: JSONObject.NULL)
+                    .put("warning",outcome.warning ?: JSONObject.NULL))
                 val failure=outcome.error ?: when { outcome.jpeg==null -> "JPEG fehlt";requireRaw && outcome.dng==null -> "DNG fehlt";else -> exifError }
                 completed?.invoke(outcome.jpeg,failure)
                 if(generation==token) {
                     busy=false;lastRawOutcome=outcome
-                    message=if(failure==null) "${if(usesRaw()) "RAW + JPEG" else "JPEG"} gespeichert: Pictures/SeaFrogs" else "Aufnahmefehler: $failure"
+                    message=if(failure==null) "${if(requireRaw) "RAW + JPEG" else "JPEG"} gespeichert: Pictures/SeaFrogs" +
+                        (outcome.warning?.let { "\n$it" } ?: "") else "Aufnahmefehler: $failure"
                     emit()
                 }
             } }
@@ -1111,7 +1114,7 @@ class PhotoCameraController(
         val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else persistentSize ?: imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.8.4-fast-shutter")
+            .put("version", "0.8.5-preview-fix")
             .put("mode", "PHOTO").put("whiteBalanceRequested",whiteBalanceMode).put("whiteBalanceApplied",appliedWhiteBalanceMode).put("manualWhiteBalance",manualWhiteBalance?.json() ?: JSONObject.NULL).put("wbPreviewVerification",manualWbStatus)
             .put("testCase", testCase)
             .put("qualityMode", selectedQualityName())

@@ -209,7 +209,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.4-fast-shutter")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.5-preview-fix")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         screen = CameraScreenLayout(this).apply {
@@ -583,17 +583,23 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             lastNoticeMessage = cameraMessage
             noticeUntil = now + 3000L
         }
-        val cameraError = listOf("fehl", "zu wenig", "nicht verfügbar", "nicht unterstützt").any { cameraMessage.contains(it, true) }
+        val captureWarning = cameraMessage.substringAfter("\nWARNUNG:", "").takeIf { it.isNotBlank() }
+        val cameraError = captureWarning == null && listOf("fehl", "zu wenig", "nicht verfügbar", "nicht unterstützt").any { cameraMessage.contains(it, true) }
         if (cameraMessage != "Bereit" && cameraMessage.isNotBlank() &&
             (!state.ready || state.capturing || state.recording || cameraError || now < noticeUntil))
             notices.add(cameraMessage.substringBefore('\n'))
+        captureWarning?.let { notices.add("WARNUNG: $it") }
         if (wbLabel.contains("WB NICHT BESTÄTIGT")) notices.add("WB NICHT BESTÄTIGT")
         if (wbLabel.contains("WB ABWEICHEND") || wbLabel.contains("Profil nicht verfügbar")) notices.add("WB BEGRENZT / NICHT VERFÜGBAR")
         if (exportStatus.isNotBlank()) notices.add(exportStatus)
         if (autoStatus.isNotBlank()) notices.add(autoStatus)
         notice.text = notices.joinToString("\n")
         notice.visibility = if (notices.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
-        notice.setTextColor(if (state.recording || warnings.isNotEmpty() || cameraMessage.contains("fehl",true)) android.graphics.Color.RED else android.graphics.Color.WHITE)
+        notice.setTextColor(when {
+            state.recording || warnings.isNotEmpty() || cameraError -> android.graphics.Color.RED
+            captureWarning != null -> android.graphics.Color.YELLOW
+            else -> android.graphics.Color.WHITE
+        })
         setupDetails.text = "${state.resolution}\nWB $wbLabel\n${state.diagnostics}\n$hidStatus"
         val bars = androidx.core.view.WindowCompat.getInsetsController(window,window.decorView)
         bars.systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -631,7 +637,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         modeSwitch.text = if (state.videoMode) "→ FOTO" else "→ VIDEO"
         modeSwitch.isEnabled = state.ready && !state.recording && !testing
         setupToggle.isEnabled = !state.capturing && !state.recording && !testing
-        status.setTextColor(if (state.recording || warnings.isNotEmpty() || state.message.contains("fehl",true) || state.message.contains("nicht verfügbar",true)) android.graphics.Color.RED else android.graphics.Color.WHITE)
+        status.setTextColor(if (state.recording || warnings.isNotEmpty() || cameraError) android.graphics.Color.RED else android.graphics.Color.WHITE)
         diagnosis.isEnabled = !state.capturing && !state.recording && !testing
         restart.isEnabled = !state.capturing && !state.recording && !testing
         cancelTest.isEnabled = automated.running
@@ -695,7 +701,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         }
         panel.addView(boost)
         panel.addView(TextView(this).apply {
-            text = "Sensor-Auto begrenzt weder ISO noch Zeit. Digital-Auto übernimmt die gemessene Verstärkung. Bei aktiver Grenze fotografiert die App ohne Extensions und pausiert die Vorschau kurz. Reichen ISO und Zeit nicht für die gemessene Helligkeit, bleibt das Foto dunkler. Die Grenze gilt für Sensor-ISO. Zusätzliche JPEG-Verstärkung kann einen höheren EXIF-ISO-Wert ergeben. Eine digitale Grenze kann das Bild zusätzlich abdunkeln. Niedrigere Sensor-ISO garantiert keine bessere Aufnahme bei Bewegung."
+            text = "Sensor-Auto begrenzt weder ISO noch Zeit. Digital-Auto übernimmt die gemessene Verstärkung. Bei aktiver Grenze fotografiert die App ohne Extensions in einer dauerhaft offenen Fotositzung. Reichen ISO und Zeit nicht für die gemessene Helligkeit, bleibt das Foto dunkler. Die Grenze gilt für Sensor-ISO. Zusätzliche JPEG-Verstärkung kann einen höheren EXIF-ISO-Wert ergeben. Eine digitale Grenze kann das Bild zusätzlich abdunkeln. Niedrigere Sensor-ISO garantiert keine bessere Aufnahme bei Bewegung."
         })
         AlertDialog.Builder(this).setTitle("Belichtung vor dem Tauchgang").setView(panel)
             .setNegativeButton("Zurück", null).setPositiveButton("Speichern") { _, _ ->

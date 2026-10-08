@@ -460,3 +460,22 @@ Signatur, Paketversion und 16-KiB-ZIP-Ausrichtung geprüft. Bestehende JVM-Tests
 prüfen unter anderem HID/Zyklen/Belichtungsgrenzen; kein Hardwaretest der neuen Sitzung.
 Die neue Streamkombination, Vorschau-Ausrichtung und reale Auslösezeit sind
 noch nicht am Pixel 8 bestätigt. Keine Garantie einer Millisekunden-Latenz.
+
+## 0.8.5-preview-fix, 2026-10-08
+
+Korrigiert die doppelte Sensorrotation der dauerhaften Camera2-TextureView.
+Die Vorschau kompensiert nur die Displayrotation und erhält das vollständige
+4:3-Bild durch FIT-Skalierung. Eine gespeicherte Aufnahme mit Grenz-Warnung
+schließt die Sitzung nicht mehr. Die UI zeigt Warnung und gemeldete ISO/Zeit
+in Gelb und lässt weitere Fotos zu. Grenzen bleiben unverändert streng.
+Capture-Metadaten unterscheiden fehlende AE-/Sensorwerte von Überschreitungen.
+Details: FIXES-0.8.5.md.
+
+APK-Paket de.jce.seafrogs.test, versionCode 24, versionName 0.8.5-preview-fix.
+assembleDebug, lintDebug und testDebugUnitTest erfolgreich.
+62 Tests, 0 Fehler, 0 übersprungene Tests. Lint: 0 Fehler, 91 Warnungen.
+Signatur SHA-256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57.
+APK SHA-256: e5e16d4cb3396639e3e7f2520ea420dc15bba7e6573d0c0d95b5e1a43382499d.
+Signatur, Paketversion und 16-KiB-ZIP-Ausrichtung geprüft.
+Gerätesichtprüfung der korrigierten Vorschau und tatsächliche AE-/ISO-/Zeitursache
+der gemeldeten Grenz-Warnung bleiben unbestätigt.
