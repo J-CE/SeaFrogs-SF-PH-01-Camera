@@ -215,7 +215,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.10-hid-transition")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "1.0.0-rc1")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         screen = CameraScreenLayout(this).apply {
@@ -561,15 +561,14 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         val bars = androidx.core.view.WindowCompat.getInsetsController(window,window.decorView)
         bars.systemBarsBehavior=androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         bars.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-        diveControls.forEach { it.visibility = if(wantsCapture || setupVisible) android.view.View.GONE else android.view.View.VISIBLE }
+        diveControls.forEach { it.visibility = android.view.View.VISIBLE }
         setupRows.forEach { it.visibility = if(setupVisible) android.view.View.VISIBLE else android.view.View.GONE }
         setupToggle.text = "SETUP"
-        toolbar.visibility = if(setupVisible) android.view.View.GONE else android.view.View.VISIBLE
-        // CameraScreenLayout owns toolbar columns and resets assigned cell specs.
+        toolbar.visibility = android.view.View.VISIBLE
+        // The toolbar remains visible in both mouse modes and while setup is open.
         buttonsView.visibility = if(setupVisible) android.view.View.VISIBLE else android.view.View.GONE
-        if (screen.videoMode != state.videoMode || screen.housingControl != wantsCapture) {
+        if (screen.videoMode != state.videoMode) {
             screen.videoMode = state.videoMode
-            screen.housingControl = wantsCapture
             screen.requestLayout()
         }
         format.text = "FORMAT: ${state.photoFormat}"

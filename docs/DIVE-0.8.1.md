@@ -20,7 +20,7 @@ Die einmal per Touch gewählte Maus und der Eingabemodus bleiben gespeichert. Be
 
 Gespeichertes Tauchprofil: App-Helligkeit 1–100 %, automatische Ausrichtung oder fest Hochformat/Querformat/umgekehrtes Querformat. Display bleibt an. Sensorbildrotation folgt bei fester Ausrichtung der Einstellung. Kein System-Helligkeitswechsel.
 
-Kamerasteuerung blendet die Touch-Bedienwand aus, verkleinert deren Panel auf SETUP und blendet Systemleisten aus. Klassische Maus zeigt die großen Touch-Steuerelemente wieder. Setup enthält Tauchprofil, format-/belichtungsbezogene Einstellungen, Video-FPS, Weißabgleich, Zoom-/EV-Zyklen und Diagnose.
+Ab RC1 bleiben Kamera, Zoom, EV, Foto/Video und Auslöser in beiden Mausmodi und bei geöffnetem Setup sichtbar. SETUP bleibt daneben erreichbar; sein Overlay endet oberhalb der Toolbar. Systemleisten bleiben ausgeblendet. Setup enthält Tauchprofil, format-/belichtungsbezogene Einstellungen, Video-FPS, Weißabgleich, Zoom-/EV-Zyklen und Diagnose.
 
 Zyklen sind vor dem Tauchgang editierbar: 2–8 eindeutige Werte, Zoom beginnt mit 1 und liegt zwischen 1 und 10, EV beginnt mit 0 und liegt zwischen −5 und +5. Der Controller überspringt nicht unterstützte Zoomwerte und rundet/begrenzt EV auf Kameraschritte. Macro bleibt bei zwei Stufen.
 

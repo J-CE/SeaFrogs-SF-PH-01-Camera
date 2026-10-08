@@ -1,7 +1,7 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Stand: **0.8.8-ui-clean**. Ziel bleibt zuverlässiges Aufnehmen und nahezu blinde Bedienung mit fünf Gehäuseeingaben.
+Aktueller Stand: **1.0.0-rc1**. Ziel bleibt zuverlässiges Aufnehmen und nahezu blinde Bedienung mit fünf Gehäuseeingaben.
 
 Links wechselt Hauptkamera/Macro/UW, Hoch Zoom, Rechts EV, Runter Foto/Video,
 Klick Foto beziehungsweise Video Start/Stop. **Links + Hoch** aktiviert
@@ -62,3 +62,7 @@ Fotoformat und ISO-/Digitalgrenzen stehen als einzelne Einträge im gemeinsamen 
 ### Bereinigte Oberfläche 0.8.8
 
 Test-, Export- und Qualitätsbuttons sind aus der Oberfläche entfernt. Die Diagnose-Implementierungen bleiben im Quelltext. Setup enthält weiterhin Mausauswahl, HID-Diagnose und Neustart für die anstehende Gehäuseabnahme. Tauchbedienung: Kamera, Zoom, EV, Foto/Video, Auslöser, Setup.
+
+### RC1
+
+Nutzer bestätigt den Gehäusebetrieb nach 0.8.10. Kamerawechsel, Zoom, EV, Foto/Video und Auslöser bleiben ab RC1 in beiden Mausmodi und bei geöffnetem Setup sichtbar. Setup überlagert die Vorschau oberhalb der Toolbar; die vollständige 4:3-Fotofläche behält ihre Größe. Unterwasser-Farbwirkung und Dauerbetrieb bleiben Praxisprüfungen.

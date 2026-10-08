@@ -9,7 +9,6 @@ import kotlin.math.roundToInt
 /** Largest complete photo/video rectangle; controls occupy spare space or overlay it. */
 class CameraScreenLayout(context: Context) : ViewGroup(context) {
     var videoMode = false
-    var housingControl = false
     private lateinit var preview: View
     private lateinit var status: View
     private lateinit var notice: View
@@ -42,15 +41,15 @@ class CameraScreenLayout(context: Context) : ViewGroup(context) {
         val informationWidth = if (sidebarWidth > 0) sidebarWidth else availableWidth
         status.measure(exact(informationWidth), atMost(availableHeight))
         notice.measure(exact(informationWidth), atMost((availableHeight - status.measuredHeight).coerceAtLeast(0)))
-        val controlsWidth = if (housingControl) min(availableWidth, dp(88)) else if(sidebarWidth > 0) sidebarWidth else availableWidth
+        val controlsWidth = if (sidebarWidth > 0) sidebarWidth else availableWidth
         val columns = when {
-            housingControl || sidebarWidth > 0 -> 1
+            sidebarWidth > 0 -> 1
             landscape -> 6
             else -> 3
         }
         (controls as? CameraToolbarLayout)?.columns = columns
         controls.measure(exact(controlsWidth), atMost(availableHeight))
-        setup.measure(exact(min(availableWidth, dp(360))), exact(availableHeight))
+        setup.measure(exact(min(availableWidth, dp(360))), exact((availableHeight - controls.measuredHeight).coerceAtLeast(0)))
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
@@ -67,7 +66,7 @@ class CameraScreenLayout(context: Context) : ViewGroup(context) {
         val controlsTop = paddingTop + height - controls.measuredHeight
         controls.layout(controlsLeft, controlsTop, controlsLeft + controls.measuredWidth, paddingTop + height)
         val setupLeft = paddingLeft + width - setup.measuredWidth
-        setup.layout(setupLeft, paddingTop, paddingLeft + width, paddingTop + height)
+        setup.layout(setupLeft, paddingTop, paddingLeft + width, paddingTop + setup.measuredHeight)
     }
 
     override fun generateDefaultLayoutParams() = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
