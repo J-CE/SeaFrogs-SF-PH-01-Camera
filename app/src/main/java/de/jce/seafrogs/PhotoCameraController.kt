@@ -113,7 +113,8 @@ class PhotoCameraController(
     private val exposurePreferences = appContext.getSharedPreferences("exposureLimits", Context.MODE_PRIVATE)
     private var exposureLimits = ExposureLimits(
         exposurePreferences.getInt("isoCap", 0).takeIf { it in ExposureLimits.isoChoices } ?: 0,
-        exposurePreferences.getLong("longestTimeNs", 33_333_333L).takeIf { it in ExposureLimits.timeChoices } ?: 33_333_333L)
+        exposurePreferences.getLong("longestTimeNs", 33_333_333L).takeIf { it in ExposureLimits.timeChoices } ?: 33_333_333L,
+        exposurePreferences.getInt("boostCap", 0).takeIf { it in ExposureLimits.boostChoices } ?: 0)
     private var testLimitsOverride: ExposureLimits? = null
     private var testNativeCapture = false
     private var testProcessing = ProcessingVariant.NONE
@@ -123,9 +124,9 @@ class PhotoCameraController(
     fun savedExposureLimits() = exposureLimits
 
     fun setExposureLimits(value: ExposureLimits) {
-        if (!isReady() || value.isoCap !in ExposureLimits.isoChoices || value.longestTimeNs !in ExposureLimits.timeChoices) return
+        if (!isReady() || value.isoCap !in ExposureLimits.isoChoices || value.longestTimeNs !in ExposureLimits.timeChoices || value.boostCap !in ExposureLimits.boostChoices) return
         exposureLimits = value
-        exposurePreferences.edit().putInt("isoCap", value.isoCap).putLong("longestTimeNs", value.longestTimeNs).apply()
+        exposurePreferences.edit().putInt("isoCap", value.isoCap).putLong("longestTimeNs", value.longestTimeNs).putInt("boostCap", value.boostCap).apply()
         if (value.enabled) qualityMode = ExtensionMode.NONE
         open(activeLens)
     }
@@ -508,7 +509,7 @@ class PhotoCameraController(
         testFrameCount = step.frameCount
         testRawOverride = step.raw
         testNativeCapture = step.nativeCapture
-        testLimitsOverride = ExposureLimits(step.isoCap, step.longestTimeNs)
+        testLimitsOverride = ExposureLimits(step.isoCap, step.longestTimeNs, step.boostCap)
         testCase = step.id
         zoomRatio = step.zoom
         exposureEv = step.ev
@@ -746,7 +747,7 @@ class PhotoCameraController(
                     val result = JSONObject(outcome.evidence)
                     val difference = result.optDouble("brightnessDifferenceEvSensor", 0.0)
                     val applied = if (result.has("iso") && result.has("exposureTimeNs"))
-                        "\nSensor-ISO ${result.optString("iso")} · JPEG-ISO ${result.optString("jpegExifIso", "n/v")} | ${number((result.optLong("exposureTimeNs") / 1_000_000.0).toFloat())} ms"
+                        "\nSensor-ISO ${result.optString("iso")} · Digital ${number((result.optInt("postRawBoostActual", 100) / 100f))}× · JPEG-ISO ${result.optString("jpegExifIso", "n/v")} | ${number((result.optLong("exposureTimeNs") / 1_000_000.0).toFloat())} ms"
                         else ""
                     val warning = if (result.optBoolean("underexposedByLimits"))
                         "\nDUNKLER DURCH LIMIT: ${number(difference.toFloat())} EV" else ""
@@ -766,13 +767,13 @@ class PhotoCameraController(
         val size = imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.7.1-quality-basics")
+            .put("version", "0.7.2-color-gain")
             .put("mode", "PHOTO")
             .put("testCase", testCase)
             .put("qualityMode", selectedQualityName())
             .put("processingVariantRequested", testProcessing.name)
             .put("photoFormat", if (usesRaw()) "RAW+JPEG" else "JPEG")
-            .put("isoCapRequested", effectiveLimits().isoCap)
+            .put("isoCapRequested", effectiveLimits().isoCap).put("digitalBoostCapRequested", effectiveLimits().boostCap)
             .put("longestTimeNsRequested", if (effectiveLimits().enabled) effectiveLimits().longestTimeNs else JSONObject.NULL)
             .put("latestPreviewResultNotPhotoResult", JSONObject(latestResult))
             .put("lensMode", activeLens.name)

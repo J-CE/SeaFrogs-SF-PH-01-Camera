@@ -1,8 +1,13 @@
 # SeaFrogs SF-PH-01 Camera
 
 Android-Kamera-Projekt für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Aktueller Quelltext: **0.7.1-quality-basics**. Live-Vorschau, JPEG-Aufnahme und
+Aktueller Quelltext: **0.7.2-color-gain**. Live-Vorschau, JPEG-Aufnahme und
 Kamerawechsel 1× → Macro → 0,5×, Zoom-/Crop- und EV-Zyklen sowie separate HID-Diagnose.
+0.7.2 bewahrt Farb-Headroom vor der Sensor-RGB→sRGB-Matrix und filtert
+Farbrauschen im sRGB-Raum mit 16-Bit-Toleranz. Sensor-ISO und digitale
+Verstärkung haben getrennte Obergrenzen; STANDARD bleibt die Voreinstellung.
+Details und Pixel-Abnahme: [COLOR-GAIN-0.7.2.md](docs/COLOR-GAIN-0.7.2.md).
+
 Aktueller Build- und Teststatus: [BUILD-STATUS.md](docs/BUILD-STATUS.md). SeaFrogs-Tastenbelegung und
 Pixel-8-Testbefunde und offene Punkte stehen im [Fähigkeitsbericht](docs/CAPABILITIES-0.6.1.md).
 

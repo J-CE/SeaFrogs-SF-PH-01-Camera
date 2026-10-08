@@ -1,0 +1,58 @@
+[
+  {
+    "lens": "MAIN",
+    "shape": [
+      3072,
+      4080,
+      3
+    ],
+    "returnCode": 0,
+    "repeatedOutputIdentical": true,
+    "hostSeconds": 0.9754198430000542,
+    "sha256": "6e51a753b1cd2890e10bd8083046249e72a7362b4a22910dbd2f706516700654",
+    "medianRgb": [
+      174.0,
+      138.0,
+      108.0
+    ],
+    "blackParity": [
+      63.0,
+      63.0,
+      63.0,
+      63.0
+    ],
+    "lscSize": [
+      33,
+      25
+    ],
+    "white": 1023
+  },
+  {
+    "lens": "ULTRAWIDE",
+    "shape": [
+      3016,
+      4032,
+      3
+    ],
+    "returnCode": 0,
+    "repeatedOutputIdentical": true,
+    "hostSeconds": 1.1172725469998568,
+    "sha256": "4b9871b0cc2f6158f815b51a5ddf7215f9b53ff7aa1d92db26aec59466bf3273",
+    "medianRgb": [
+      156.0,
+      116.0,
+      82.0
+    ],
+    "blackParity": [
+      63.0,
+      63.0,
+      63.0,
+      63.0
+    ],
+    "lscSize": [
+      33,
+      25
+    ],
+    "white": 1023
+  }
+]

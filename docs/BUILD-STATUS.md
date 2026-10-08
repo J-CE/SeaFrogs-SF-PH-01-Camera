@@ -346,3 +346,29 @@ APK-Signatur und 16-KiB-zipalign geprüft; unveränderter Update-Schlüssel.
 versionCode 17, versionName 0.7.1-quality-basics, arm64-v8a.
 APK-SHA256: 20575f0bed230e89d6c03eb8bd8233c0f3b220e8cb1a2760715da4346680cf5e
 APK-Länge: 7620631 Byte.
+
+## Meilenstein 0.7.2-color-gain, 2026-10-08
+
+assembleDebug, lintDebug, testDebugUnitTest erfolgreich, zusätzlich finaler
+Parallel-Test-Build erfolgreich. 43 Tests, 0 Fehler/übersprungen. Lint: 0
+Fehler, 77 Warnungen. Fünf neue Tests prüfen digitale Grenzen, niedrige
+gemessene Verstärkung, unerreichbare Grenzen und digitale Begrenzung ohne
+zusätzliche Sensor-/Zeitgrenzen. Native synthetische Neutral-/Headroom-Tests
+erfolgreich, Headroom-Referenz RGB [202,224,224] exakt erreicht.
+
+Hostprüfung mit beiden Original-RAW-Serien zweimal bitidentisch, Rückgabecode
+0, Ergebnis in MIT-NATIVE-VERIFICATION-0.7.2.json. Maximale LSC wird einmal
+berechnet, kein zusätzlicher Pixel-Loop über die ShadingMap. Hostzeiten sind
+keine Pixel-Laufzeitmessung. Farbrauschfilter arbeitet jetzt nach der CCM
+mit 16-Bit-Toleranz; Hardware-Qualitätsabnahme steht aus.
+
+Auslieferung als separate SeaFrogs Test App, Paket de.jce.seafrogs.test,
+versionCode 18, versionName 0.7.2-color-gain. Vorheriger temporärer Debug-Key
+ist nicht verfügbar; daher kein signaturkompatibles Update von 0.7.1.
+Neuer Debug-Zertifikat-SHA256:
+87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57
+Der neue Test-Schlüssel heißt SeaFrogs-Android-Debug-Signierschluessel.jks
+und dient künftigen Test-Updates (Standard-Debug-Alias/Passwort).
+
+APK-SHA256: 99297c7612226798df3d5ee519934f0d7682ad5bdc3d687dfc4e738d355b32b7
+APK-Länge: 7472286 Byte.

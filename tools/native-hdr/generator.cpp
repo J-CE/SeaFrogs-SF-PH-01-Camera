@@ -23,6 +23,14 @@ public:
         Func alignment = align(raw, raw.width(), raw.height());
         Func merged = merge(raw, raw.width(), raw.height(), raw.dim(2).extent(), alignment);
         Expr parity = (x & 1) + 2 * (y & 1);
+        // Preserve headroom through the integer demosaicker. Apply the combined
+        // gain only at the sensor-RGB -> sRGB matrix, before the final clamp.
+        Expr wb_scale = max(max(wb(0), wb(1)), max(wb(2), wb(3)));
+        RDom cells(0, shading.dim(0).extent(), 0, shading.dim(1).extent(), 0, 4);
+        Func maximum_shading("maximum_shading");
+        maximum_shading() = max(1.f, maximum(shading(cells.x, cells.y, cells.z)));
+        maximum_shading.compute_root();
+        Expr shading_scale = maximum_shading();
         Expr gx = clamp((cast<float>(x) - active_left) / max(active_width - 1.f, 1.f), 0.f, 1.f) * (shading.dim(0).extent() - 1);
         Expr gy = clamp((cast<float>(y) - active_top) / max(active_height - 1.f, 1.f), 0.f, 1.f) * (shading.dim(1).extent() - 1);
         Expr x0 = cast<int>(floor(gx)), y0 = cast<int>(floor(gy));
@@ -30,13 +38,18 @@ public:
         Expr correction = lerp(lerp(shading(x0, y0, parity), shading(x1, y0, parity), gx - x0),
                                lerp(shading(x0, y1, parity), shading(x1, y1, parity), gx - x0), gy - y0);
         Func corrected("corrected");
-        corrected(x,y) = cast<uint16_t>(clamp((cast<float>(merged(x,y)) - black(parity)) * correction * boost *
+        corrected(x,y) = cast<uint16_t>(clamp((cast<float>(merged(x,y)) - black(parity)) * correction / shading_scale *
                                             65535.f / (white - black(parity)), 0.f, 65535.f));
         corrected.compute_root().parallel(y).vectorize(x,16);
         Expr shifted_rows = cfa == 3 || cfa == 4;
-        CompiletimeWhiteBalance balance{wb(0),select(shifted_rows,wb(2),wb(1)),select(shifted_rows,wb(1),wb(2)),wb(3)};
+        CompiletimeWhiteBalance balance{wb(0)/wb_scale,select(shifted_rows,wb(2),wb(1))/wb_scale,
+            select(shifted_rows,wb(1),wb(2))/wb_scale,wb(3)/wb_scale};
+        Var input_channel, output_channel;
+        Func output_matrix("output_matrix");
+        output_matrix(input_channel, output_channel) = matrix(input_channel, output_channel) *
+            wb_scale * shading_scale * boost;
         // Controlled tone curve: no aggressive shadow amplification.
-        output = finish(corrected, raw.width(), raw.height(), 0, 65535, balance, cfa, matrix, 1.f, 1.f);
+        output = finish(corrected, raw.width(), raw.height(), 0, 65535, balance, cfa, output_matrix, 1.f, 1.f);
     }
 };
 HALIDE_REGISTER_GENERATOR(SeaFrogsHdr, seafrogs_hdr)

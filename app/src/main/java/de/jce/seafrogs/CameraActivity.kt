@@ -102,7 +102,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.7.1-quality-basics")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.7.2-color-gain")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val root = LinearLayout(this).apply {
@@ -367,7 +367,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             (if (autoStatus.isBlank()) "" else "$autoStatus\n") +
             "PHOTO | ${state.lens.label} | ${state.zoomLabel} | EV ${state.exposureLabel} | ${state.quality} | ${state.photoFormat}\n" +
             state.resolution + (if (state.exposureLimits.enabled)
-                " | Sensor-ISO ≤ ${state.exposureLimits.isoCap} | Zeit ≤ ${when (state.exposureLimits.longestTimeNs) {
+                " | Sensor-ISO ${if (state.exposureLimits.isoCap > 0) "≤ ${state.exposureLimits.isoCap}" else "AUTO"} | Digital ${if (state.exposureLimits.boostCap > 0) "≤ ${state.exposureLimits.boostCap / 100f}×" else "AUTO"} | Zeit ${if (state.exposureLimits.isoCap == 0) "AUTO" else "≤ " + when (state.exposureLimits.longestTimeNs) {
                     8_000_000L -> "1/125 s"
                     16_666_666L -> "1/60 s"
                     else -> "1/30 s"
@@ -377,7 +377,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         format.text = "FORMAT: ${state.photoFormat}"
         format.isEnabled = state.ready && !testing
         exposureSetup.isEnabled = state.ready && !testing
-        exposureSetup.text = if (state.exposureLimits.enabled) "Sensor ≤ ${state.exposureLimits.isoCap}" else "ISO: AUTO"
+        exposureSetup.text = if (state.exposureLimits.enabled) "ISO / DIGITAL" else "ISO: AUTO"
         libraryTest.isEnabled = state.ready && !testing
         libraryExport.isEnabled = capabilityReport != null && !testing && !state.capturing
         export.text = if (capabilityReport == null) "KAMERADATEN …" else "DIAGNOSE ZIP"
@@ -404,7 +404,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             return
         }
         val message = if (fusion)
-            "Handy fest abstützen. Bedrucktes Motiv mit feiner Schrift etwa 50 cm entfernt, gleichbleibendes Licht. Dann START drücken und warten.\n\nDie App prüft automatisch Hauptkamera, Ultraweitwinkel und ISO 400. Pro Schritt entstehen ein STANDARD-JPEG und ein verarbeitetes MEHRBILD-JPEG aus fünf RAW-Aufnahmen. Keine DNGs im Export. Während des Tests keine Tasten drücken. Danach TEST ZIP exportieren und hochladen. Der Test bestätigt noch keinen Macro-Nahfokus."
+            "Handy fest abstützen. Bedrucktes Motiv mit feiner Schrift etwa 50 cm entfernt, gleichbleibendes Licht. Dann START drücken und warten.\n\nDie App prüft automatisch Hauptkamera, Ultraweitwinkel und Sensor-ISO 400 mit digitaler Verstärkung 1×. Das dritte Bild darf dabei dunkler werden. Pro Schritt entstehen ein STANDARD-JPEG und ein verarbeitetes MEHRBILD-JPEG aus fünf RAW-Aufnahmen. Keine DNGs im Export. Während des Tests keine Tasten drücken. Danach TEST ZIP exportieren und hochladen. Der Test bestätigt noch keinen Macro-Nahfokus."
         else if (libraries)
             "Handy fest abstützen. Bedrucktes Motiv mit feinen Details etwa 50 cm entfernt, gleichbleibendes Licht. Nicht bewegen und während des Tests keine Tasten drücken.\n\nDie App nimmt je fünf RAW+JPEG-Paare mit Hauptkamera und UW auf, in derselben Kamerasitzung mit festgelegter Belichtung, Weißabgleich und Fokus. Danach folgen AUTO-, HDR- und NIGHT-Referenzen, sofern verfügbar. ISO-Grenzen sind aus.\n\nDiese RAW-Serien dienen als identische Eingaben für den Bibliotheksvergleich. Diese APK enthält noch keine MotionCam-/HDR+-Verarbeitung. Benötigt mindestens 1 GB freien Speicher. Danach BIB ZIP exportieren und nach Export gespeichert hochladen. ZIP etwa 250 MB."
         else if (processing)
@@ -446,13 +446,20 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             setSelection(ExposureLimits.timeChoices.indexOf(settings.longestTimeNs))
         }
         panel.addView(time)
+        panel.addView(TextView(this).apply { text = "Digitale Verstärkung nach RAW" })
+        val boost = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@CameraActivity,
+                android.R.layout.simple_spinner_dropdown_item, listOf("Auto", "Maximal 1×", "Maximal 2×", "Maximal 4×"))
+            setSelection(ExposureLimits.boostChoices.indexOf(settings.boostCap))
+        }
+        panel.addView(boost)
         panel.addView(TextView(this).apply {
-            text = "Auto begrenzt weder ISO noch Zeit. Bei aktiver Grenze fotografiert die App ohne Extensions und pausiert die Vorschau kurz. Reichen ISO und Zeit nicht für die gemessene Helligkeit, bleibt das Foto dunkler. Die Grenze gilt für Sensor-ISO. Zusätzliche JPEG-Verstärkung kann einen höheren EXIF-ISO-Wert ergeben. Niedrigere Sensor-ISO garantiert keine bessere Aufnahme bei Bewegung."
+            text = "Sensor-Auto begrenzt weder ISO noch Zeit. Digital-Auto übernimmt die gemessene Verstärkung. Bei aktiver Grenze fotografiert die App ohne Extensions und pausiert die Vorschau kurz. Reichen ISO und Zeit nicht für die gemessene Helligkeit, bleibt das Foto dunkler. Die Grenze gilt für Sensor-ISO. Zusätzliche JPEG-Verstärkung kann einen höheren EXIF-ISO-Wert ergeben. Eine digitale Grenze kann das Bild zusätzlich abdunkeln. Niedrigere Sensor-ISO garantiert keine bessere Aufnahme bei Bewegung."
         })
         AlertDialog.Builder(this).setTitle("Belichtung vor dem Tauchgang").setView(panel)
             .setNegativeButton("Zurück", null).setPositiveButton("Speichern") { _, _ ->
                 controller.setExposureLimits(ExposureLimits(ExposureLimits.isoChoices[iso.selectedItemPosition],
-                    ExposureLimits.timeChoices[time.selectedItemPosition]))
+                    ExposureLimits.timeChoices[time.selectedItemPosition], ExposureLimits.boostChoices[boost.selectedItemPosition]))
             }.show()
     }
 

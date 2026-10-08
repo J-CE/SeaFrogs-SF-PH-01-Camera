@@ -277,9 +277,9 @@ Func bilateral_filter(Func input, Expr width, Expr height) {
       input, {Range(0, width), Range(0, height)});
 
   Expr dist =
-      f32(i32(input_mirror(x, y, c)) - i32(input_mirror(x + dx, y + dy, c)));
+      (input_mirror(x, y, c) - input_mirror(x + dx, y + dy, c));
 
-  float sig2 = 100.f; // 2 * sigma ^ 2
+  float sig2 = 100.f * 257.f * 257.f; // 8-bit tolerance scaled to 16-bit
 
   // score represents the weight contribution due to intensity difference
 
@@ -299,12 +299,12 @@ Func bilateral_filter(Func input, Expr width, Expr height) {
 
   bilateral(x, y, c) =
       sum(input_mirror(x + r.x, y + r.y, c) * weights(r.x, r.y, x, y, c)) /
-      total_weights(x, y, c);
+      max(total_weights(x, y, c), 1e-12f);
 
   output(x, y, c) = f32(input(x, y, c));
 
-  output(x, y, 1) = bilateral(x, y, 1);
-  output(x, y, 2) = bilateral(x, y, 2);
+  output(x, y, 1) = select(total_weights(x, y, 1) > 1e-12f, bilateral(x, y, 1), input(x, y, 1));
+  output(x, y, 2) = select(total_weights(x, y, 2) > 1e-12f, bilateral(x, y, 2), input(x, y, 2));
 
   ///////////////////////////////////////////////////////////////////////////
   // schedule
@@ -789,12 +789,11 @@ Halide::Func finish(Halide::Func input, Expr width, Expr height, Expr bp,
 
   // 4. Chroma denoising
 
-  Func chroma_denoised_output =
-      chroma_denoise(demosaic_output, width, height, denoise_passes);
-
-  // 5. sRGB color correction
-
-  Func srgb_output = srgb(chroma_denoised_output, ccm);
+  // Filter output-color chroma, not sensor-color chroma: the sensor CCM can
+  // otherwise amplify the residual noise after filtering.
+  Func color_corrected_output = srgb(demosaic_output, ccm);
+  Func srgb_output =
+      chroma_denoise(color_corrected_output, width, height, denoise_passes);
 
   // 6. Tone mapping
 

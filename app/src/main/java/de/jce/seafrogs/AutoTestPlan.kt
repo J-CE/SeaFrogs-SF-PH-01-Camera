@@ -2,7 +2,7 @@ package de.jce.seafrogs
 
 data class AutoTestStep(val id: String, val lens: PhotoLens, val zoom: Float = 1f,
     val ev: Float = 0f, val quality: String = "STANDARD", val raw: Boolean = false,
-    val nativeCapture: Boolean = false, val isoCap: Int = 0, val longestTimeNs: Long = 33_333_333L,
+    val nativeCapture: Boolean = false, val isoCap: Int = 0, val boostCap: Int = 0, val longestTimeNs: Long = 33_333_333L,
     val processing: ProcessingVariant = ProcessingVariant.NONE, val frameCount: Int = 1, val fusion: Boolean = false)
 
 /** Stable order and settings keep the comparison reproducible. */
@@ -12,8 +12,8 @@ object AutoTestPlan {
             processing = ProcessingVariant.DEFAULT, frameCount = 5, fusion = true),
         AutoTestStep("FUSION_ULTRAWIDE", PhotoLens.ULTRAWIDE, quality = "MEHRBILD", nativeCapture = true,
             processing = ProcessingVariant.DEFAULT, frameCount = 5, fusion = true),
-        AutoTestStep("FUSION_MAIN_ISO400", PhotoLens.MAIN, quality = "MEHRBILD", nativeCapture = true,
-            isoCap = 400, processing = ProcessingVariant.DEFAULT, frameCount = 5, fusion = true)
+        AutoTestStep("FUSION_MAIN_ISO400_DIGITAL1", PhotoLens.MAIN, quality = "MEHRBILD", nativeCapture = true,
+            isoCap = 400, boostCap = 100, processing = ProcessingVariant.DEFAULT, frameCount = 5, fusion = true)
     )
 
     fun libraries(): List<AutoTestStep> = listOf(

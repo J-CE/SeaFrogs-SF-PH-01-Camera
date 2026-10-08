@@ -16,3 +16,8 @@ No MotionCam/GPL source is linked into the Android application.
 The generated archive includes Halide's MIT runtime. Complete supplied Halide
 license: app/src/main/assets/licenses/Halide-LICENSE.txt. HDR+ license is also
 packaged as app/src/main/assets/licenses/hdr-plus-MIT.txt.
+
+0.7.2: finish.cpp filters chroma after the output CCM, scales bilateral
+variance for 16-bit values, retains float differences and safely preserves
+chroma when all neighbors are rejected. The Apache generator preserves
+integer headroom by deferring boost/WB/LSC normalization gain to the CCM.

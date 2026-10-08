@@ -101,7 +101,7 @@ class DiagnosticActivity : Activity(), InputManager.InputDeviceListener {
         root.addView(eventText)
         initialized = true
         recorder.record(JSONObject().put("kind", "session")
-            .put("appVersion", "0.7.1-quality-basics").put("manufacturer", Build.MANUFACTURER)
+            .put("appVersion", "0.7.2-color-gain").put("manufacturer", Build.MANUFACTURER)
             .put("model", Build.MODEL).put("sdk", Build.VERSION.SDK_INT)
             .put("androidRelease", Build.VERSION.RELEASE).put("buildFingerprint", Build.FINGERPRINT))
         devices("initial")

@@ -5,12 +5,14 @@ android {
     ndkVersion = "27.2.12479018"
     externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
     defaultConfig {
-        applicationId = "de.jce.seafrogs"
+        val parallelTest = providers.gradleProperty("seafrogsParallelTest").orNull == "true"
+        applicationId = if (parallelTest) "de.jce.seafrogs.test" else "de.jce.seafrogs"
+        manifestPlaceholders["appLabel"] = if (parallelTest) "SeaFrogs Test" else "SeaFrogs Camera"
         minSdk = 26
         targetSdk = 35
         ndk { abiFilters += "arm64-v8a" }
-        versionCode = 17
-        versionName = "0.7.1-quality-basics"
+        versionCode = 18
+        versionName = "0.7.2-color-gain"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

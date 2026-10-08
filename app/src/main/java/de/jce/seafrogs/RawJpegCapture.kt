@@ -113,8 +113,8 @@ class RawJpegCapture(context: Context) {
             evidence.put("processingVariantRequested", processing.name)
                 .put("comparisonReferenceReused", reference != null)
             evidence.put("backend", if (rawSize == null) "Camera2Jpeg" else "Camera2RawJpeg")
-                .put("isoCapRequested", limits.isoCap)
-                .put("longestTimeNsRequested", if (limits.enabled) limits.longestTimeNs else JSONObject.NULL)
+                .put("isoCapRequested", limits.isoCap).put("digitalBoostCapRequested", limits.boostCap)
+                .put("longestTimeNsRequested", if (limits.isoCap > 0) limits.longestTimeNs else JSONObject.NULL)
             evidence.put("logicalId", route.logicalId).put("physicalId", route.physicalId ?: JSONObject.NULL)
                 .put("jpegRequestedSize", jpegSize.toString()).put("rawRequestedSize", rawSize?.toString() ?: JSONObject.NULL)
                 .put("zoomRequested", zoom.toDouble()).put("evRequested", ev.toDouble())
@@ -294,7 +294,8 @@ class RawJpegCapture(context: Context) {
                         val bounded = ExposureLimitCalculator.calculate(measured.iso, measured.timeNs, limits,
                             isoRange.lower, isoRange.upper, timeRange.lower, timeRange.upper)
                         requestedReference = measured.copy(iso = bounded.iso, timeNs = bounded.timeNs,
-                            frameNs = maxOf(measured.frameNs, bounded.timeNs))
+                            frameNs = maxOf(measured.frameNs, bounded.timeNs),
+                            boost = selectedBoost(measured.boost))
                     }
                     evidence.put("comparisonRequestedSettings", checkNotNull(requestedReference).json())
                     focus.reset()
@@ -348,6 +349,7 @@ class RawJpegCapture(context: Context) {
                 .put("rawTimestampNs", raw?.timestamp ?: JSONObject.NULL).put("sameExposureVerified", true)
                 .put("rawWidth", raw?.width ?: JSONObject.NULL).put("rawHeight", raw?.height ?: JSONObject.NULL)
                 .put("iso", sensor[CaptureResult.SENSOR_SENSITIVITY] ?: JSONObject.NULL)
+                .put("postRawBoostActual", sensor[CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST] ?: JSONObject.NULL)
                 .put("exposureTimeNs", sensor[CaptureResult.SENSOR_EXPOSURE_TIME] ?: JSONObject.NULL)
                 .put("afState", sensor[CaptureResult.CONTROL_AF_STATE] ?: JSONObject.NULL)
                 .put("noiseReductionActual", sensor[CaptureResult.NOISE_REDUCTION_MODE] ?: JSONObject.NULL)
@@ -452,6 +454,7 @@ class RawJpegCapture(context: Context) {
                 .put("nativeOutputWidth", bitmap.width).put("nativeOutputHeight", bitmap.height)
                 .put("fallbackJpegUri", savedJpeg.toString()).put("equalExposureBurst", true)
                 .put("lensShadingApplied", true).put("toneCompression", 1).put("toneGain", 1)
+                .put("colorHeadroomPreserved", true).put("chromaFilter16BitScaled", true)
                 .put("chromaDenoisingApplied", true).put("neutralToneMapBypass", true)
             savedJpeg = uri
         } finally { bitmap.recycle() }
@@ -485,15 +488,26 @@ class RawJpegCapture(context: Context) {
         val boost = sensor[CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST]
         if (boost != null && boostRange != null && boost in boostRange &&
             checkNotNull(logicalCharacteristics).availableCaptureRequestKeys.contains(CaptureRequest.CONTROL_POST_RAW_SENSITIVITY_BOOST)) {
-            requestedBoost = boost
-            setSensorKey(builder, CaptureRequest.CONTROL_POST_RAW_SENSITIVITY_BOOST, boost)
-        } else if (boost != null && boost != 100) {
+            requestedBoost = selectedBoost(boost)
+            setSensorKey(builder, CaptureRequest.CONTROL_POST_RAW_SENSITIVITY_BOOST, checkNotNull(requestedBoost))
+        } else if (limits.boostCap > 0 || (boost != null && boost != 100)) {
             error("JPEG-Verstärkung der Messung lässt sich nicht übernehmen")
         }
         evidence.put("meterIso", meterIso).put("meterTimeNs", meterTimeNs)
             .put("isoRequested", selected.iso).put("timeNsRequested", selected.timeNs)
             .put("brightnessDifferenceEvPlanned", selected.brightnessDifferenceEv)
             .put("postRawBoostRequested", requestedBoost ?: JSONObject.NULL)
+    }
+
+    private fun selectedBoost(measured: Int?): Int? {
+        if (limits.boostCap == 0) return measured
+        val c = checkNotNull(characteristics)
+        val range = checkNotNull(c[CameraCharacteristics.CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE]) {
+            "Digitale Verstärkungsgrenze nicht unterstützt"
+        }
+        check(checkNotNull(logicalCharacteristics).availableCaptureRequestKeys.contains(
+            CaptureRequest.CONTROL_POST_RAW_SENSITIVITY_BOOST)) { "Digitale Verstärkung nicht steuerbar" }
+        return DigitalGainLimit.select(checkNotNull(measured), limits.boostCap, range.lower, range.upper)
     }
 
     private fun <T> setSensorKey(builder: CaptureRequest.Builder, key: CaptureRequest.Key<T>, value: T) {
@@ -508,9 +522,10 @@ class RawJpegCapture(context: Context) {
         val iso = sensor[CaptureResult.SENSOR_SENSITIVITY]
         val time = sensor[CaptureResult.SENSOR_EXPOSURE_TIME]
         val boost = sensor[CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST]
-        val honored = iso != null && time != null && iso <= limits.isoCap &&
-            time <= limits.longestTimeNs && sensor[CaptureResult.CONTROL_AE_MODE] == CaptureResult.CONTROL_AE_MODE_OFF
-        val gainHonored = requestedBoost == null || boost == requestedBoost
+        val honored = iso != null && time != null && (limits.isoCap == 0 || iso <= limits.isoCap) &&
+            (limits.isoCap == 0 || time <= limits.longestTimeNs) && sensor[CaptureResult.CONTROL_AE_MODE] == CaptureResult.CONTROL_AE_MODE_OFF
+        val gainHonored = (requestedBoost == null || boost == requestedBoost) &&
+            (limits.boostCap == 0 || (boost != null && boost <= limits.boostCap))
         evidence.put("limitsVerified", honored).put("postRawBoostActual", boost ?: JSONObject.NULL)
             .put("postRawBoostVerified", gainHonored)
         if (iso != null && time != null) {
