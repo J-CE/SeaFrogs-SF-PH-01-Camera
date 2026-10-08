@@ -1,4 +1,4 @@
-# Ziel und verbleibende Arbeit nach 0.8.2
+# Ziel und verbleibende Arbeit nach 0.8.3
 
 Das Produktziel bleibt eine zuverlässige Pixel-8-Unterwasserkamera mit fünf SeaFrogs-Eingaben. Ein Build oder Unit-Test beweist keine Unterwasser-Bildqualität und keinen funktionierenden Nahfokus.
 
@@ -10,7 +10,11 @@ gespeicherte Mausauswahl, Wiederverbindung, reduzierter Steuerungsmodus,
 Akku-/Speicher-/Temperaturstatus, unterstützte WB-Presets, editierbare Zyklen.
 Modellbasierte WB-Profile flach/mittel/tief und DL08-Flutlicht; einstellbare
 UW-Stärke und Abgleich der gemeldeten Gains/Farbmatrix (WB-0.8.2.md).
-Aktuelle Belegung und Implementierungsgrenzen: DIVE-0.8.1.md.
+Aktuelle Belegung: DIVE-0.8.1.md. Neuere WB- und UI-Beschreibungen haben Vorrang:
+WB-0.8.2.md und UI-4-3.md. Größte vollständige 4:3-Fotovorschau, kompakte
+Bedienung in Randflächen und Setup als Overlay. Aufnahmeoperationen trennen
+alte Video-Rückmeldungen; RAW-Startfehler führen über den Abschluss zurück zur
+Kamera. Fehlende JPEG-/DNG-Dateien gelten als Aufnahmefehler.
 
 ## Offen, in dieser Reihenfolge
 

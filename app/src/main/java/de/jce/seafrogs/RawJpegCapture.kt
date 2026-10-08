@@ -102,27 +102,27 @@ class RawJpegCapture(context: Context) {
         worker.post {
             if (finished) return@post
             callback = complete; progress = onProgress
-            reportProgress("Fokus und Belichtung vorbereiten …")
-            require(frameCount in 1..5) { "RAW-Serie muss 1 bis 5 Bilder enthalten" }
-            require(frameCount == 1 || rawSize != null && processingVariant == ProcessingVariant.DEFAULT) { "RAW-Serie benötigt RAW und fixierte Szenenwerte" }
-            seriesCount = frameCount
-            nativeFusion = fuse; retainDng = keepDng; targetJpegSize = jpegSize
-            evidence.put("nativeFusionRequested", fuse).put("nativeFusionApplied", false)
-            if (fuse) check(frameCount == 5 && rawSize != null && processingVariant == ProcessingVariant.DEFAULT)
-
-            evidence.put("seriesCountRequested", frameCount).put("seriesFrameIndex", 0)
-            route = selected; zoom = zoomRatio; ev = exposureEv; wbMode = whiteBalanceMode; this.manualWb=manualWb
-            orientation = jpegOrientation; description = metadata; limits = exposureLimits
-            processing = processingVariant; suppliedReference = reference
-            evidence.put("processingVariantRequested", processing.name)
-                .put("comparisonReferenceReused", reference != null)
-            evidence.put("backend", if (rawSize == null) "Camera2Jpeg" else "Camera2RawJpeg")
-                .put("isoCapRequested", limits.isoCap).put("digitalBoostCapRequested", limits.boostCap)
-                .put("longestTimeNsRequested", if (limits.isoCap > 0) limits.longestTimeNs else JSONObject.NULL)
-            evidence.put("logicalId", route.logicalId).put("physicalId", route.physicalId ?: JSONObject.NULL)
-                .put("jpegRequestedSize", jpegSize.toString()).put("rawRequestedSize", rawSize?.toString() ?: JSONObject.NULL)
-                .put("zoomRequested", zoom.toDouble()).put("evRequested", ev.toDouble())
             try {
+                reportProgress("Fokus und Belichtung vorbereiten …")
+                require(frameCount in 1..5) { "RAW-Serie muss 1 bis 5 Bilder enthalten" }
+                require(frameCount == 1 || rawSize != null && processingVariant == ProcessingVariant.DEFAULT) { "RAW-Serie benötigt RAW und fixierte Szenenwerte" }
+                seriesCount = frameCount
+                nativeFusion = fuse; retainDng = keepDng; targetJpegSize = jpegSize
+                evidence.put("nativeFusionRequested", fuse).put("nativeFusionApplied", false)
+                if (fuse) check(frameCount == 5 && rawSize != null && processingVariant == ProcessingVariant.DEFAULT)
+
+                evidence.put("seriesCountRequested", frameCount).put("seriesFrameIndex", 0)
+                route = selected; zoom = zoomRatio; ev = exposureEv; wbMode = whiteBalanceMode; this.manualWb=manualWb
+                orientation = jpegOrientation; description = metadata; limits = exposureLimits
+                processing = processingVariant; suppliedReference = reference
+                evidence.put("processingVariantRequested", processing.name)
+                    .put("comparisonReferenceReused", reference != null)
+                evidence.put("backend", if (rawSize == null) "Camera2Jpeg" else "Camera2RawJpeg")
+                    .put("isoCapRequested", limits.isoCap).put("digitalBoostCapRequested", limits.boostCap)
+                    .put("longestTimeNsRequested", if (limits.isoCap > 0) limits.longestTimeNs else JSONObject.NULL)
+                evidence.put("logicalId", route.logicalId).put("physicalId", route.physicalId ?: JSONObject.NULL)
+                    .put("jpegRequestedSize", jpegSize.toString()).put("rawRequestedSize", rawSize?.toString() ?: JSONObject.NULL)
+                    .put("zoomRequested", zoom.toDouble()).put("evRequested", ev.toDouble())
                 val manager = app.getSystemService(CameraManager::class.java)
                 characteristics = manager.getCameraCharacteristics(route.physicalId ?: route.logicalId)
                 logicalCharacteristics = manager.getCameraCharacteristics(route.logicalId)

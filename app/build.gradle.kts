@@ -11,8 +11,8 @@ android {
         minSdk = 26
         targetSdk = 35
         ndk { abiFilters += "arm64-v8a" }
-        versionCode = 21
-        versionName = "0.8.2-wb"
+        versionCode = 22
+        versionName = "0.8.3-dive"
     }
     providers.gradleProperty("seafrogsDebugKeystore").orNull?.let { keyPath ->
         signingConfigs.getByName("debug").storeFile = file(keyPath)

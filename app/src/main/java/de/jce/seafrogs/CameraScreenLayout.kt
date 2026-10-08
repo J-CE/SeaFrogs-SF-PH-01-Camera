@@ -37,16 +37,18 @@ class CameraScreenLayout(context: Context) : ViewGroup(context) {
         preview.measure(exact(photoWidth), exact(photoHeight))
         val spareSide = (availableWidth - photoWidth) / 2
         sidebarWidth = if (landscape && spareSide >= dp(140)) spareSide else 0
-        (status as? android.widget.TextView)?.maxLines = if (sidebarWidth > 0) 8 else 3
+        val statusLines = if (sidebarWidth > 0) 8 else 3
+        (status as? android.widget.TextView)?.let { if (it.maxLines != statusLines) it.maxLines = statusLines }
         val informationWidth = if (sidebarWidth > 0) sidebarWidth else availableWidth
         status.measure(exact(informationWidth), atMost(availableHeight))
         notice.measure(exact(informationWidth), atMost((availableHeight - status.measuredHeight).coerceAtLeast(0)))
         val controlsWidth = if (housingControl) min(availableWidth, dp(88)) else if(sidebarWidth > 0) sidebarWidth else availableWidth
-        (controls as? android.widget.GridLayout)?.columnCount = when {
+        val columns = when {
             housingControl || sidebarWidth > 0 -> 1
             landscape -> 6
             else -> 3
         }
+        (controls as? android.widget.GridLayout)?.let { if (it.columnCount != columns) it.columnCount = columns }
         controls.measure(exact(controlsWidth), atMost(availableHeight))
         setup.measure(exact(min(availableWidth, dp(360))), exact(availableHeight))
     }

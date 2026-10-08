@@ -149,6 +149,8 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var libraryTest: Button
     private lateinit var libraryExport: Button
     private var autoStatus = ""
+    private var lastNoticeMessage = ""
+    private var noticeUntil = 0L
     private var lastCameraState = PhotoCameraState()
     private lateinit var quality: Button
     private lateinit var mouse: Button
@@ -207,7 +209,7 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         recorder = EventRecorder(applicationContext) { message ->
             handler.post { if (!isDestroyed) android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
         }
-        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.2-wb")
+        recorder.record(JSONObject().put("kind", "session").put("appVersion", "0.8.3-dive")
             .put("model", Build.MODEL).put("androidBuild", Build.FINGERPRINT))
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         screen = CameraScreenLayout(this).apply {
@@ -576,7 +578,15 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
             (if(state.videoMode) "OHNE TON" else state.photoFormat) + " · WB $wbShort · Akku ${if(battery in 0..100) "$battery%" else "?"} · ${String.format(java.util.Locale.GERMAN,"%.1f",free/1073741824.0)} GB"
         val notices = warnings.toMutableList()
         if (state.recording) notices.add(0, "● AUFNAHME")
-        if (cameraMessage != "Bereit" && cameraMessage.isNotBlank()) notices.add(cameraMessage)
+        val now = SystemClock.uptimeMillis()
+        if (cameraMessage != lastNoticeMessage) {
+            lastNoticeMessage = cameraMessage
+            noticeUntil = now + 3000L
+        }
+        val cameraError = listOf("fehl", "zu wenig", "nicht verfügbar", "nicht unterstützt").any { cameraMessage.contains(it, true) }
+        if (cameraMessage != "Bereit" && cameraMessage.isNotBlank() &&
+            (!state.ready || state.capturing || state.recording || cameraError || now < noticeUntil))
+            notices.add(cameraMessage.substringBefore('\n'))
         if (wbLabel.contains("WB NICHT BESTÄTIGT")) notices.add("WB NICHT BESTÄTIGT")
         if (wbLabel.contains("WB ABWEICHEND") || wbLabel.contains("Profil nicht verfügbar")) notices.add("WB BEGRENZT / NICHT VERFÜGBAR")
         if (exportStatus.isNotBlank()) notices.add(exportStatus)
@@ -594,9 +604,11 @@ class CameraActivity : ComponentActivity(), InputManager.InputDeviceListener {
         toolbar.visibility = if(setupVisible) android.view.View.GONE else android.view.View.VISIBLE
         toolbar.columnCount = if(wantsCapture) 1 else if(resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) 6 else 3
         buttonsView.visibility = if(setupVisible) android.view.View.VISIBLE else android.view.View.GONE
-        screen.videoMode = state.videoMode
-        screen.housingControl = wantsCapture
-        screen.requestLayout()
+        if (screen.videoMode != state.videoMode || screen.housingControl != wantsCapture) {
+            screen.videoMode = state.videoMode
+            screen.housingControl = wantsCapture
+            screen.requestLayout()
+        }
         quality.text = state.quality
         quality.isEnabled = state.ready && !state.videoMode && !testing
         format.text = "FORMAT: ${state.photoFormat}"

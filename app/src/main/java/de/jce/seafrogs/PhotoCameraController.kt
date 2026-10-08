@@ -94,6 +94,7 @@ class PhotoCameraController(
     private var imageCapture: ImageCapture? = null
     private var videoCapture: VideoCapture<Recorder>? = null
     private var recording: Recording? = null
+    private var videoOperation = 0
     private var videoMode = false
     private val wbPreferences = appContext.getSharedPreferences("whiteBalance", Context.MODE_PRIVATE)
     private var whiteBalanceMode = wbPreferences.getInt("mode", CaptureRequest.CONTROL_AWB_MODE_AUTO)
@@ -742,13 +743,18 @@ class PhotoCameraController(
         if (!videoMode) { capturePhoto(); return }
         recording?.let {
             if (busy) return
-            busy = true; message = "Video wird gespeichert …"; emit(); it.stop(); return
+            busy = true; message = "Video wird gespeichert …"; emit()
+            try { it.stop() } catch (error: Exception) {
+                busy = false; message = "Videostopp fehlgeschlagen: ${error.message}"; emit()
+            }
+            return
         }
         if (!isReady()) return
         val capture = videoCapture ?: return
         val free = android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes
         if (free < 256L * 1024 * 1024) { message = "Zu wenig Speicher für Video"; emit(); return }
         val token = generation
+        val operationId = ++videoOperation
         val requestedFps = videoFps
         val requestedLens = activeLens.name
         val values = ContentValues().apply {
@@ -769,7 +775,7 @@ class PhotoCameraController(
                         .put("bytes", event.recordingStats.numBytesRecorded).put("requestedFps", requestedFps).put("lens",requestedLens))
                     if (!event.hasError()) inspectVideo(event.outputResults.outputUri, requestedFps, requestedLens)
                 }
-                if (generation != token) return@start
+                if (generation != token || videoOperation != operationId) return@start
                 when (event) {
                     is VideoRecordEvent.Start -> { busy = false; message = "REC 0 s" }
                     is VideoRecordEvent.Status -> {
@@ -918,37 +924,51 @@ class PhotoCameraController(
         emit()
         val operation = RawJpegCapture(appContext)
         rawCapture = operation
-        operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount, fuse, includeRaw, whiteBalanceMode = appliedWhiteBalanceMode, manualWb = manualWhiteBalance, onProgress = { stage ->
-            if (generation == token && busy) { message = stage; emit() }
-        }) { outcome ->
-            val actualMetadata = JSONObject(metadata).put(if (includeRaw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence)).toString()
-            exifWriter.write(outcome.jpeg, actualMetadata) { exifError ->
-                mainExecutor.execute {
-                    log(JSONObject(outcome.evidence).put("kind", if (includeRaw) "rawJpegCaptureResult" else "sensorPhotoCaptureResult")
-                        .put("jpegUri", outcome.jpeg?.toString() ?: JSONObject.NULL)
-                        .put("dngUri", outcome.dng?.toString() ?: JSONObject.NULL)
-                        .put("error", outcome.error ?: JSONObject.NULL))
-                    if (generation != token) return@execute
-                    rawCapture = null
-                    lastRawOutcome = outcome
-                    if (processing == ProcessingVariant.DEFAULT && outcome.error == null)
-                        outcome.comparisonSettings?.let { comparisonReferences[lens] = it }
-                    busy = false
-                    val failure = outcome.error ?: exifError
-                    val result = JSONObject(outcome.evidence)
-                    val difference = result.optDouble("brightnessDifferenceEvSensor", 0.0)
-                    val applied = if (result.has("iso") && result.has("exposureTimeNs"))
-                        "\nSensor-ISO ${result.optString("iso")} · Digital ${number((result.optInt("postRawBoostActual", 100) / 100f))}× · JPEG-ISO ${result.optString("jpegExifIso", "n/v")} | ${number((result.optLong("exposureTimeNs") / 1_000_000.0).toFloat())} ms"
-                        else ""
-                    val warning = if (result.optBoolean("underexposedByLimits"))
-                        "\nDUNKLER DURCH LIMIT: ${number(difference.toFloat())} EV" else ""
-                    open(lens, notice = if (failure == null && outcome.jpeg != null && (!includeRaw || outcome.dng != null))
-                        "${if (fuse) "MEHRBILD + STANDARD" else if (includeRaw) "RAW + JPEG" else "JPEG"} gespeichert: Pictures/SeaFrogs$applied$warning"
-                        else if (fuse && outcome.jpeg != null) "STANDARD-JPEG gespeichert. MEHRBILD fehlgeschlagen: $failure"
-                        else "Aufnahmefehler: $failure")
-                    completed?.invoke(outcome.jpeg, failure)
+        try {
+            operation.start(route, jpegSize, rawSize, zoomRatio, exposureEv, jpegOrientation, metadata, limits, processing, reference, frameCount, fuse, includeRaw, whiteBalanceMode = appliedWhiteBalanceMode, manualWb = manualWhiteBalance, onProgress = { stage ->
+                if (generation == token && busy) { message = stage; emit() }
+            }) { outcome ->
+                val actualMetadata = JSONObject(metadata).put(if (includeRaw) "rawCapture" else "sensorCapture", JSONObject(outcome.evidence)).toString()
+                exifWriter.write(outcome.jpeg, actualMetadata) { exifError ->
+                    mainExecutor.execute {
+                        log(JSONObject(outcome.evidence).put("kind", if (includeRaw) "rawJpegCaptureResult" else "sensorPhotoCaptureResult")
+                            .put("jpegUri", outcome.jpeg?.toString() ?: JSONObject.NULL)
+                            .put("dngUri", outcome.dng?.toString() ?: JSONObject.NULL)
+                            .put("error", outcome.error ?: JSONObject.NULL))
+                        if (generation != token) return@execute
+                        rawCapture = null
+                        lastRawOutcome = outcome
+                        if (processing == ProcessingVariant.DEFAULT && outcome.error == null)
+                            outcome.comparisonSettings?.let { comparisonReferences[lens] = it }
+                        busy = false
+                        val failure = outcome.error ?: when {
+                            outcome.jpeg == null -> "JPEG-Datei fehlt"
+                            includeRaw && outcome.dng == null -> "DNG-Datei fehlt"
+                            else -> exifError
+                        }
+                        val result = JSONObject(outcome.evidence)
+                        val difference = result.optDouble("brightnessDifferenceEvSensor", 0.0)
+                        val applied = if (result.has("iso") && result.has("exposureTimeNs"))
+                            "\nSensor-ISO ${result.optString("iso")} · Digital ${number((result.optInt("postRawBoostActual", 100) / 100f))}× · JPEG-ISO ${result.optString("jpegExifIso", "n/v")} | ${number((result.optLong("exposureTimeNs") / 1_000_000.0).toFloat())} ms"
+                            else ""
+                        val warning = if (result.optBoolean("underexposedByLimits"))
+                            "\nDUNKLER DURCH LIMIT: ${number(difference.toFloat())} EV" else ""
+                        open(lens, notice = if (failure == null && outcome.jpeg != null && (!includeRaw || outcome.dng != null))
+                            "${if (fuse) "MEHRBILD + STANDARD" else if (includeRaw) "RAW + JPEG" else "JPEG"} gespeichert: Pictures/SeaFrogs$applied$warning"
+                            else if (fuse && outcome.jpeg != null) "STANDARD-JPEG gespeichert. MEHRBILD fehlgeschlagen: $failure"
+                            else "Aufnahmefehler: $failure")
+                        completed?.invoke(outcome.jpeg, failure)
+                    }
                 }
             }
+        } catch (error: Exception) {
+            rawCapture = null
+            operation.cancel()
+            if (generation == token) {
+                busy = false
+                open(lens, notice = "Aufnahmestart fehlgeschlagen: ${error.message}")
+            }
+            completed?.invoke(null, error.message ?: "Aufnahmestart fehlgeschlagen")
         }
     }
 
@@ -958,7 +978,7 @@ class PhotoCameraController(
         val size = if (videoMode) videoCapture?.resolutionInfo?.resolution else imageCapture?.resolutionInfo?.resolution
         return JSONObject()
             .put("app", "SeaFrogs Camera")
-            .put("version", "0.8.2-wb")
+            .put("version", "0.8.3-dive")
             .put("mode", "PHOTO").put("whiteBalanceRequested",whiteBalanceMode).put("whiteBalanceApplied",appliedWhiteBalanceMode).put("manualWhiteBalance",manualWhiteBalance?.json() ?: JSONObject.NULL).put("wbPreviewVerification",manualWbStatus)
             .put("testCase", testCase)
             .put("qualityMode", selectedQualityName())
@@ -998,6 +1018,7 @@ class PhotoCameraController(
 
     private fun clearSession() {
         generation++
+        videoOperation++
         owner?.let { lifecycleOwner ->
             camera?.cameraInfo?.cameraState?.removeObservers(lifecycleOwner)
             previewView?.previewStreamState?.removeObservers(lifecycleOwner)

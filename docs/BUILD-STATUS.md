@@ -420,3 +420,23 @@ Finale Softwareprüfung: assembleDebug, lintDebug und testDebugUnitTest erfolgre
 APK: de.jce.seafrogs.test, versionCode 21, versionName 0.8.2-wb.
 Signatur unverändert gegenüber 0.8.1 (SHA-256 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57).
 APK-SHA-256: 8f5ab3e3bcd5c374d9cfc9def67f0bc4e50c0f1f77a4099d50781ef92b37f7d6.
+
+
+## 0.8.3-dive, 2026-10-08
+
+Vollständige maximale 4:3-Fotovorschau, separates 16:9-Video, kompakte
+Touchsteuerung in Randflächen und Setup-Overlay. Erfolgsmeldungen verschwinden,
+Fehler bleiben sichtbar. Keine HID-Toasts über dem Motiv.
+Video-Rückmeldungen besitzen zusätzlich zur Kamerageneration eine individuelle
+Aufnahmenummer. Stop-Ausnahmen erscheinen im Status. RAW-Startvalidierung
+liegt im Fehlerabschluss; synchrone Startfehler öffnen die Kamerasitzung erneut.
+Fehlende JPEG-/DNG-URIs melden einen Aufnahmefehler statt Erfolg.
+Speicherziel bleibt Pictures/SeaFrogs und Movies/SeaFrogs.
+
+Softwareprüfung: assembleDebug, lintDebug und testDebugUnitTest erfolgreich.
+52 Tests, 0 Fehler, 0 übersprungene Tests. Lint: 0 Fehler, 91 Warnungen.
+APK-Paket de.jce.seafrogs.test, versionCode 22, versionName 0.8.3-dive.
+Signatur SHA-256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57.
+APK SHA-256: 580d25b36a97fc8565ab6ccb9599db484e8b12fccb3d95e2c9ffab4de27f25f8.
+Signatur und ZIP-Ausrichtung geprüft. Geräteabnahme von UI, HID-Umschaltung,
+Macro-Nahfokus, WB-Wirkung und Videoauflösung/FPS bleibt ausstehend.
