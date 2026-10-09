@@ -1,7 +1,11 @@
 # 0.8.0: Foto und Video statt weiterer Mehrbild-Testschleifen
 
-Die Tests 0.7.0 bis 0.7.2 belegen keinen überzeugenden Qualitätsgewinn der
-experimentellen MIT-Verarbeitung. Sie bleibt als Offline-Experiment erhalten,
+Wir stellen in diesem Meilenstein unsere normale Bedienung auf Foto und Video um.
+
+Wir bewahren diesen Ablauf als historischen Versionsstand. In RC1 sind die damaligen Test-/Exportbuttons teilweise entfernt; für die heutige Bedienung verwenden wir [DIVE-0.8.1.md](DIVE-0.8.1.md) und [RC1.md](RC1.md).
+
+Mit unseren Tests 0.7.0 bis 0.7.2 haben wir keinen überzeugenden Qualitätsgewinn der
+experimentellen MIT-Verarbeitung belegt. Sie bleibt als Offline-Experiment erhalten,
 aber STANDARD ist Default, nativeFusion-Einstellungen aktivieren sie nicht
 mehr automatisch, der Qualitätszyklus enthält keinen MEHRBILD-Eintrag und
 die Test-/Exportschaltflächen sind aus der Oberfläche entfernt.
@@ -16,7 +20,7 @@ die Test-/Exportschaltflächen sind aus der Oberfläche entfernt.
 | Runter | Video öffnen | Foto öffnen, während REC gesperrt |
 | Klick | Foto auslösen | Start/Stop |
 
-Keine Doppel-/Kombinationstasten. Bestehende Systemkombinationen bleiben außen vor.
+In diesem damaligen Stand führen wir keine Doppel-/Kombinationstasten ein. Seit 0.8.1 verwenden wir die zwei Umschaltgesten gemäß [DIVE-0.8.1.md](DIVE-0.8.1.md).
 Normalfläche: große Kamera-, Zoom-, EV-, Auslöser- und Modusschaltflächen.
 SETUP zeigt Format, Sensor-ISO/Digitalgrenzen, Video-FPS, reale Foto-Extensions,
 Mausauswahl, Neustart, HID-Diagnose, Kamera-Diagnose-ZIP und Macrotest.
@@ -49,11 +53,12 @@ Die Clips selbst liegen in der Galerie, nicht im Diagnose-ZIP.
 ## Kleiner Pixel-Meilenstein
 
 Update der SeaFrogs Test App, 0.7.2 bleibt signaturkompatibel.
-1. STANDARD-Foto mit der Hauptkamera aufnehmen und in der Galerie öffnen.
-2. RUNTER, KLICK, fünf Sekunden filmen, KLICK. REC und danach Speicherung prüfen.
-3. RUNTER zurück, normales Foto aufnehmen. Optional Zoom/EV beim Filmen prüfen.
 
-Danach SETUP → DIAGNOSE ZIP exportieren. Für den ersten Test 4K30 verwenden.
+1. Wir nehmen ein STANDARD-Foto mit der Hauptkamera auf und öffnen es in der Galerie.
+2. Wir drücken RUNTER und KLICK, filmen fünf Sekunden und drücken erneut KLICK. Wir prüfen REC und anschließend die Speicherung.
+3. Wir wechseln mit RUNTER zurück und nehmen ein normales Foto auf. Optional prüfen wir Zoom/EV beim Filmen.
+
+Danach exportieren wir über SETUP → DIAGNOSE ZIP. Für den ersten Test verwenden wir 4K30.
 4K60 und UW/Macro folgen nur, wenn dieser Basisablauf funktioniert. Kein neuer
 Mehrbild-ZIP und kein großer RAW-Upload erforderlich. Macro-Nahfokus bleibt
 unbestätigt; der vorhandene AF-Neustart ist kein Beleg für scharfe Nahaufnahmen.

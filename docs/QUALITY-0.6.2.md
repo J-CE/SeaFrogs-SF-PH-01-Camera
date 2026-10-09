@@ -1,8 +1,12 @@
 # Auflösung und AF-Test 0.6.2
 
+Wir verbessern in diesem Meilenstein die gemeinsame Auflösungswahl und die Fokusprüfung unserer automatischen Tests.
+
+Wir bewahren diesen Ablauf als historischen Versionsstand. In RC1 sind die damaligen Test-/Exportbuttons teilweise entfernt; für die heutige Bedienung verwenden wir [DIVE-0.8.1.md](DIVE-0.8.1.md) und [RC1.md](RC1.md).
+
 ## Änderungen
 
-Physisch gepinnte UW-/Macro-Ausgaben verwenden nur Größen, die logische
+Für physisch gepinnte UW-/Macro-Ausgaben verwenden wir nur Größen, die logische
 Elternkamera und gewählter physischer Sensor gemeinsam anbieten. JPEG beschränkt
 sich auf annähernd 4:3 und bevorzugt die größte gemeinsam angebotene Größe.
 Die Vorschau verwendet ebenfalls die gemeinsame Größenliste, ohne eine feste
@@ -15,7 +19,7 @@ neue JPEG-Datei. Der Event `physicalStreamResolutionCandidates` protokolliert
 die Kandidaten. Die Hauptkamera behält ihre normale Auflösungsverhandlung;
 Extensions behalten ihre eigene Ausgabegrößenverhandlung.
 
-Der automatische Test wartet weiterhin drei Sekunden nach Bereitschaft.
+In unserem automatischen Test warten wir weiterhin drei Sekunden nach Bereitschaft.
 STANDARD verlangt anschließend mindestens drei unterschiedliche fokussierte
 Vorschau-Frames über mindestens 400 ms. Der letzte Frame darf höchstens 500 ms
 alt sein, eine Unterbrechung über 500 ms setzt die Bestätigung zurück.
@@ -37,11 +41,11 @@ die neue Test-Fokusprüfung; die Änderung gilt für automatische Testaufnahmen.
 
 ## Gerätetest
 
-APK als Update installieren. NORMALTEST mit bedrucktem Motiv bei etwa 50 cm,
-danach MACROTEST mit Motiv bei etwa 5 cm starten. Handy abstützen und gutes,
-konstantes Licht verwenden. Die App übernimmt alle Einstellungen und Aufnahmen.
-Anschließend TEST ZIP exportieren und zur Auswertung hochladen.
+Wir installieren die APK als Update. Wir starten NORMALTEST mit bedrucktem Motiv bei etwa 50 cm,
+danach MACROTEST mit Motiv bei etwa 5 cm. Wir stützen das Handy ab und verwenden
+gutes, konstantes Licht. Unsere App übernimmt alle Einstellungen und Aufnahmen.
+Anschließend exportieren wir TEST ZIP und laden sie zur Auswertung hoch.
 
-Abnahme: tatsächliche UW-/Macro-JPEG-Dimensionen, Fokusstatus vor jeder Aufnahme,
-AF-Timeouts sowie sichtbare Detailzeichnung bei den Crop-Stufen vergleichen.
+Zur Abnahme vergleichen wir tatsächliche UW-/Macro-JPEG-Dimensionen, Fokusstatus vor jeder Aufnahme,
+AF-Timeouts sowie sichtbare Detailzeichnung bei den Crop-Stufen.
 RAW/DNG, ISO-Limit, Video und weitere HID-Änderungen gehören nicht zu 0.6.2.

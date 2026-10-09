@@ -1,11 +1,15 @@
 # Kamera-Fähigkeitsbericht 0.6.1
 
+Wir erfassen in diesem Meilenstein die angebotenen Kamerafähigkeiten und trennen sie von erfolgreich geprüften Aufnahmen.
+
+Wir bewahren diesen Ablauf als historischen Versionsstand. In RC1 sind die damaligen Test-/Exportbuttons teilweise entfernt; für die heutige Bedienung verwenden wir [DIVE-0.8.1.md](DIVE-0.8.1.md) und [RC1.md](RC1.md).
+
 ## Einmaliger Ablauf auf dem Pixel 8
 
-1. APK als Update installieren; vorhandene App-Daten behalten.
-2. Kameraansicht öffnen und Kamerazugriff erlauben, falls nötig.
-3. Warten, bis aus „KAMERADATEN …“ die Taste „TEST ZIP“ wird.
-4. TEST ZIP drücken, Datei speichern und das ZIP zur Auswertung hochladen.
+1. Wir installieren die APK als Update; wir behalten die vorhandenen App-Daten.
+2. Wir öffnen die Kameraansicht und erlauben bei Bedarf den Kamerazugriff.
+3. Wir warten, bis aus „KAMERADATEN …“ die Taste „TEST ZIP“ wird.
+4. Wir drücken TEST ZIP, speichern die Datei und laden die ZIP zur Auswertung hoch.
 
 Kein neues Motiv, Normaltest oder Macrotest nötig. Die Abfrage läuft automatisch
 auf einem Hintergrundthread einmal pro Kamera-Activity. Sie öffnet keine
@@ -34,7 +38,7 @@ sofern ihre Originalfotos noch über MediaStore erreichbar sind.
 ## Aussagegrenzen
 
 Das ist eine **Abfrage angebotener Metadaten**, keine erfolgreiche RAW-Aufnahme.
-Die App speichert weiterhin ausschließlich JPEG. Eine DNG-Aufnahme muss später
+Unsere App speichert weiterhin ausschließlich JPEG. Eine DNG-Aufnahme muss später
 die gewählte Größe, ihre CaptureResult-Metadaten und eine passende Sensor-Pixel-
 Mode-/Stream-Konfiguration tatsächlich bestätigen. Eine physische Kamera-ID kann
 Metadaten liefern, ohne eigenständig geöffnet werden zu können.

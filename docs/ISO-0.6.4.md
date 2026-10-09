@@ -1,5 +1,9 @@
 # ISO-/Zeitgrenzen und Vergleichstest 0.6.4
 
+Wir prüfen hier die Sensor-ISO-/Zeitgrenzen und dokumentieren die anschließende UW-Korrektur aus 0.6.5.
+
+Wir bewahren diesen Ablauf als historischen Versionsstand. In RC1 sind die damaligen Test-/Exportbuttons teilweise entfernt; für die heutige Bedienung verwenden wir [DIVE-0.8.1.md](DIVE-0.8.1.md) und [RC1.md](RC1.md).
+
 ## Gerätetest und Korrektur 0.6.5
 
 Der vollständige Export seafrogs-iso-1791404655261.zip enthält vier lesbare
@@ -33,54 +37,54 @@ physische Einstellungen aus dem gewählten Request, bevor es nur die
 Belichtungswerte überschreibt. Unbegrenzte JPEG-/RAW-Aufnahmen behalten den
 zuvor geprüften Request-Weg. Kein stiller Fallback auf die Hauptkamera.
 
-Nach Installation von 0.6.5 den ISO-TEST mit 1/30 s wiederholen und ISO ZIP
-exportieren. Die bisherige Serie bestätigt die Hauptkamera-Sensorgrenzen,
+Nach Installation von 0.6.5 wiederholen wir den ISO-TEST mit 1/30 s und
+exportieren ISO ZIP. Die bisherige Serie bestätigt die Hauptkamera-Sensorgrenzen,
 aber keine begrenzte UW-/Macro-Aufnahme und keinen messbaren Rauschvorteil.
 
 ## Bedienung
 
-Die ISO-Taste öffnet das Setup vor dem Tauchgang. ISO: Auto, maximal 400,
+Über die ISO-Taste öffnen wir das Setup vor dem Tauchgang. ISO: Auto, maximal 400,
 800 oder 1600. Längste Zeit bei aktiver ISO-Grenze: 1/30, 1/60 oder 1/125 s.
-Die App speichert beide Werte. Die erste Installation startet mit Auto.
+Unsere App speichert beide Werte. Die erste Installation startet mit Auto.
 Auto begrenzt weder ISO noch Zeit. Zeitgrenzen gelten nur zusammen mit einer
-aktiven ISO-Grenze; die App bietet hier keinen separaten Zeitprioritätsmodus.
+aktiven ISO-Grenze; unsere App bietet hier keinen separaten Zeitprioritätsmodus.
 
 Eine aktive Grenze verwendet STANDARD ohne OEM-Extensions. Die Vorschau
 misst automatisch und zeigt weiter die automatische Belichtung. Erst beim
-Foto wechselt die App temporär von CameraX zum Camera2-Aufnahmeweg; die
+Foto wechselt unsere App temporär von CameraX zum Camera2-Aufnahmeweg; die
 Vorschau pausiert bis zum Speichern. JPEG only bleibt JPEG only. RAW+JPEG
 speichert weiterhin beide Dateien aus derselben Belichtung.
 
-Die App übernimmt die frische AF-/AE-bestätigte Messung einschließlich EV
-und berechnet ISO und Zeit. Sie erhält das Produkt ISO × Zeit, sofern beide
+Wir übernehmen die frische AF-/AE-bestätigte Messung einschließlich EV
+und berechnen ISO und Zeit. Dabei erhalten wir das Produkt ISO × Zeit, sofern beide
 Obergrenzen und die Sensorranges das erlauben. Eine kurze Zeitgrenze darf
 ISO innerhalb der gewählten ISO-Grenze erhöhen. Reicht das nicht, bleibt das
-Foto dunkler; die App zeigt DUNKLER DURCH LIMIT und die berechnete Abweichung
+Foto dunkler; unsere App zeigt DUNKLER DURCH LIMIT und die berechnete Abweichung
 in EV. Diese Anzeige beschreibt die Sensorbelichtung relativ zur Messung,
 keine gemessene JPEG-Helligkeit oder Garantie zur Rauschverbesserung.
 
-Die finale Aufnahme deaktiviert nur AE. AF und AWB bleiben aktiv. Die App
+Die finale Aufnahme deaktiviert nur AE. AF und AWB bleiben aktiv. Unsere App
 übernimmt eine verfügbare, einstellbare Post-RAW-Verstärkung des Messwerts
 für das JPEG und protokolliert deren tatsächlich gemeldeten Wert. Physisch
 gepinnte UW-/Macro-Ausgaben verwenden ihre eigenen Sensormetadaten und
 gegebenenfalls unterstützte physische Request-Keys. Sie fallen bei fehlenden
 physischen Ergebnissen nicht auf logische Sensormetadaten zurück.
 
-Die App prüft am tatsächlichen CaptureResult ISO, Zeit und AE-OFF. Eine
+Wir prüfen am tatsächlichen CaptureResult ISO, Zeit und AE-OFF. Eine
 überschrittene oder unbestätigte Grenze meldet einen Fehler; das gespeicherte
 Foto bleibt zur Diagnose erhalten. Der automatische Test kennzeichnet eine
 solche Aufnahme als FAILED, statt eine erfolgreiche Begrenzung zu behaupten.
 
 ## Automatischer Gerätetest
 
-1. APK als Update installieren. Handy abstützen, bedrucktes Motiv ungefähr
-   50 cm vor die Linse stellen, Beleuchtung und Motiv konstant halten.
-2. Im ISO-Setup die längste Zeit wählen. Für den ersten Vergleich 1/30 s.
+1. Wir installieren die APK als Update. Wir stützen das Handy ab, stellen ein bedrucktes Motiv ungefähr
+   50 cm vor die Linse und halten Beleuchtung und Motiv konstant.
+2. Im ISO-Setup wählen wir die längste Zeit, für den ersten Vergleich 1/30 s.
    Die gewählte ISO-Obergrenze ändert die Testfolge nicht.
-3. ISO-TEST starten und bis ISO fertig warten. Die App nimmt sechs JPEGs auf:
+3. Wir starten ISO-TEST und warten bis ISO fertig. Unsere App nimmt sechs JPEGs auf:
    Hauptkamera Auto/800/400, anschließend UW Auto/800/400. Jeweils ungecroppt,
    EV 0, STANDARD, identischer nativer Aufnahmeweg. Auto begrenzt keine Zeit.
-4. ISO ZIP exportieren. Erst nach der Meldung Export gespeichert hochladen.
+4. Wir exportieren ISO ZIP und laden sie erst nach der Meldung Export gespeichert hoch.
    Dieses Paket enthält nur ISO-Vergleichsfotos, Ergebnisbericht,
    Kamera-Fähigkeitsbericht und das aktuelle Ereignisprotokoll. TEST ZIP
    enthält weiterhin alle gespeicherten Testgruppen einschließlich RAW.

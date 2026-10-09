@@ -1,4 +1,4 @@
-White-point data in assets/wb/whitepoints.json are an adaptation of CIE datasets,
+We adapt CIE datasets into white-point data in assets/wb/whitepoints.json,
 licensed CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/
 
 CIE 2019, CIE standard illuminant D65, International Commission on Illumination,
@@ -9,15 +9,15 @@ CIE 2019, Colour-matching functions of CIE 1931 standard colorimetric observer,
 International Commission on Illumination, Vienna, AT. DOI 10.25039/CIE.DS.xvudnb9b.
 https://cie.co.at/datatable/cie-1931-colour-matching-functions-2-degree-observer
 
-Changes by SeaFrogs Camera: interpolate at 1 nm, restrict to 380-700 nm,
+In SeaFrogs Camera, we interpolate at 1 nm, restrict to 380-700 nm,
 apply Beer-Lambert absorption with Pope/Fry water data and model path lengths,
-integrate to XYZ and normalize Y to one. DL08 uses nominal 5000 K Planck spectrum,
-not a measured spectrum of the light. Source hashes and reproducible calculation:
-tools/wb-model/derive.py; assumptions: docs/WB-0.8.2.md.
+integrate to XYZ and normalize Y to one. We model DL08 with a nominal 5000 K Planck spectrum,
+not a measured spectrum of the light. We document source hashes and reproducible calculation
+in tools/wb-model/derive.py and assumptions in docs/WB-0.8.2.md.
 
 Absorption reference: R. M. Pope and E. S. Fry, Applied Optics 36, 8710-8723 (1997),
 DOI 10.1364/AO.36.008710; numerical transcription from OMLC,
 https://omlc.org/spectra/water/data/pope97.dat. Source units 1/cm converted to 1/m.
 
-The derived white-point data retain CC BY-SA 4.0. Application implementation
-code is separate and remains Apache 2.0. No research RAW images are distributed.
+We retain CC BY-SA 4.0 for the derived white-point data. We keep application implementation
+code separate under Apache 2.0. We distribute no research RAW images.

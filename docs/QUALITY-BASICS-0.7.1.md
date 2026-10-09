@@ -1,14 +1,18 @@
 # 0.7.1: Ausgabe und Aufnahmeablauf
 
+Wir dokumentieren hier unsere damaligen Korrekturen an Ausgabe und Ablauf des experimentellen Mehrbildwegs.
+
+Wir bewahren diesen Ablauf als historischen Versionsstand. In RC1 sind die damaligen Test-/Exportbuttons teilweise entfernt; für die heutige Bedienung verwenden wir [DIVE-0.8.1.md](DIVE-0.8.1.md) und [RC1.md](RC1.md).
+
 ## Änderungen
 
-Die MIT-Ausgabe verwendet nun ihre Farbentrauschung vor der sRGB-Farbmatrix.
+In der MIT-Ausgabe verwenden wir nun die Farbentrauschung vor der sRGB-Farbmatrix.
 Vorher berechnete die Quelle diese Stufe, führte sie aber nicht weiter. Die
 Tonwertfaktoren gelten geometrisch über die drei Durchläufe; 1/1 nimmt direkt
 die unveränderte lineare sRGB-Ausgabe vor Gamma/Kontrast. Die bisherige zusätzliche
 Aufhellung entfällt. Weißabgleich/Matrix/LSC bleiben metadatengesteuert.
 
-Der Sensoraufnahmeweg setzt Videostabilisierung OFF und bei gemeldeter
+Im Sensoraufnahmeweg setzen wir Videostabilisierung OFF und bei gemeldeter
 Unterstützung SCALER_ROTATE_AND_CROP_NONE. JPEG-Orientierung bleibt explizit.
 Die Ausgabe berücksichtigt gemeldete Sensor-/RAW-Grenzen und wendet digitalen
 Zoom genau einmal an, auch auf UW/Macro und auf dem älteren CropRegion-Pfad.
@@ -47,12 +51,12 @@ Android-Referenz: https://developer.android.com/reference/android/hardware/camer
 
 ## Nächster kleiner Test
 
-Handy abstützen, gleichbleibendes Licht, dasselbe bedruckte Motiv. MEHRBILD TEST
-→ START → warten → TEST ZIP exportieren und hochladen. Der dritte Schritt nutzt
+Wir stützen das Handy ab und verwenden dasselbe bedruckte Motiv bei gleichbleibendem Licht.
+Wir wählen MEHRBILD TEST → START, warten auf den Abschluss, exportieren TEST ZIP und laden sie hoch. Der dritte Schritt nutzt
 jetzt **Sensor-ISO 400** und maximal 1/30 s. Bei der bisherigen Messung ISO 667
 muss die Begrenzung eingreifen; das Foto darf dadurch dunkler werden und meldet
 die Abweichung. Das Testmenü ändert keine gespeicherten Benutzerlimits.
 
-Die sechs JPEGs prüfen Tonwerte, Farbsäume und Bildausschnitt. Der Bericht prüft
+Mit den sechs JPEGs prüfen wir Tonwerte, Farbsäume und Bildausschnitt. Der Bericht prüft
 angewendete Grenzen/Geometrie und tatsächliche Aufnahmezeit. Kein neuer großer
 RAW-Export. Macro-Nahfokus, bewegte Motive und Video bleiben eigene Meilensteine.

@@ -1,14 +1,16 @@
 # Bibliotheksvergleich mit Pixel-8-RAWs, 2026-10-08
 
+Wir halten hier unseren damaligen Hostvergleich fest. Seit 0.8 ist die Mehrbildentwicklung eingefroren; die folgende Integrationsentscheidung beschreibt den damaligen Meilenstein.
+
 ## Entscheidung
 
-Wir verwenden den MIT-HDR+-Mehrbildkern als Grundlage für die nächste Kamera-
+Wir wählten damals den MIT-HDR+-Mehrbildkern als Grundlage für die nächste Kamera-
 Integration. Seine reine RAW-Fusion reduziert in diesem Datensatz mehr Rauschen
 als MotionCams reine Fusion. Die zusätzliche MotionCam-Wavelet-Entrauschung
 senkt das Rauschen weiter, glättet aber stärkere Kanten. HDR+ benötigt im Hosttest
 weniger Verarbeitungszeit und hat weniger Integrationsabhängigkeiten.
 Die Wahl ist eine Projektentscheidung aus den folgenden Messungen, kein allgemeiner
-Qualitätssieger für alle Szenen. Die App enthält bisher noch keine dieser Engines.
+Qualitätssieger für alle Szenen. Unsere App enthält bisher noch keine dieser Engines.
 
 ## Tatsächlich ausgeführter Test
 
@@ -46,7 +48,7 @@ Bibliotheken erzeugen. Android-Link, JNI und Ausführung auf dem Pixel sind offe
 | MotionCam nur zeitliche Fusion | 48.8 % | 44.4 % | 98.3 % / 97.0 % |
 | MotionCam Fusion + Wavelets | 72.7 % | 70.7 % | 95.2 % / 91.2 % |
 
-Der Rausch-Proxy ist die mediane Hochpass-Standardabweichung in 32 gleichmäßigen
+Als Rausch-Proxy verwenden wir die mediane Hochpass-Standardabweichung in 32 gleichmäßigen
 64×64-Kacheln einer grünen Bayer-Ebene. Die Kacheln wählt ausschließlich der
 Median der fünf Eingaben, unabhängig von den Kandidatenausgaben. MAIN:
 Einzelbild 3.979 DN, HDR+ 1.803 DN, MotionCam+Wavelet 1.086 DN. UW:
@@ -77,7 +79,7 @@ App-Integration müssen wir Pufferlebenszeiten minimieren und den Pixel messen.
 
 ## Ausgabepipelines und Farbe
 
-Zusätzlich zur RAW-Messung erzeugen beide Engines Bilder in voller RAW-Auflösung.
+Zusätzlich zur RAW-Messung erzeugen wir mit beiden Engines Bilder in voller RAW-Auflösung.
 Für den isolierten Fusionvergleich erhalten HDR+, MotionCam und Einzelbild
 identische HDR+-Ausgabeoperatoren (compression=1, gain=1). Das vermeidet einen
 Vorteil durch unterschiedliche Aufhellung/Schärfung. MotionCams eigene Ausgabe
@@ -121,7 +123,7 @@ Kein neues APK und keine Änderung der Gehäusetasten in diesem Benchmarkschnitt
 
 Der Standalone-Testaufbau in tools/library-benchmark hat GPL-3.0-only, weil er
 MotionCam-Kerne und Ablaufteile verwendet. Er ist nicht im Android-Build verlinkt.
-Die App bleibt Apache 2.0. Für die gewählte MIT-Integration müssen Lizenz-/Urheber-
+Unsere App bleibt Apache 2.0. Für die gewählte MIT-Integration müssen Lizenz-/Urheber-
 vermerke von HDR+ und Halide erhalten bleiben.
 
 Versionskorrektur bei der Integration: Frühere Reportfelder nannten Halide 24

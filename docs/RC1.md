@@ -1,9 +1,11 @@
 # SeaFrogs Camera 1.0.0-rc1
 
-Der Nutzer bestätigt den Betrieb einschließlich beider Umschaltkombinationen nach 0.8.10. RC1 lässt die fünf Aufnahmebuttons Kamera, Zoom, EV, Foto/Video und Auslöser permanent eingeblendet; SETUP bleibt daneben erreichbar. Gehäusemodus und klassische Maus verwenden dasselbe Layout. Auch bei geöffnetem Setup bleiben die Buttons sichtbar: Das Setup-Overlay endet oberhalb der Toolbar. Die vollständige 4:3-Fotovorschau behält ihre maximal mögliche Größe. Die bestehenden Sperren während laufender Aufnahme und Kameraumstellung bleiben erhalten.
+Wir erreichen mit den dauerhaft sichtbaren fünf Aufnahmebuttons unseren ersten Release Candidate.
 
-Paket de.jce.seafrogs.test, versionCode 30, versionName 1.0.0-rc1. Installation als Update der bisherigen SeaFrogs Test. Die Diagnose- und EXIF-Versionsangaben entsprechen nun RC1.
+Wir halten die positive Geräterückmeldung zum Betrieb einschließlich beider Umschaltkombinationen nach 0.8.10 fest. Mit RC1 lassen wir die fünf Aufnahmebuttons Kamera, Zoom, EV, Foto/Video und Auslöser permanent eingeblendet; SETUP bleibt daneben erreichbar. Wir verwenden in Gehäusemodus und klassischer Maus dasselbe Layout. Auch bei geöffnetem Setup lassen wir die Buttons sichtbar: Das Setup-Overlay endet oberhalb der Toolbar. Wir behalten die maximal mögliche Größe der vollständigen 4:3-Fotovorschau sowie die bestehenden Sperren während laufender Aufnahme und Kameraumstellung bei.
 
-Die Geräterückmeldung bestätigt den aktuellen trockenen Bedienbetrieb, keine vermessene Unterwasser-Farbwirkung und keinen Langzeittest. Diese Praxisprüfungen bleiben offen.
+Wir liefern RC1 als Paket de.jce.seafrogs.test, versionCode 30, versionName 1.0.0-rc1 aus. Wir installieren es als Update der bisherigen SeaFrogs Test. Unsere Diagnose- und EXIF-Versionsangaben entsprechen RC1.
 
-Validierung: 75 Tests bestanden, 0 Fehler und 0 übersprungen. Build und Lint erfolgreich, keine Lint-Fehler. Updatesignatur und 16-KiB-ZIP-Ausrichtung geprüft.
+Wir stützen die Funktionsabnahme auf die Rückmeldung zum trockenen Bedienbetrieb. Eine vermessene Unterwasser-Farbwirkung und einen Langzeittest haben wir damit noch nicht bestätigt. Diese Praxisprüfungen bleiben offen.
+
+Für den RC1-Build haben wir 75 bestandene Tests, 0 Fehler und 0 übersprungene Tests dokumentiert. Wir haben Build und Lint erfolgreich abgeschlossen, ohne Lint-Fehler, sowie Updatesignatur und 16-KiB-ZIP-Ausrichtung geprüft. Diese Ergebnisse gehören zum ausgelieferten RC1-Build; sie sind keine erneute Prüfung unserer späteren Dokumentationsänderungen.

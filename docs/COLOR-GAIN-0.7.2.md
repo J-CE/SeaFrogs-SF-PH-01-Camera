@@ -1,5 +1,9 @@
 # 0.7.2: Farbe, Farbrauschen und Verstärkung
 
+Wir dokumentieren hier unsere damaligen Farb- und Verstärkungskorrekturen am experimentellen Mehrbildweg.
+
+Wir bewahren diesen Ablauf als historischen Versionsstand. In RC1 sind die damaligen Test-/Exportbuttons teilweise entfernt; für die heutige Bedienung verwenden wir [DIVE-0.8.1.md](DIVE-0.8.1.md) und [RC1.md](RC1.md).
+
 Der Pixel-Test 0.7.1 verarbeitet drei Serien erfolgreich, je fünf RAW-Frames.
 Sensor-ISO 400 greift, aber der gemessene digitale Boost 318 % führt zu
 JPEG-EXIF-ISO 1272. Mehrbild zeigt keinen überzeugenden Detailgewinn,
@@ -8,7 +12,7 @@ Der Bildausschnitt passt jetzt visuell weitgehend zusammen.
 
 ## Änderungen
 
-Der Generator normalisiert LSC und Weißabgleich vor dem 16-Bit-Demosaicker.
+Im Generator normalisieren wir LSC und Weißabgleich vor dem 16-Bit-Demosaicker.
 Die Farbmatrix übernimmt die Normalisierungsfaktoren und den digitalen Boost.
 So begrenzen die vorgelagerten Integer-Stufen Farbkanäle nicht vor der Matrix.
 Ein synthetischer Test mit hohen WB-/Boost-Werten ergibt exakt dieselben
@@ -33,15 +37,15 @@ Ein dunkleres Bild bei eingeschränkter Verstärkung ist erwartetes Verhalten.
 
 MEHRBILD TEST: Hauptkamera Auto, UW Auto, Hauptkamera ISO 400 + Digital 1×.
 Je ein HAL-JPEG und ein natives JPEG, gleiche Sensoreinstellung/Fokus/WB pro
-Paar. Handy fest abstützen, Motiv/Licht konstant. Danach TEST ZIP exportieren.
-Prüfen: Farbstich, Farbrauschen, Schrift/Detail, Laufzeit, tatsächlich bestätigte
+Paar. Wir stützen das Handy fest ab und halten Motiv und Licht konstant. Danach exportieren wir TEST ZIP.
+Wir prüfen Farbstich, Farbrauschen, Schrift/Detail, Laufzeit und die tatsächlich bestätigte
 Boost-Grenze. Macro-Nahfokus, bewegte Motive und Video sind damit nicht bestätigt.
 STANDARD bleibt die sichere Voreinstellung bis zum Gerätevergleich.
 
 ## Installation dieses Builds
 
 Der vorherige temporäre Debug-Signierschlüssel ist nicht verfügbar.
-Der hier ausgelieferte Build verwendet daher `-PseafrogsParallelTest=true`,
+Für den hier ausgelieferten Build verwenden wir daher `-PseafrogsParallelTest=true`,
 Paket `de.jce.seafrogs.test`, Launchername `SeaFrogs Test`. Er installiert neben
 der vorhandenen App, ohne sie zu ersetzen. Seine Einstellungen/Permissions
 sind eigenständig. Der Standard-Build behält `de.jce.seafrogs` bei.

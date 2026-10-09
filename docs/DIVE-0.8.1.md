@@ -1,5 +1,7 @@
 # 0.8.1: Tauchprofil und Mausmodi
 
+Wir bedienen unsere Kamera mit fünf Gehäuseeingaben. Diese Übersicht führen wir für RC1 fort; historische Details zu einzelnen Änderungen bleiben in den jeweiligen Versionsdokumenten.
+
 ## Verbindliche Bedienung
 
 | Eingabe | Wirkung |
@@ -14,15 +16,15 @@
 
 Ab 0.8.9 gelten die beiden Umschaltgesten sofort beim Empfang beider Richtungen, unabhängig von deren Reihenfolge. Restereignisse derselben Kombination bleiben bis 150 ms Ruhe gesperrt. Sie lösen keine Kamerabefehle aus. Gegensätzliche Richtungen bleiben ohne App-Funktion. Das Protokoll liefert kein Richtungs-Key-up: sehr schnell aufeinanderfolgende Einzelrichtungen können daher wie eine Kombination aussehen. Im klassischen Modus muss Android die Bewegung an das App-Fenster liefern; relative Achsen werden bevorzugt, sonst Positionsdifferenzen. Ohne relative Achsen können Cursor-Ränder eine Richtung abschneiden. Kein Warp, keine globalen Eingriffe und keine garantierte Kombinationserkennung am Bildschirmrand. Touch im SETUP bleibt als Rückweg verfügbar.
 
-Die einmal per Touch gewählte Maus und der Eingabemodus bleiben gespeichert. Bei Trennung bleibt die gewünschte Steuerung aktiv und wartet auf Wiederverbindung desselben Descriptors. Die App übernimmt keine unbekannte Maus automatisch. Initiale Mausauswahl bleibt notwendig.
+Wir wählen die Maus einmal per Touch aus und speichern sie zusammen mit dem Eingabemodus. Bei Trennung behalten wir die gewünschte Steuerung bei und warten auf Wiederverbindung desselben Descriptors. Wir übernehmen keine unbekannte Maus automatisch; die initiale Mausauswahl bleibt notwendig.
 
 ## Setup und Tauchansicht
 
-Gespeichertes Tauchprofil: App-Helligkeit 1–100 %, automatische Ausrichtung oder fest Hochformat/Querformat/umgekehrtes Querformat. Display bleibt an. Sensorbildrotation folgt bei fester Ausrichtung der Einstellung. Kein System-Helligkeitswechsel.
+In unserem Tauchprofil speichern wir App-Helligkeit 1–100 % sowie automatische Ausrichtung oder fest Hochformat/Querformat/umgekehrtes Querformat. Wir halten das Display an und richten das Sensorbild bei fester Ausrichtung entsprechend aus. Wir verändern dafür nur die App-Helligkeit.
 
-Ab RC1 bleiben Kamera, Zoom, EV, Foto/Video und Auslöser in beiden Mausmodi und bei geöffnetem Setup sichtbar. SETUP bleibt daneben erreichbar; sein Overlay endet oberhalb der Toolbar. Systemleisten bleiben ausgeblendet. Setup enthält Tauchprofil, format-/belichtungsbezogene Einstellungen, Video-FPS, Weißabgleich, Zoom-/EV-Zyklen und Diagnose.
+Ab RC1 lassen wir Kamera, Zoom, EV, Foto/Video und Auslöser in beiden Mausmodi und bei geöffnetem Setup sichtbar. SETUP bleibt daneben erreichbar; sein Overlay endet oberhalb der Toolbar. Wir blenden Systemleisten aus. Im Setup bearbeiten wir Tauchprofil, format-/belichtungsbezogene Einstellungen, Video-FPS, Weißabgleich und Zoom-/EV-Zyklen und erreichen die Diagnose.
 
-Zyklen sind vor dem Tauchgang editierbar: 2–8 eindeutige Werte, Zoom beginnt mit 1 und liegt zwischen 1 und 10, EV beginnt mit 0 und liegt zwischen −5 und +5. Der Controller überspringt nicht unterstützte Zoomwerte und rundet/begrenzt EV auf Kameraschritte. Macro bleibt bei zwei Stufen.
+Vor dem Tauchgang bearbeiten wir unsere Zyklen: 2–8 eindeutige Werte, Zoom beginnt mit 1 und liegt zwischen 1 und 10, EV beginnt mit 0 und liegt zwischen −5 und +5. Wir überspringen nicht unterstützte Zoomwerte und runden/begrenzen EV auf Kameraschritte. Macro bleibt bei zwei Stufen.
 
 Status: Foto/Video, Objektiv, Zoom, EV, Fotoformat und Verarbeitungsmodus, WB, Akkustand, freier Speicher, Bereitschaft/REC-Dauer. Kritischer Akku ≤10 %, Speicher unter 256 MiB, thermischer Status ab SEVERE und getrenntes Gehäuse erscheinen groß in Rot. Foto/JPEG prüft jetzt ebenfalls eine Mindestreserve von 80 MiB; RAW und Video behalten ihre bestehenden Reserven. Temperaturwarnung erzwingt keinen Aufnahmeabbruch.
 
@@ -30,6 +32,6 @@ Status: Foto/Video, Objektiv, Zoom, EV, Fotoformat und Verarbeitungsmodus, WB, A
 
 Auto und gemeldete Camera2-Presets Tageslicht/Bewölkt/Schatten sind auswählbar und gespeichert. Nicht unterstützte Presets nutzen auf einer anderen Route Auto, der Status zeigt das angewendete Profil. Manuelles Preset schaltet Extensions aus. CameraX Preview/JPEG/Video und der direkte RAW/JPEG-Aufnahmeweg erhalten dasselbe angeforderte WB-Preset; physische Sensorwirkung muss das Gerät bestätigen. RAW enthält weiterhin Sensorwerte mit Metadaten, kein eingebranntes WB-JPEG.
 
-Unterwasser flach/mittel/tief und Videolicht sind **noch nicht definiert oder implementiert**. Es gibt keine erfundenen Tiefen-/Kelvinwerte. Speicherziel bleibt fest MediaStore: Pictures/SeaFrogs und Movies/SeaFrogs. Video bleibt ohne Ton, mit Auto-Belichtung plus EV. ISO-/Digitalgrenzen gelten nur für Foto; RAW, Limits und manuelles WB schließen Extensions aus.
+Seit 0.8.2 bieten wir modellbasierte Unterwasserprofile flach (0–8 m), mittel (>8–20 m), tief (>20 m) und DL08-Flutlicht an. Für die UW-Profile wählen wir 25/50/75/100 % Stärke, standardmäßig 50 %. Modellannahmen, Sensorübertragung und Aussagegrenzen beschreiben wir in [WB-0.8.2.md](WB-0.8.2.md). Wir speichern über MediaStore in Pictures/SeaFrogs und Movies/SeaFrogs. Wir nehmen Video ohne Ton mit Auto-Belichtung plus EV auf. ISO-/Digitalgrenzen verwenden wir nur für Foto; RAW, Limits und manuelles WB schließen Extensions aus.
 
-Macro-Nahfokus, Videoauflösung/-FPS und Mausmodi benötigen spätere Geräteabnahme. Keine neue Mehrbildentwicklung und kein angeforderter Geräte-/ZIP-Test für diesen Meilenstein.
+Wir halten die positive Geräterückmeldung zu beiden Mausmodi nach 0.8.10 fest. Macro-Nahfokus hinter dem Gehäusefenster, tatsächliche Videoauflösung/-FPS, Unterwasserfarben und Dauerbetrieb prüfen wir weiterhin in der Praxis. Die Mehrbildentwicklung bleibt eingefroren.

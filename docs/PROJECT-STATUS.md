@@ -1,49 +1,31 @@
-# Ziel und verbleibende Arbeit nach 0.8.8
+# Unser Projektstand nach RC1
 
-Das Produktziel bleibt eine zuverlässige Pixel-8-Unterwasserkamera mit fünf SeaFrogs-Eingaben. Ein Build oder Unit-Test beweist keine Unterwasser-Bildqualität und keinen funktionierenden Nahfokus.
+Wir entwickeln eine zuverlässige Pixel-8-Unterwasserkamera mit fünf SeaFrogs-Eingaben. Mit **1.0.0-rc1** haben wir eine funktionierende Version erreicht. Die positive Geräterückmeldung bestätigt den trockenen Bedienbetrieb einschließlich beider Mausmodi. Unsere Softwareprüfungen und diese Rückmeldung ersetzen keine vermessene Unterwasser-Bildqualität oder einen Langzeittest.
 
-## Umgesetzt
+## Was wir umgesetzt haben
 
-Kamerasteuerung, JPEG/RAW+JPEG, EXIF, UW-/Macro-Sensorauswahl, Zoom/EV,
-Foto/Video, stille 4K-Konfiguration, Tauchprofil (Helligkeit/Ausrichtung),
-gespeicherte Mausauswahl, Wiederverbindung, reduzierter Steuerungsmodus,
-Akku-/Speicher-/Temperaturstatus, unterstützte WB-Presets, editierbare Zyklen.
-Modellbasierte WB-Profile flach/mittel/tief und DL08-Flutlicht; einstellbare
-UW-Stärke und Abgleich der gemeldeten Gains/Farbmatrix (WB-0.8.2.md).
-Aktuelle Belegung: DIVE-0.8.1.md. Neuere WB- und UI-Beschreibungen haben Vorrang:
-WB-0.8.2.md und UI-4-3.md. Größte vollständige 4:3-Fotovorschau, kompakte
-Bedienung in Randflächen und Setup als Overlay. Aufnahmeoperationen trennen
-alte Video-Rückmeldungen; RAW-Startfehler führen über den Abschluss zurück zur
-Kamera. Fehlende JPEG-/DNG-Dateien gelten als Aufnahmefehler.
+Wir steuern Kamera, Zoom, EV, Foto/Video und Auslöser über die fünf Gehäuseeingaben. Mit Links + Hoch wechseln wir zur Kamerasteuerung, mit Rechts + Runter zur klassischen Maus. Seit RC1 lassen wir alle fünf Aufnahmebuttons in beiden Modi und bei geöffnetem Setup sichtbar. Unser Setup-Overlay endet oberhalb der Toolbar; die vollständige 4:3-Fotovorschau bleibt maximal groß.
 
-## Nutzerabnahme und nächste Meilensteine (2026-10-08)
+Wir speichern JPEG oder RAW+JPEG sowie stille Videos mit angeforderter 4K30-/4K60-Konfiguration. Wir wählen Hauptkamera, UW oder Macro, bearbeiten Zoom-/EV-Zyklen und speichern Helligkeit, Ausrichtung, Mausauswahl und Eingabemodus. Wir zeigen Akku, freien Speicher, Wärme sowie Bereitschaft und Aufnahmezustand an.
 
-Nach 0.8.6 meldet der Nutzer: Alles, was er ohne SeaFrogs-Maus testen kann, funktioniert. Dies ist eine positive Funktionsabnahme am Telefon, kein unabhängiger Beleg jeder Codec-/Sensoreigenschaft oder der Unterwasser-Bildqualität. Nach der gewünschten Setup-Sortierung plant das Projekt keine weitere große Pflichtfunktion.
+Wir bieten unterstützte WB-Presets und modellbasierte Profile für flaches, mittleres und tiefes Wasser sowie DL08-Flutlicht an. Wir speichern die UW-Korrekturstärke und vergleichen angeforderte Gains/Farbmatrix mit den gemeldeten Sensorparametern. Die Modellannahmen und Grenzen halten wir in [WB-0.8.2.md](WB-0.8.2.md) fest.
 
-1. **SeaFrogs-HID:** Links/Oben/Unten/Rechts/Klick, schnelle und wiederholte Eingaben, Links+Oben für App-Steuerung, Rechts+Unten für klassische Maus, Cursor am Rand, Trennung/Wiederverbindung und zuverlässiges Auslösen. Die beiden vereinbarten Umschaltgesten bleiben die einzigen vorgesehenen Kombinationen.
-2. **Gehäuse und Wasser:** Freies Kamerafenster für beide Sensoren, Nahfokus hinter dem Gehäusefenster, WB-Farben mit und ohne DL08-Licht, ausreichende Displayhelligkeit und tatsächliche Aufnahmeverzögerung.
-3. **Dauerbetrieb:** längere stille 4K30/4K60-Aufnahmen, gespeicherte und abspielbare Dateien, Wärme, Akku und Speicher im realen Betrieb. Bei einem konkreten Fehler nur die betroffene Funktion prüfen; keine erneute allgemeine Diagnoseserie.
+Wir verwenden für normale RAW-/ISO-/Digitalgrenzen-Fotos eine offene Camera2-Sitzung. Dadurch entfällt ein Kamera-Neustart mit fester Wartezeit pro Foto. Wir verhindern veraltete Kamera-/Video-Rückmeldungen, behandeln fehlende JPEG-/DNG-Dateien als Fehler und lassen eine erfolgreich gespeicherte Aufnahme mit Grenz-Warnung in der laufenden Sitzung bestehen. Unsere Korrekturen für Rotation, WB, EV und HID dokumentieren wir in den jeweiligen Versionsprotokollen.
 
-Speicherzielauswahl bleibt optional; die aktuellen MediaStore-Ziele funktionieren als Pictures/SeaFrogs und Movies/SeaFrogs. Ein kurzer Praxisvergleich mit der Pixel-Kamera dient der Bildqualitätsbewertung. Mehrbild bleibt eingefroren.
+## Was wir vor 1.0 noch in der Praxis prüfen
 
-Fokus-Lock, manuelle Kelvin-Werte, Vibrations-/Audiofeedback und weitere Optionen bleiben optional. Keine Aufnahmegeräusche oder Vibrationen sind erforderlich. Videoton bleibt aus. Ein Gerätetest findet später gebündelt statt, nicht nach jeder Codeänderung; Diagnoseexport nur bei einer konkreten offenen Fehlerursache.
+1. **Gehäuse und Wasser:** Wir prüfen das freie Kamerafenster für beide Sensoren, Nahfokus hinter dem Fenster, Farben mit und ohne DL08, Displaylesbarkeit und tatsächliche Aufnahmeverzögerung.
+2. **Dauerbetrieb:** Wir prüfen längere stille 4K30-/4K60-Aufnahmen, abspielbare Dateien, tatsächliche Ausgabeauflösung und FPS, Wärme, Akku und Speicher im realen Betrieb.
+3. **Gezielte Fehlerprüfung:** Bei einem konkreten Fehler prüfen wir die betroffene Funktion. Wir verwenden einen Diagnoseexport, wenn er eine offene Fehlerursache klären kann. Einen gebündelten Gerätetest planen wir als gemeinsamen Meilenstein.
 
-## Dauerhafte Fotositzung (0.8.4)
+Die Gehäusebedienung haben wir anhand der positiven Rückmeldung nach 0.8.10 als funktionierend festgehalten. Damit behandeln wir die zuvor gemeldeten Umschaltabstürze als im aktuellen Bedienbetrieb behoben. Die technische Grenze nicht gelieferter relativer Mausachsen am Bildschirmrand bleibt dokumentiert.
 
-RAW+JPEG und JPEG mit ISO-/Digitalgrenze verwenden im normalen Fotomodus eine offene Camera2-Sitzung. Vorschau und Belichtungsmessung laufen vor dem Klick. Kein Kamera-Neustart und keine feste 1,5-s-Wartezeit pro Foto. Diagnosereihen behalten den unabhängigen Einzelsitzungsweg. Die neue Vorschau-/JPEG-/RAW-Streamkombination und die reale Auslösezeit brauchen noch eine Abnahme am Pixel 8.
+## Welche Optimierungen wir jetzt priorisieren
 
-## Rückmeldung 0.8.4 und Korrektur 0.8.5
+Wir priorisieren einen reproduzierbaren Release-Build, verlässliche Verteilung und anschließend messbare Verbesserungen an Eingabeprotokollierung, Oberfläche, Energiebedarf und Wartbarkeit. Unsere konkrete Reihenfolge und die jeweiligen Nachweise halten wir in [RC1-OPTIMIERUNGEN.md](RC1-OPTIMIERUNGEN.md) fest. Unsere Installationsstrategie beschreiben wir in [INSTALLATION.md](INSTALLATION.md).
 
-Nutzer meldet rechtsgedrehte Vorschau und Sitzungsabbruch nach gespeichertem Foto mit Grenz-Warnung. Korrigiert: doppelte Sensorrotation entfernt; gespeicherte Aufnahme mit Grenz-Warnung bleibt in der offenen Sitzung. Sensorgrenzen bleiben streng geprüft. Tatsächliche AE-/ISO-/Zeitursache aus dem Screenshot nicht bestimmbar; Anzeige und Metadaten benennen nun die konkrete Abweichung.
+Wir behalten Pictures/SeaFrogs und Movies/SeaFrogs als funktionierende Speicherziele. Speicherzielauswahl, Fokus-Lock und manuelle Kelvin-Werte bleiben optionale Erweiterungen. Wir benötigen weder Aufnahmegeräusche noch Vibrationen; Videoton bleibt aus. Für die Bildqualitätsbewertung vergleichen wir dieselbe Szene mit der Pixel-Kamera. Die Mehrbildentwicklung bleibt eingefroren.
 
-## WB-/EV-Korrektur 0.8.6
+## Wie wir den Stand einordnen
 
-WB-Statusanzeige und Sitzungsabschluss verhindern veraltete Profilindizes bei Presetwechseln. EV zeigt sofort die gewünschte Stufe; schnelle Folgen verwerfen veraltete Rückmeldungen. Camera2-Requestbestätigung ist von physischer Sensormetadaten-Verfügbarkeit getrennt. AE-Konvergenz bleibt hardwareabhängig.
-
-## Gemeinsamer Setup-Block 0.8.7
-
-Fotoformat und ISO-/Digitalgrenzen sind jetzt einzelne Setup-Einträge neben den übrigen Voreinstellungen; die separate Zeile entfällt. Tauchansicht und 4:3-Fotovorschau behalten ihre Anordnung.
-
-## Oberflächenbereinigung 0.8.8
-
-Entfernt aus der UI: Macrotest, Testabbruch, Kameradaten/Diagnose-ZIP, Qualitätsumschaltung sowie bereits verborgene Mehrbild-Test-/Exportbutton-Instanzen. Diagnosefunktionen bleiben als Quelltext erhalten. Mausauswahl, HID-Diagnose und Neustart bleiben im Setup bis zur Gehäuseabnahme.
+Wir verwenden [DIVE-0.8.1.md](DIVE-0.8.1.md), [UI-4-3.md](UI-4-3.md) und [RC1.md](RC1.md) für die aktuelle Bedienung. In älteren Versionsdokumenten bewahren wir damalige Ergebnisse, Testabläufe und offene Punkte. Ihre Aussagen gelten für den jeweils genannten Stand. Die dort beschriebenen früheren Test-/Exportbuttons sind in RC1 teilweise entfernt.

@@ -2,6 +2,8 @@ Historisches Architekturprotokoll. Aktuell gelten nur zwei Macro-Stufen gemäß 
 
 # Objektivmodi 0.3.0-lenses
 
+Wir dokumentieren hier die ursprüngliche Auswahl unserer Objektivmodi.
+
 Der Meilenstein 0.4.0 baut diesen Objektivcode erfolgreich. Pixel-8-Prüfung noch offen.
 
 | Modus | Ausgabe | Fokus |
@@ -16,7 +18,7 @@ und kein Nahfokus garantiert; Macro muss am realen Motiv abgenommen werden.
 
 ## Auswahl ohne fest hinterlegte Kamera-IDs
 
-CameraLensCatalog liest öffentliche rückseitige CameraX-Kameras sowie, ab
+Mit CameraLensCatalog lesen wir öffentliche rückseitige CameraX-Kameras sowie, ab
 API 28, deren physische Camera2-Sensoren. JPEG-Ausgabe und optische Metadaten
 sind Voraussetzung. Brennweite geteilt durch Sensorbreite dient als Vergleich
 des horizontalen Bildfelds. Als Referenz dient der Sensor, dessen Größe und
@@ -38,11 +40,11 @@ kann später unverändert an den HID-Adapter angebunden werden. Keine Annahme
 über Gehäuseevents ist enthalten. Nicht verfügbare Schritte behalten die bisherige
 Kamera und melden den Grund; beim nächsten Befehl folgt der nächste Zyklusschritt.
 
-Beim Binden oder Zurücksetzen des Zooms wird bei einem Fehler einmal versucht,
+Beim Binden oder Zurücksetzen des Zooms versuchen wir bei einem Fehler einmal,
 den vorherigen Modus neu zu öffnen. Eine zweite Fehlermeldung fordert Neustart.
-Asynchrone Rückmeldungen alter Sitzungen werden über Generationen ignoriert.
+Wir ignorieren asynchrone Rückmeldungen alter Sitzungen über Generationen.
 Macro-AF nutzt FocusMeteringAction mit zweisekündiger Auto-Cancel-Absicherung.
-Nach Abschluss wird cancelFocusAndMetering explizit aufgerufen, damit die
+Nach Abschluss rufen wir cancelFocusAndMetering explizit auf, damit die
 vorübergehende AF-Sperre nicht den laufenden Autofokus ersetzt.
 
 Quellen:

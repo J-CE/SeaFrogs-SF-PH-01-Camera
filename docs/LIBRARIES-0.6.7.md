@@ -1,5 +1,9 @@
 # Bibliotheksprüfung und Datentest 0.6.7
 
+Wir vergleichen in diesem historischen Meilenstein Bibliothekskandidaten und sammeln die dafür erforderlichen Originaldaten.
+
+Wir bewahren diesen Ablauf als historischen Versionsstand. In RC1 sind die damaligen Test-/Exportbuttons teilweise entfernt; für die heutige Bedienung verwenden wir [DIVE-0.8.1.md](DIVE-0.8.1.md) und [RC1.md](RC1.md).
+
 ## Was bisher gemessen ist
 
 Der hochgeladene 0.6.6-Qualitätsvergleich enthält sieben gespeicherte JPEGs,
@@ -47,12 +51,12 @@ ist keine allgemeine Camera2-/CameraX-Garantie.
 
 ## Einmaliger Test auf dem Pixel
 
-1. Mindestens 1 GB frei lassen. Handy fest abstützen; bedrucktes Motiv mit
-   feinen Details etwa 50 cm entfernt, gleichbleibendes Licht.
-2. BIB-TEST drücken, Test starten bestätigen. Motiv und Handy still halten.
-3. Warten, bis LIBRARY fertig erscheint. Nicht unterstützte RAW-/Extension-
+1. Wir lassen mindestens 1 GB frei und stützen das Handy fest ab. Wir platzieren ein bedrucktes Motiv mit
+   feinen Details etwa 50 cm entfernt bei gleichbleibendem Licht.
+2. Wir drücken BIB-TEST und bestätigen Test starten. Motiv und Handy halten wir still.
+3. Wir warten, bis LIBRARY fertig erscheint. Nicht unterstützte RAW-/Extension-
    Schritte werden mit Grund gemeldet; fehlende Serien sind kein Vergleich.
-4. BIB ZIP speichern, auf Export gespeichert warten, anschließend ZIP senden.
+4. Wir speichern BIB ZIP, warten auf Export gespeichert und senden anschließend die ZIP.
    Größenordnung 250 MB. Macrotest ist separat; sein Export heißt DIAGNOSE ZIP.
 
 Je Hauptkamera/UW entstehen fünf RAW+JPEG-Paare bei fixierter Belichtung,
@@ -75,12 +79,12 @@ Zuordnung, fixe Einstellungen, CFA/Schwarz-/Weißpegel, RAW-Größen und fünf
 unterschiedliche Sensorframes. Sie erzeugt keine Qualitätsnote. Original-DNGs
 bleiben unverändert. Eine ältere ZIP ohne RAW-Serie wird zurückgewiesen.
 
-Danach: beide vollständigen Engines mit denselben RAWs, dokumentierter
-Metadaten-Konvertierung und kontrollierter Ausgabegröße ausführen; Single-
+Danach führen wir beide vollständigen Engines mit denselben RAWs, dokumentierter
+Metadaten-Konvertierung und kontrollierter Ausgabegröße aus. Wir vergleichen Single-
 Frame-Referenz, Rauschen in flachen Bereichen, Detailerhalt, Farbwiedergabe,
-Artefakte, Laufzeit und Speicherbedarf vergleichen. Keine Gewinnerentscheidung
-vor tatsächlichen Ergebnissen. Erst anschließend die passende Engine integrieren
-und Aufnahmezeit, Bewegung, Temperatur und Macro auf dem Pixel prüfen.
+Artefakte, Laufzeit und Speicherbedarf. Wir treffen die Auswahl anhand tatsächlicher
+Ergebnisse. Erst anschließend integrieren wir die passende Engine
+und prüfen Aufnahmezeit, Bewegung, Temperatur und Macro auf dem Pixel.
 
 ## Primärquellen
 

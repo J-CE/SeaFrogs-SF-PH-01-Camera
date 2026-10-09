@@ -1,5 +1,7 @@
 # Build-Status 0.2.0-photo
 
+Wir dokumentieren hier unsere Build- und Prüfergebnisse in zeitlicher Reihenfolge. Die Aussagen zur Geräteabnahme gelten jeweils für den genannten Versionsstand; den aktuellen Stand halten wir in [RC1.md](RC1.md) fest.
+
 2026-10-07: **assembleDebug und lintDebug erfolgreich** mit AGP 8.9.2,
 Gradle 8.11.1, Kotlin 2.1.20, JDK 17 und Android SDK 35.
 Die Debug-APK trägt Paket de.jce.seafrogs, versionCode 2 und
@@ -7,7 +9,7 @@ versionName 0.2.0-photo. apksigner bestätigt ihre APK-v2-Signatur.
 
 Lint: 0 Fehler, 30 Warnungen. Die Warnungen betreffen Ressourcen/Lokalisierung,
 KTX-Stil, fehlendes Launcher-Icon und die noch nicht explizit definierten
-Android-12-Datenübertragungsregeln. Die App setzt allowBackup=false.
+Android-12-Datenübertragungsregeln. Unsere App setzt allowBackup=false.
 Compilerwarnungen betreffen ältere, auf API 26 weiterhin gültige WindowInsets-APIs.
 
 Die erste Kotlin-Kompilierung fand einen IntArray/mapNotNull-Fehler in der
@@ -18,13 +20,13 @@ Der abschließende Build prüft sowohl Kamera- als auch Diagnosecode.
 Gehäuseeingaben auf dem Pixel 8. CAMERA-TEST.md und PIXEL8-TEST.md beschreiben
 beide getrennten Hardware-Meilensteine. Keine gemessenen HID-Events liegen vor.
 
-Erneuter lokaler Meilenstein bei Bedarf:
+Bei Bedarf wiederholen wir den lokalen Meilenstein mit:
 
 ```powershell
 .\gradlew.bat :app:assembleDebug :app:lintDebug
 ```
 
-GitHub-Schreibzugriff bestätigt. Source auf main übertragen.
+Wir haben den GitHub-Schreibzugriff bestätigt und den Quelltext auf main übertragen.
 
 ## Quelltext 0.3.0-lenses
 
@@ -49,7 +51,7 @@ APK-SHA256:
 
 Der neue Debug-Schlüssel unterscheidet sich vom Schlüssel der ausgelieferten
 0.2.0-APK. Eine bestehende Installation dieser APK muss vor Installation von
-0.4.0 entfernt werden; vorher benötigte HID-Protokolle exportieren.
+0.4.0 entfernt werden; vorher exportieren wir benötigte HID-Protokolle.
 
 Die Build-Umgebung benötigte eine erneute Abhängigkeitsbeschaffung und den
 JDK-17-Compiler. Diese Umgebungsarbeiten ändern keine Projektversionen.
@@ -243,7 +245,7 @@ APK-SHA256: 761f100e02dfb5dbe7830b5ae952eec653d57706537e317d1901552ea61e2f6e
 Der bisherige Export schreibt das große ZIP direkt in einen bereits angelegten
 SAF-Zielstream und zeigt keinen Fortschritt. Eine anfänglich leere Zieldatei
 allein unterscheidet Wartezeit und Schreibfehler nicht. Die konkrete Ursache
-der vom Nutzer gemeldeten 0-Byte-Datei ist ohne Gerätelog nicht bestätigt.
+der uns gemeldeten 0-Byte-Datei ist ohne Gerätelog nicht bestätigt.
 
 Der neue Export erstellt ein geschlossenes lokales ZIP, prüft alle Einträge
 auf Länge und CRC, öffnet dann erst den Zielstream mit Truncate-Modus und
@@ -259,7 +261,7 @@ anlegen; erst die Abschlussmeldung bestätigt den Export. Ein Prozessabbruch
 oder ein Speicheranbieterfehler kann eine leere/teilweise Zieldatei zurücklassen.
 Ein Gerätexport muss die Korrektur abnehmen. Neue Aufnahmen sind dafür nicht
 erforderlich: Ergebnisse/MediaStore-Dateien aus 0.6.7 bleiben beim Update erhalten.
-Nicht deinstallieren. Zielgruppe bleibt auch bei Neuerstellung der Activity im
+Wir behalten die bestehende Installation. Zielgruppe bleibt auch bei Neuerstellung der Activity im
 Dateiauswahldialog erhalten. Während des Exports sperrt die UI weitere Tests
 und HID-Kamerabefehle.
 
@@ -285,9 +287,9 @@ reproduziert RAW-NPY und beide MAIN-JPEGs bitidentisch. Synthetische globale
 Translationen prüfen die Ausrichtung zusätzlich. Beide Fusionkerne lassen
 sich als Android-ARM64-AOT-Archive erzeugen.
 
-Entscheidung: MIT-HDR+-Fusion als Grundlage für die nächste Integration.
+Wir wählen in diesem damaligen Meilenstein MIT-HDR+-Fusion als Grundlage für die nächste Integration.
 Messungen/Methodik/Grenzen in LIBRARY-RESULTS-2026-10-08.md. Standalone-Testcode
-unter tools/library-benchmark ist GPL-3.0-only; die App bindet ihn nicht ein.
+unter tools/library-benchmark ist GPL-3.0-only; unsere App bindet ihn nicht ein.
 Keine neue APK, keine Änderung am Android-Kameracode. ARM64-Codegenerierung
 ist kein JNI-/Gerätetest. Neue Bildpipeline braucht die Pixel-Abnahme.
 
@@ -498,8 +500,8 @@ Geräteabnahme von WB-Wechsel und EV-Reaktionszeit bleibt ausstehend.
 ## 0.8.7-setup, 2026-10-08
 
 Fotoformat und ISO-/Digitalgrenzen stehen im gemeinsamen Setup-Block.
-Die separate Zweierzeile entfällt. Nutzer bestätigt den ohne SeaFrogs-Maus
-prüfbaren Betrieb von 0.8.6; nächste Meilensteine sind HID und Wasserpraxis.
+Die separate Zweierzeile entfällt. Wir halten die positive Geräterückmeldung zum ohne SeaFrogs-Maus
+prüfbaren Betrieb von 0.8.6 fest; nächste Meilensteine sind HID und Wasserpraxis.
 APK-Paket de.jce.seafrogs.test, versionCode 26, versionName 0.8.7-setup.
 assembleDebug, lintDebug und testDebugUnitTest erfolgreich.
 66 Tests, 0 Fehler, 0 übersprungene Tests. Lint: 0 Fehler, 91 Warnungen.
@@ -518,3 +520,9 @@ assembleDebug, lintDebug und testDebugUnitTest erfolgreich.
 Signatur SHA-256: 87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57.
 APK SHA-256: 2c016497c5e4e7c0cace543f3f418f0c1061c7da31cf3760b144160aad4678cd.
 Signatur, Paketversion und 16-KiB-ZIP-Ausrichtung geprüft.
+
+## RC1 und Dokumentationsreview, 2026-10-09
+
+Wir haben RC1 als `de.jce.seafrogs.test`, versionCode 30, versionName `1.0.0-rc1` ausgeliefert. Für den RC1-Build haben wir 75 bestandene Tests, 0 Fehler und 0 übersprungene Tests sowie erfolgreiche Build-/Lint-, Signatur- und 16-KiB-ZIP-Prüfungen dokumentiert. Die positive Geräterückmeldung zum Bedienbetrieb nach 0.8.10 halten wir in [RC1.md](RC1.md) fest.
+
+In diesem anschließenden Review stellen wir unsere eigene Dokumentation auf die erste Person Plural um, aktualisieren überholte aktuelle Bedienhinweise und kennzeichnen historische Testabläufe. Wir ergänzen [Installation und Verteilung](INSTALLATION.md) sowie [Optimierungsvorschläge](RC1-OPTIMIERUNGEN.md). Wir ändern keinen Programmcode und erzeugen keine neue APK. Wir prüfen Dokumentationsumfang, relative Links, unveränderte Befehlsblöcke und Diff-Formatierung; Build und Kamera-/HID-Tests wiederholen wir für diesen reinen Dokumentationsstand nicht.

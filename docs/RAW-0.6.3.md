@@ -1,8 +1,12 @@
 # RAW + JPEG 0.6.3
 
+Wir ergänzen in diesem Meilenstein RAW+JPEG und prüfen Dateiformat, Metadaten und Sensorzuordnung.
+
+Wir bewahren diesen Ablauf als historischen Versionsstand. In RC1 sind die damaligen Test-/Exportbuttons teilweise entfernt; für die heutige Bedienung verwenden wir [DIVE-0.8.1.md](DIVE-0.8.1.md) und [RC1.md](RC1.md).
+
 ## Bedienung und Test
 
-FORMAT öffnet die Auswahl JPEG only / RAW + JPEG (DNG). Die App speichert die
+Über FORMAT wählen wir JPEG only / RAW + JPEG (DNG) und speichern unsere
 Wahl vor dem Tauchgang. Im RAW-Modus bleibt STANDARD aktiv; Extensions lassen
 sich nur bei JPEG-only wählen. FOTO und der HID-Klick verwenden dieselbe Wahl.
 
@@ -19,7 +23,7 @@ Historische Ergebnisse ändern sich erst beim erneuten Lauf dieser Testgruppe.
 
 ## Aufnahmeweg
 
-JPEG-only nutzt weiterhin CameraX 1.4.2 und die bestätigte UW-Auflösungswahl.
+Für JPEG-only nutzen wir in diesem Versionsstand weiterhin CameraX 1.4.2 und die bestätigte UW-Auflösungswahl.
 RAW+JPEG gibt vorübergehend die CameraX-Use-Cases frei und öffnet eine eigene
 kurze Camera2-Session. Die Vorschau pausiert während dieser Aufnahme, der
 Status und gesperrte Bedienelemente zeigen den Vorgang. Anschließend schließt
@@ -28,7 +32,7 @@ Die RAW-Session verwendet denselben ermittelten Kameraroute, keine festen IDs.
 
 JPEG und RAW sind Ziele derselben Still-Capture-Anforderung. DNG verwendet die
 Characteristics und den CaptureResult des gewählten Sensors, bei gepinntem UW
-die physischen Werte. Die App verlangt übereinstimmende Sensorzeitstempel von
+die physischen Werte. Wir verlangen übereinstimmende Sensorzeitstempel von
 JPEG, RAW und CaptureResult. Fehlende physische Metadaten, unpassende Größen
 oder nicht unterstützte Streamkombinationen melden einen Fehler; kein
 stillschweigender Wechsel auf eine andere Kamera oder JPEG-only.
@@ -55,7 +59,7 @@ wiederholt werden. Auf Android 8/9 gilt weiterhin Legacy-Speicherberechtigung.
 
 ## Abnahme
 
-Neue Hardwareprüfung erforderlich: DNG-Abmessungen und Rohdatenstruktur,
+Für die neue Hardwareprüfung untersuchen wir: DNG-Abmessungen und Rohdatenstruktur,
 korrekte physische Sensor-/Farbmetadaten, JPEG/DNG-Paarung, Orientierung,
 Vorschau-Rückkehr und wiederholte HID-Auslösung. Build und bestehende
 Unit-Tests ersetzen diese Geräteprüfung nicht.

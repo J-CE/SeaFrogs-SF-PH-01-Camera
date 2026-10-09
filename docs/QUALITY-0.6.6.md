@@ -1,12 +1,16 @@
 # Kontrollierter Bildverarbeitungstest 0.6.6
 
+Wir vergleichen in diesem Meilenstein die angebotenen JPEG-Verarbeitungsmodi unter kontrollierten Aufnahmebedingungen.
+
+Wir bewahren diesen Ablauf als historischen Versionsstand. In RC1 sind die damaligen Test-/Exportbuttons teilweise entfernt; für die heutige Bedienung verwenden wir [DIVE-0.8.1.md](DIVE-0.8.1.md) und [RC1.md](RC1.md).
+
 ## Gerätetest
 
-1. APK als Update installieren. Smartphone fest auflegen/abstützen, Kamera
-   ungefähr 50 cm vor ein bedrucktes Motiv mit feinen Details richten.
-   Beleuchtung konstant halten. Der Test setzt ISO-Grenzen selbst aus.
-2. QUALITÄTSTEST starten. Während des gesamten Ablaufs nichts bewegen und
-   keine Tasten drücken. Die App nimmt bis zu sieben JPEGs auf:
+1. Wir installieren die APK als Update. Wir legen das Smartphone fest auf oder stützen es ab und richten die Kamera
+   ungefähr 50 cm vor ein bedrucktes Motiv mit feinen Details.
+   Wir halten die Beleuchtung konstant. Der Test setzt ISO-Grenzen selbst aus.
+2. Wir starten QUALITÄTSTEST. Während des gesamten Ablaufs bewegen wir nichts und
+   drücken keine Tasten. Unsere App nimmt bis zu sieben JPEGs auf:
 
 | Kamera | Variante | Steuerung |
 | --- | --- | --- |
@@ -18,8 +22,8 @@
 | UW | NR_EDGE_HIGH_QUALITY | HQ-Entrauschen und HQ-Schärfung |
 | Hauptkamera | NIGHT_REFERENCE | unabhängige OEM-Extension, sofern verfügbar |
 
-3. Bis QUALITY fertig warten. QUALITÄT ZIP exportieren und erst nach der
-   Meldung Export gespeichert hochladen. Das Paket enthält nur die neue
+3. Wir warten bis QUALITY fertig, exportieren QUALITÄT ZIP und laden sie erst nach der
+   Meldung Export gespeichert hoch. Das Paket enthält nur die neue
    QUALITY-Gruppe, Protokoll, Ergebnis- und Kamera-Fähigkeitsbericht.
 
 Die neuen Tasten liegen im scrollbar gestalteten Steuerbereich. NORMALTEST
@@ -37,7 +41,7 @@ speichert dann das erste JPEG. Die beiden folgenden Varianten übernehmen
 die tatsächlich gemeldeten Werte dieses erfolgreichen Referenzfotos.
 
 Jeder native Vergleich pausiert die CameraX-Vorschau, verwendet aber denselben
-JPEG-Aufnahmeweg und die gleiche Auflösung/Zoom/EV je Sensor. Die App prüft
+JPEG-Aufnahmeweg und die gleiche Auflösung/Zoom/EV je Sensor. Unsere App prüft
 die Werte am Sensor-CaptureResult und die JPEG-/Result-Zeitstempel. Pinned
 UW-Ausgaben benötigen passende physische Ergebnisse; keine logische Ersatz-
 Telemetrie und kein stiller Wechsel zur Hauptkamera. Fehlende Referenz oder
@@ -48,7 +52,7 @@ Prüftoleranzen: identische Sensor-ISO/Post-RAW-Gain, Zeit 0.1 Prozent oder
 20 Mikrosekunden, Fokus 0.02 Dioptrien oder 0.1 Prozent, WB-Gains/Matrix
 0.5 Prozent oder absolut 0.005. Zusätzlich AE/AWB/AF OFF und keine gemeldete
 Linsenbewegung. AF 0 während einer fixierten Aufnahme ist hier erwartbar;
-der vorgeschaltete AF bestätigt die Referenz, danach prüft die App die
+der vorgeschaltete AF bestätigt die Referenz, danach prüft unsere App die
 manuelle Fokusposition. Die Kamera-Fähigkeitsabfrage enthält jetzt edgeModes.
 
 sensorCapture dokumentiert comparisonRequestedSettings, comparisonActualSettings,
@@ -56,13 +60,13 @@ exposureFrozenVerified, whiteBalanceFrozenVerified, focusFrozenVerified,
 processingVerified, comparisonVerified und die tatsächlichen NR-/Edge-Modi.
 NR/Edge 0 = OFF, 1 = FAST, 2 = HIGH_QUALITY. DEFAULT ist die unveränderte
 Still-Template-Wahl für NR/Edge; die Szenensteuerung ist bereits fixiert.
-Die App meldet damit auch, wenn DEFAULT ohnehin HQ verwendet und eine
+Unsere App meldet damit auch, wenn DEFAULT ohnehin HQ verwendet und eine
 ausdrückliche HQ-Anforderung keine neue Verarbeitung aktiviert.
 
 NIGHT ist eine separate Referenz: Die Extension besitzt eigene Automatik,
 Mehrbild-/Verarbeitungsentscheidungen und Auflösungswahl. Sie übernimmt nicht
 die fixierten Szenenwerte. Der Bericht kennzeichnet sie als
-INDEPENDENT_EXTENSION_REFERENCE; die App injiziert keine manuellen
+INDEPENDENT_EXTENSION_REFERENCE; unsere App injiziert keine manuellen
 Camera2-Parameter in die Extension. Ihr AF-Status bleibt UNVERIFIED_EXTENSION.
 
 Keine automatische Rausch-/Schärfebewertung, kein Versprechen einer Pixel-

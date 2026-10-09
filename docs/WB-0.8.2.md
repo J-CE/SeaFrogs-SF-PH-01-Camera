@@ -1,5 +1,7 @@
 # Weißabgleich 0.8.2
 
+Wir leiten unsere Unterwasserprofile aus veröffentlichten Daten und ausdrücklich benannten Modellannahmen ab.
+
 ## Bedienung
 
 SETUP → WEISSABGLEICH: Auto, unterstützte Camera2-Lichtpresets sowie
@@ -14,7 +16,8 @@ Grund und verwendet sichtbar Auto. Manuelle Profile schließen Extensions aus.
 
 ## Daten und Modell
 
-Keine frei erfundenen Kelvinwerte für die drei Tiefen. Weißpunkte entstehen aus:
+Wir leiten die Weißpunkte für die drei Tiefen aus folgenden Daten und Rechenschritten ab:
+
 - Pope/Fry (1997), Absorptionsspektrum reinen Wassers, 380–700 nm, DOI 10.1364/AO.36.008710.
   OMLC-Transkription, Einheiten 1/cm → 1/m.
 - CIE D65, DOI 10.25039/CIE.DS.hjfjmt59, sowie CIE 1931 2°,
@@ -22,7 +25,7 @@ Keine frei erfundenen Kelvinwerte für die drei Tiefen. Weißpunkte entstehen au
 - Beer-Lambert: S(λ)=D65(λ)·exp(−a(λ)·L), anschließend XYZ-Integration bei 1 nm
   im Bereich 380–700 nm und Normierung auf Y=1.
 
-Die vom Nutzer festgelegten Bereiche brauchen für ein einzelnes Preset eine
+Unsere vereinbarten Bereiche brauchen für ein einzelnes Preset eine
 repräsentative Modellposition: 4 m, 14 m, 25 m. Dazu kommt jeweils 1 m Motivabstand,
 also Modellwege von 5/15/26 m. Das sind ausdrücklich Implementierungsannahmen,
 keine gemessenen Grenztiefen. Der Bereich >20 m bedeutet nicht identische
@@ -31,18 +34,18 @@ Schwebstoffe/gelöste Stoffe noch Streuung, Sonnenwinkel, Hintergrundlicht oder
 individuelle Motivabstände. Daher sind die Profile modellbasierte Startprofile
 für klares Wasser, keine kalibrierten Meerwasserprofile und keine Sea-Thru-Restaurierung.
 
-Die früher gefundene Haifa-RAW-Sammlung wurde nicht numerisch ausgewertet oder
+Wir haben die früher gefundene Haifa-RAW-Sammlung nicht numerisch ausgewertet oder
 für diese Koeffizienten verwendet. Ihr Vorhandensein allein liefert keine
-Pixel-Werte. Hauptkamera-DNG aus dem vorhandenen Nutzer-Export diente nur zur
+Pixel-Werte. Hauptkamera-DNG aus unserem vorhandenen Geräteexport diente nur zur
 Plausibilitätsprüfung der Sensorübertragung, nicht zur Unterwasser-Kalibrierung.
 
 ## Sensorübertragung
 
-Die App liest pro Route D65-ColorMatrix, CameraCalibration und ForwardMatrix.
+Wir lesen pro Route D65-ColorMatrix, CameraCalibration und ForwardMatrix.
 ColorMatrix und Calibration übertragen XYZ in angenäherte Sensor-Neutralwerte.
 Inverse Neutralwerte ergeben Bayer-Gains. Die Korrekturstärke interpoliert
 logarithmisch zwischen D65 und dem modellierten Wasser-Weißpunkt.
-Der kleinste Gain wird auf 1 normalisiert. Eine feste D65-Kalibrierungsmatrix
+Wir normalisieren den kleinsten Gain auf 1. Eine feste D65-Kalibrierungsmatrix
 ist eine lineare Näherung für gefilterte Spektren und ersetzt keine spektralen
 Empfindlichkeitskurven des Pixel-Sensors. Hauptkamera und UW verwenden getrennte
 Metadaten. Nichtdiagonale Calibration-Matrizen benötigen ein erweitertes Modell
@@ -58,7 +61,7 @@ flach 4,146/1/1,247; mittel 9,358/1,062/1; tief 18,437/1,404/1.
 Die G-Even/Odd-Werte sind gleich. Das demonstriert die aggressive Verstärkung
 bei voller Neutralisierung, keine bestätigte Aufnahmequalität.
 Camera2 garantiert nur Gains von 1 bis 3 ohne Begrenzung. Höhere Werte bleiben
-Anforderungen; die App vergleicht Sensorresultate mit Gains/CCM und zeigt
+Anforderungen; unsere App vergleicht Sensorresultate mit Gains/CCM und zeigt
 WB ANGEWENDET, WB NICHT BESTÄTIGT oder WB ABWEICHEND / LIMITIERT.
 Angewendet bedeutet Parameterübernahme, nicht nachgewiesene Farbtreue.
 Fotoaufnahme bleibt bei Warnung möglich. RAW/JPEG protokolliert zusätzlich den
@@ -78,11 +81,11 @@ https://wurkkos.com/products/wurkkos-dl08-3600lm-rechargeable-diving-light
 
 ## Reproduzierbarkeit und Lizenz
 
-python3 tools/wb-model/derive.py erzeugt whitepoints.json (numpy erforderlich).
+Mit python3 tools/wb-model/derive.py erzeugen wir whitepoints.json (numpy erforderlich).
 CIE-abgeleitete Datendatei: CC BY-SA 4.0, Attribution/Änderungen auch in APK.
 App-Implementierung: Apache 2.0. Kein Forschungsbild oder fremder
 Bildrestaurierungs-Code wird übernommen.
 
-Softwareprüfung deckt Neutralisierung, Stärke, grauerhaltende CCM,
+Mit unserer Softwareprüfung decken wir Neutralisierung, Stärke, grauerhaltende CCM,
 Erkennung begrenzter Gains und ungültiger Sensorwerte ab. Ein Pixel-/Tauchtest
 steht aus. Keine neue ZIP-Anforderung und kein behaupteter Qualitätsgewinn.

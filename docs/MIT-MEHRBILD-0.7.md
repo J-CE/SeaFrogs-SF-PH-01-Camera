@@ -1,13 +1,17 @@
 # MIT-Mehrbildmodus 0.7.0
 
+Wir dokumentieren hier unseren experimentellen MIT-Mehrbildmodus aus 0.7.0.
+
+Wir bewahren diesen Ablauf als historischen Versionsstand. In RC1 sind die damaligen Test-/Exportbuttons teilweise entfernt; für die heutige Bedienung verwenden wir [DIVE-0.8.1.md](DIVE-0.8.1.md) und [RC1.md](RC1.md).
+
 ## Ein einfacher Gerätetest
 
-1. APK als Update installieren. Handy abstützen, ein Buch oder feinen Druck
-   ungefähr 50 cm entfernt aufstellen, gleichbleibendes Licht.
-2. **MEHRBILD TEST**, dann START drücken und warten. Keine Gehäusetasten während
-   des Tests. Die App prüft MAIN, UW und MAIN mit ISO 800 automatisch.
-3. **TEST ZIP** drücken, Ziel auswählen, auf **Export gespeichert** warten und
-   das ZIP hochladen. Es enthält maximal sechs JPEGs plus Messdaten, keine DNGs.
+1. Wir installieren die APK als Update. Wir stützen das Handy ab und stellen ein Buch oder feinen Druck
+   ungefähr 50 cm entfernt bei gleichbleibendem Licht auf.
+2. Wir drücken **MEHRBILD TEST**, dann START und warten. Wir betätigen während
+   des Tests keine Gehäusetasten. Unsere App prüft MAIN, UW und MAIN mit ISO 800 automatisch.
+3. Wir drücken **TEST ZIP**, wählen das Ziel aus, warten auf **Export gespeichert** und
+   laden die ZIP hoch. Es enthält maximal sechs JPEGs plus Messdaten, keine DNGs.
 
 Die JPEG-Paare heißen *_standard.jpg und *_mehrbild.jpg. STANDARD ist das
 erste JPEG aus derselben fixierten Aufnahme. MEHRBILD verarbeitet die fünf
@@ -16,12 +20,12 @@ Das Referenz-JPEG bleibt auch dann gespeichert. Keine Qualitätsnote wird erfund
 
 ## Freie Aufnahmen
 
-Über die vorhandene Qualitätstaste MEHRBILD wählen; STANDARD bleibt der Start-
+Über die vorhandene Qualitätstaste wählen wir MEHRBILD; STANDARD bleibt der Start-
 Standard bis zur Geräteabnahme. Ein Auslösen nimmt fünf Bilder auf, danach folgt
 Verarbeitung. Währenddessen ist die Vorschau pausiert und die Eingabe gesperrt.
-Bitte ruhig halten. Bei Erfolg liegen normales JPEG und *_MEHRBILD.jpg in
+Wir halten das Smartphone ruhig. Bei Erfolg liegen normales JPEG und *_MEHRBILD.jpg in
 Pictures/SeaFrogs. RAW+JPEG speichert zusätzlich das erste unveränderte DNG.
-Die App behält keine fünf DNGs pro freiem Foto. Der Modus ist auch für Macro/UW
+Unsere App behält keine fünf DNGs pro freiem Foto. Der Modus ist auch für Macro/UW
 vorgesehen; echter Macro-Nahfokus muss gesondert am nahen Motiv bestätigt werden.
 
 LEFT: MAIN → MACRO → UW. UP: MAIN 1/1,5/3/5×, UW 1/1,5/2/3×, Macro 0,5×/1×
@@ -50,7 +54,7 @@ Keine Rekonstruktion ausgebrannter Highlights durch Belichtungsreihen, keine
 proprietäre Google-Pipeline. UW-Verzeichnungskorrektur und bewegte Unterwasser-
 Motive sind noch nicht abgenommen. Bewegungsartefakte bleiben ein Testpunkt.
 
-Nächster Meilenstein: echtes Pixel-8-Ergebnis dieses kleinen Tests auswerten:
+Als nächsten Meilenstein werten wir das echte Pixel-8-Ergebnis dieses kleinen Tests aus:
 nativeFusionApplied, Sensor/Metadatenzuordnung, ISO-Grenze, Aufnahme-/Verarbeitungs-
 dauer, Ausgabefarbe, Auflösung, RAM/Temperatur. Danach Nahfokus und bewegtes Motiv.
 
