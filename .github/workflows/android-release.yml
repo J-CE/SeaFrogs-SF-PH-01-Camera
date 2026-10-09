@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-24.04
     environment: release
     env:
-      SEAFROGS_RELEASE_KEYSTORE: ${{ runner.temp }}/seafrogs-release.jks
       SEAFROGS_RELEASE_STORE_PASSWORD: ${{ secrets.SEAFROGS_RELEASE_STORE_PASSWORD }}
       SEAFROGS_RELEASE_KEY_ALIAS: ${{ secrets.SEAFROGS_RELEASE_KEY_ALIAS }}
       SEAFROGS_RELEASE_KEY_PASSWORD: ${{ secrets.SEAFROGS_RELEASE_KEY_PASSWORD }}
@@ -22,7 +21,12 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d
+      - name: Set the private signing path
+        run: echo "SEAFROGS_RELEASE_KEYSTORE=$RUNNER_TEMP/seafrogs-release.jks" >> "$GITHUB_ENV"
       - name: Restore the private release key
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.SEAFROGS_RELEASE_KEYSTORE_BASE64 }}
