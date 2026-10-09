@@ -7,8 +7,11 @@ import java.util.zip.ZipFile
 
 /** Validate a closed local archive before opening/truncating the selected destination. */
 object VerifiedExport {
-    fun copy(archive: File, openDestination: () -> OutputStream,
-             progress: (Long, Long) -> Unit = { _, _ -> }): Long {
+    fun copy(
+        archive: File,
+        openDestination: () -> OutputStream,
+        progress: (Long, Long) -> Unit = { _, _ -> },
+    ): Long {
         require(archive.length() > 0) { "Internes ZIP ist leer" }
         ZipFile(archive).use { zip ->
             require(zip.size() > 0) { "Internes ZIP enthält keine Dateien" }
@@ -28,7 +31,9 @@ object VerifiedExport {
                         count += read
                     }
                 }
-                check(count == entry.size && crc.value == entry.crc) { "ZIP-Prüfung fehlgeschlagen: ${entry.name}" }
+                check(count == entry.size && crc.value == entry.crc) {
+                    "ZIP-Prüfung fehlgeschlagen: ${entry.name}"
+                }
             }
         }
         val expected = archive.length()

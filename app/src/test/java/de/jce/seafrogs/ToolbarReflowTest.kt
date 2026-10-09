@@ -12,7 +12,8 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28, 35])
 class ToolbarReflowTest {
-    @Test fun measuredToolbarSurvivesCameraAndClassicModeSwitches() {
+    @Test
+    fun measuredToolbarSurvivesCameraAndClassicModeSwitches() {
         val context = RuntimeEnvironment.getApplication()
         val grid = CameraToolbarLayout(context).apply { columns = 3 }
         val buttons = (0..5).map { Button(context) }
@@ -20,8 +21,10 @@ class ToolbarReflowTest {
             grid.addView(button, android.view.ViewGroup.LayoutParams(0, 48))
         }
         fun measure() {
-            grid.measure(View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(800, View.MeasureSpec.AT_MOST))
+            grid.measure(
+                View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(800, View.MeasureSpec.AT_MOST),
+            )
             grid.layout(0, 0, grid.measuredWidth, grid.measuredHeight)
         }
         measure()

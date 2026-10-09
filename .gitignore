@@ -1,4 +1,6 @@
 .gradle/
+.kotlin/
+release-signing.json
 .idea/
 local.properties
 **/build/

@@ -4,7 +4,8 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MouseMotionDecoderTest {
-    @Test fun relativeHistoryPreservesBothChordDirectionsAtCursorEdge() {
+    @Test
+    fun relativeHistoryPreservesBothChordDirectionsAtCursorEdge() {
         val decoder = MouseMotionDecoder()
         val gate = HidCommandGate()
         // Android batches a horizontal delta before the final vertical delta.
@@ -14,13 +15,17 @@ class MouseMotionDecoderTest {
         gate.movement(current.first, current.second, 10)
         assertEquals(HidCommandGate.ModeSwitch.CAMERA, gate.takeModeSwitch())
     }
-    @Test fun positionsUseScreenCoordinatesAcrossTargets() {
+
+    @Test
+    fun positionsUseScreenCoordinatesAcrossTargets() {
         val decoder = MouseMotionDecoder()
         decoder.position(100f, 100f)
         assertEquals(-16f to 0f, decoder.sample(84f, 100f, 0f, 0f))
         assertEquals(0f to -16f, decoder.sample(84f, 84f, 0f, 0f))
     }
-    @Test fun relativeAndPositionReportsKeepOneBaseline() {
+
+    @Test
+    fun relativeAndPositionReportsKeepOneBaseline() {
         val decoder = MouseMotionDecoder()
         assertEquals(15f to 0f, decoder.sample(200f, 100f, 15f, 0f))
         assertEquals(0f to 15f, decoder.sample(200f, 115f, 0f, 0f))

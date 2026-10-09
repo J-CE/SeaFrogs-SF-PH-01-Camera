@@ -526,3 +526,27 @@ Signatur, Paketversion und 16-KiB-ZIP-Ausrichtung geprüft.
 Wir haben RC1 als `de.jce.seafrogs.test`, versionCode 30, versionName `1.0.0-rc1` ausgeliefert. Für den RC1-Build haben wir 75 bestandene Tests, 0 Fehler und 0 übersprungene Tests sowie erfolgreiche Build-/Lint-, Signatur- und 16-KiB-ZIP-Prüfungen dokumentiert. Die positive Geräterückmeldung zum Bedienbetrieb nach 0.8.10 halten wir in [RC1.md](RC1.md) fest.
 
 In diesem anschließenden Review stellen wir unsere eigene Dokumentation auf die erste Person Plural um, aktualisieren überholte aktuelle Bedienhinweise und kennzeichnen historische Testabläufe. Wir ergänzen [Installation und Verteilung](INSTALLATION.md) sowie [Optimierungsvorschläge](RC1-OPTIMIERUNGEN.md). Wir ändern keinen Programmcode und erzeugen keine neue APK. Wir prüfen Dokumentationsumfang, relative Links, unveränderte Befehlsblöcke und Diff-Formatierung; Build und Kamera-/HID-Tests wiederholen wir für diesen reinen Dokumentationsstand nicht.
+
+
+## Unser Release-Meilenstein 1.0.0-rc2, 9. Oktober 2026
+
+Wir bauen das kompatible Test-Update mit Paket `de.jce.seafrogs.test` und die neue Produktionsvariante mit Paket `de.jce.seafrogs`, jeweils versionCode 31 und Version 1.0.0-rc2. Wir prüfen Debug und Release mit jeweils **76 bestandenen Unit-Tests**, 0 Fehlern und 0 übersprungenen Tests. Wir prüfen beide Varianten mit Lint: **0 Fehler, 82 Warnungen**. Wir bauen Debug-APK, signierte Produktions-APK und signiertes AAB erfolgreich. Die Warnungen betreffen unter anderem bestehende API-/Stilhinweise, Ressourcen und Lokalisierung; wir bereinigen sie hier nicht durch Verhaltensänderungen.
+
+Wir bestätigen APK-v2-Signaturen, die Signatur des AAB und `debuggable=false` für die Produktions-APK. Wir prüfen ZIP-Ausrichtung mit `zipalign -c -P 16 4` und die LOAD-Segmente aller drei ARM64-Bibliotheken: jeweils mindestens 16 KiB. Wir verwenden für APK und AAB denselben RSA-4096-Release-Schlüssel. Wir sichern diesen privaten Schlüssel mit seiner Konfiguration außerhalb des Repositorys. Die üblichen JAR-Hinweise zum selbstsignierten Zertifikat und fehlenden Zeitstempel bewerten wir getrennt von der erfolgreich geprüften AAB-Signatur.
+
+Unser Release-Zertifikat hat SHA256:
+`90fa9f8bd95a0b17bddd294f8b6c1215bdac9ea92a5d39dae08a60f99c213e0b`.
+Unser Test-Zertifikat bleibt unverändert:
+`87b72bd7c9176cfa9e351215184b85268120fa367c35d3265bcc59eaa0886e57`.
+
+Wir deaktivieren neue HID-Protokolle einschließlich Eingaben im Absturzbericht. Mit dem zusätzlichen Regressionstest prüfen wir, dass kein HID-Snapshot erzeugt wird und Kamera-Testereignisse weiter gespeichert werden. Wir vergleichen außerdem die ausführbaren Tokens von 41 bestehenden Kotlin-Dateien nach den beabsichtigten Umbenennungen und der Formatierung; sie bleiben identisch. Die Protokollierungsänderungen in den vier betroffenen Dateien prüfen wir separat im Diff. Wir lassen Kamera- und Eingabebedingungen sowie Zeitkonstanten bestehen.
+
+Wir haben keinen neuen Pixel-/Gehäuse-Hardwaretest durchgeführt. Wir behalten Ziel-API 35 bei; vor einer neuen Play-Einreichung benötigen wir die separat geprüfte Migration auf Ziel-API 36. Wir haben noch keine GitHub-Release-Secrets eingerichtet und keinen Play-Release veröffentlicht. Unseren vollständigen Build- und Übergangsweg beschreiben wir in [RELEASE.md](RELEASE.md).
+
+Unsere Artefakt-Prüfsummen lauten:
+
+```text
+79db4667a6d08a9d38458650441cb900bfae0dd9bd6588537cb25521b4710fb8  SeaFrogs-Test-1.0.0-rc2.apk
+5508cdda1ad83963b60dcb15552aa01d0cb134b9ea3361080975709515bdde32  SeaFrogs-Camera-1.0.0-rc2-release.apk
+d4751cf64307a1434ca4b25cda746d287ff22d267883951454376f830c062f9d  SeaFrogs-Camera-1.0.0-rc2-release.aab
+```

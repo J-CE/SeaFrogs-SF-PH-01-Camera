@@ -8,34 +8,54 @@ import android.view.ViewGroup
 class CameraToolbarLayout(context: Context) : ViewGroup(context) {
     var columns = 3
         set(value) {
-            val next = value.coerceAtLeast(1)
-            if (field != next) { field = next; requestLayout() }
+            val requestedColumnCount = value.coerceAtLeast(1)
+            if (field != requestedColumnCount) {
+                field = requestedColumnCount
+                requestLayout()
+            }
         }
-    private fun visibleChildren() = (0 until childCount).map { getChildAt(it) }.filter { it.visibility != View.GONE }
+
+    private fun visibleChildren() =
+        (0 until childCount).map { getChildAt(it) }.filter { it.visibility != View.GONE }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
-        val children = visibleChildren()
-        val count = columns.coerceAtMost(children.size.coerceAtLeast(1))
+        val visibleButtons = visibleChildren()
+        val effectiveColumnCount = columns.coerceAtMost(visibleButtons.size.coerceAtLeast(1))
         var rowHeight = 0
-        children.forEachIndexed { index, child ->
-            val column = index % count
-            val cellWidth = width * (column + 1) / count - width * column / count
-            child.measure(MeasureSpec.makeMeasureSpec(cellWidth, MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(child.layoutParams.height.coerceAtLeast(0), MeasureSpec.EXACTLY))
+        visibleButtons.forEachIndexed { index, child ->
+            val column = index % effectiveColumnCount
+            val cellWidth =
+                width * (column + 1) / effectiveColumnCount - width * column / effectiveColumnCount
+            child.measure(
+                MeasureSpec.makeMeasureSpec(cellWidth, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(
+                    child.layoutParams.height.coerceAtLeast(0),
+                    MeasureSpec.EXACTLY,
+                ),
+            )
             rowHeight = maxOf(rowHeight, child.measuredHeight)
         }
-        val rows = (children.size + count - 1) / count
+        val rows = (visibleButtons.size + effectiveColumnCount - 1) / effectiveColumnCount
         setMeasuredDimension(width, resolveSize(rows * rowHeight, heightMeasureSpec))
     }
+
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        val children = visibleChildren()
-        val count = columns.coerceAtMost(children.size.coerceAtLeast(1))
-        val rowHeight = children.maxOfOrNull { it.measuredHeight } ?: 0
-        children.forEachIndexed { index, child ->
-            val column = index % count
-            val y = index / count * rowHeight
-            child.layout(width * column / count, y, width * (column + 1) / count, y + rowHeight)
+        val visibleButtons = visibleChildren()
+        val effectiveColumnCount = columns.coerceAtMost(visibleButtons.size.coerceAtLeast(1))
+        val rowHeight = visibleButtons.maxOfOrNull { it.measuredHeight } ?: 0
+        visibleButtons.forEachIndexed { index, child ->
+            val column = index % effectiveColumnCount
+            val rowTop = index / effectiveColumnCount * rowHeight
+            child.layout(
+                width * column / effectiveColumnCount,
+                rowTop,
+                width * (column + 1) / effectiveColumnCount,
+                rowTop + rowHeight,
+            )
         }
     }
-    override fun generateDefaultLayoutParams() = LayoutParams(LayoutParams.MATCH_PARENT, (48 * resources.displayMetrics.density).toInt())
+
+    override fun generateDefaultLayoutParams() =
+        LayoutParams(LayoutParams.MATCH_PARENT, (48 * resources.displayMetrics.density).toInt())
 }

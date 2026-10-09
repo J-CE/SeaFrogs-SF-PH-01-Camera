@@ -20,6 +20,10 @@ Wir verwenden für normale RAW-/ISO-/Digitalgrenzen-Fotos eine offene Camera2-Si
 
 Die Gehäusebedienung haben wir anhand der positiven Rückmeldung nach 0.8.10 als funktionierend festgehalten. Damit behandeln wir die zuvor gemeldeten Umschaltabstürze als im aktuellen Bedienbetrieb behoben. Die technische Grenze nicht gelieferter relativer Mausachsen am Bildschirmrand bleibt dokumentiert.
 
+## Was wir mit RC2 ergänzen
+
+Wir bauen mit einem eigenen Produktionsschlüssel, prüfen Änderungen automatisch über GitHub Actions und stellen APK sowie Play-App-Bundle bereit. Wir deaktivieren sämtliche neue HID-Protokollierung einschließlich Eingaben im Absturzbericht. Kamera-/Testberichte und normale Absturzbehandlung bleiben verfügbar. Wir formatieren den Kotlin-Code und benennen Zustandsvariablen eindeutiger, ohne Kamera- oder Eingabelogik umzubauen. Unsere Play-Veröffentlichung und die Einrichtung der GitHub-Release-Secrets stehen noch aus. Details halten wir in [RELEASE.md](RELEASE.md) fest.
+
 ## Welche Optimierungen wir jetzt priorisieren
 
 Wir priorisieren einen reproduzierbaren Release-Build, verlässliche Verteilung und anschließend messbare Verbesserungen an Eingabeprotokollierung, Oberfläche, Energiebedarf und Wartbarkeit. Unsere konkrete Reihenfolge und die jeweiligen Nachweise halten wir in [RC1-OPTIMIERUNGEN.md](RC1-OPTIMIERUNGEN.md) fest. Unsere Installationsstrategie beschreiben wir in [INSTALLATION.md](INSTALLATION.md).

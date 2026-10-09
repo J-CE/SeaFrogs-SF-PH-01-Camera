@@ -15,7 +15,10 @@ class AutofocusStability {
     }
 
     fun frame(focused: Boolean?, timestamp: Long?, now: Long) {
-        if (timestamp == null) { reset(); return }
+        if (timestamp == null) {
+            reset()
+            return
+        }
         if (timestamp == lastTimestamp) return
         if (lastReceivedAt?.let { now - it > MAX_AGE_MS } == true) {
             focusedSince = null
@@ -23,15 +26,21 @@ class AutofocusStability {
         }
         lastTimestamp = timestamp
         lastReceivedAt = now
-        if (focused != true) { focusedSince = null; frames = 0; return }
+        if (focused != true) {
+            focusedSince = null
+            frames = 0
+            return
+        }
         if (focusedSince == null) focusedSince = now
         frames++
     }
 
-    fun stable(now: Long): Boolean = focusedSince?.let { start ->
-        frames >= 3 && now - start >= STABLE_MS &&
-            lastReceivedAt?.let { now - it <= MAX_AGE_MS } == true
-    } == true
+    fun stable(now: Long): Boolean =
+        focusedSince?.let { start ->
+            frames >= 3 &&
+                now - start >= STABLE_MS &&
+                lastReceivedAt?.let { now - it <= MAX_AGE_MS } == true
+        } == true
 
     companion object {
         const val STABLE_MS = 400L

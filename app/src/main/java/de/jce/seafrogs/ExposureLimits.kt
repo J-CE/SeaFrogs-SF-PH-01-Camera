@@ -4,8 +4,14 @@ import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.roundToLong
 
-data class ExposureLimits(val isoCap: Int = 0, val longestTimeNs: Long = 33_333_333L, val boostCap: Int = 0) {
-    val enabled get() = isoCap > 0 || boostCap > 0
+data class ExposureLimits(
+    val isoCap: Int = 0,
+    val longestTimeNs: Long = 33_333_333L,
+    val boostCap: Int = 0,
+) {
+    val enabled
+        get() = isoCap > 0 || boostCap > 0
+
     companion object {
         val isoChoices = listOf(0, 400, 800, 1600)
         val boostChoices = listOf(0, 100, 200, 400)
@@ -15,20 +21,28 @@ data class ExposureLimits(val isoCap: Int = 0, val longestTimeNs: Long = 33_333_
 
 data class LimitedExposure(val iso: Int, val timeNs: Long, val brightnessDifferenceEv: Double)
 
-/** The meter already includes the requested EV correction. Preserve its
- * sensitivity × time product where both limits permit it. If the shutter
- * ceiling requires higher ISO, raise ISO only as far as the configured cap.
- * No second application of EV and no silent relaxation of either ceiling.
+/**
+ * The meter already includes the requested EV correction. Preserve its sensitivity × time product
+ * where both limits permit it. If the shutter ceiling requires higher ISO, raise ISO only as far as
+ * the configured cap. No second application of EV and no silent relaxation of either ceiling.
  */
 object ExposureLimitCalculator {
-    fun calculate(meterIso: Int, meterTimeNs: Long, limits: ExposureLimits,
-                  minIso: Int, maxIso: Int, minTimeNs: Long, maxTimeNs: Long): LimitedExposure {
+    fun calculate(
+        meterIso: Int,
+        meterTimeNs: Long,
+        limits: ExposureLimits,
+        minIso: Int,
+        maxIso: Int,
+        minTimeNs: Long,
+        maxTimeNs: Long,
+    ): LimitedExposure {
         require(meterIso > 0 && meterTimeNs > 0 && limits.enabled)
         val upperIso = if (limits.isoCap > 0) minOf(maxIso, limits.isoCap) else maxIso
         val upperTime = if (limits.isoCap > 0) minOf(maxTimeNs, limits.longestTimeNs) else maxTimeNs
         require(minIso > 0 && upperIso >= minIso && minTimeNs > 0 && upperTime >= minTimeNs)
         val targetProduct = meterIso.toDouble() * meterTimeNs
-        val isoForShutter = ceil(targetProduct / upperTime).coerceAtMost(upperIso.toDouble()).toInt()
+        val isoForShutter =
+            ceil(targetProduct / upperTime).coerceAtMost(upperIso.toDouble()).toInt()
         val iso = maxOf(minOf(meterIso, upperIso), isoForShutter).coerceIn(minIso, upperIso)
         val time = (targetProduct / iso).roundToLong().coerceIn(minTimeNs, upperTime)
         return LimitedExposure(iso, time, differenceEv(meterIso, meterTimeNs, iso, time))

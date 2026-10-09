@@ -10,9 +10,16 @@ object CameraControlCycles {
     val macroCropRatios = listOf(1f, 2f)
     var exposureValues = listOf(0f, 1f, 2f, -1f, -2f)
 
-    fun nextZoom(current: Float, macro: Boolean, minimum: Float, maximum: Float, ultrawide: Boolean = false): Float? {
-        val supported = (if (macro) macroCropRatios else if (ultrawide) ultrawideZoomRatios else zoomRatios)
-            .filter { it >= minimum && it <= maximum }
+    fun nextZoom(
+        current: Float,
+        macro: Boolean,
+        minimum: Float,
+        maximum: Float,
+        ultrawide: Boolean = false,
+    ): Float? {
+        val supported =
+            (if (macro) macroCropRatios else if (ultrawide) ultrawideZoomRatios else zoomRatios)
+                .filter { it >= minimum && it <= maximum }
         if (supported.isEmpty()) return null
         val position = supported.indexOf(current)
         return supported[(position + 1) % supported.size]

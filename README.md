@@ -1,7 +1,7 @@
 # SeaFrogs SF-PH-01 Camera
 
 Wir entwickeln unsere Android-Kamera für Google Pixel 8 und SeaFrogs SF-PH-01 Pro.
-Mit **1.0.0-rc1** erreichen wir eine funktionierende Version. Unser Ziel bleibt zuverlässiges Aufnehmen und nahezu blinde Bedienung mit fünf Gehäuseeingaben.
+Mit **1.0.0-rc2** ergänzen wir die funktionierende RC1-Version um Release-Signierung, automatische Prüfungen und deaktivierte HID-Protokollierung. Unser Ziel bleibt zuverlässiges Aufnehmen und nahezu blinde Bedienung mit fünf Gehäuseeingaben.
 
 Mit Links wechseln wir Hauptkamera/Macro/UW, mit Hoch den Zoom, mit Rechts EV,
 mit Runter Foto/Video und mit Klick lösen wir aus beziehungsweise starten/stoppen Video.
@@ -45,7 +45,7 @@ Der separate Host-Bibliotheksvergleich unter tools/library-benchmark
 enthält GPL-3.0-only-Komponenten und gehört nicht zur App.
 
 In den übrigen versionsbezogenen Dokumenten halten wir historische Versuche fest.
-Für unsere aktuelle Bedienung gelten DIVE-0.8.1.md und RC1.md.
+Für unsere aktuelle Bedienung gelten DIVE-0.8.1.md und RC1.md. Die Auslieferung von RC2 beschreiben wir in [RELEASE.md](docs/RELEASE.md).
 
 ### Schnellere RAW-/ISO-Aufnahme ab 0.8.4
 

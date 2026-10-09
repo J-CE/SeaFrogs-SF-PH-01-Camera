@@ -1,6 +1,6 @@
 # Wie wir unsere Kamera installieren und verteilen
 
-Stand unserer Recherche: 9. Oktober 2026. Wir liefern RC1 bisher als Debug-APK mit Paket `de.jce.seafrogs.test` und dem Namen **SeaFrogs Test** aus. Wir verwenden dafür den dauerhaft gesicherten Test-Signierschlüssel. In `app/build.gradle.kts` haben wir noch keine eigene Release-Signierung eingerichtet.
+Stand unserer Recherche: 9. Oktober 2026. Wir liefern RC2 als signierte Produktions-APK und Play-App-Bundle mit Paket `de.jce.seafrogs` aus. Zusätzlich bauen wir ein kompatibles Update für `de.jce.seafrogs.test` mit dem dauerhaft gesicherten Test-Signierschlüssel. Wir verwenden einen eigenen gesicherten Produktionsschlüssel und die Release-Signierkonfiguration in `app/build.gradle.kts`. Unseren Build und die verbleibende Play-Einrichtung dokumentieren wir in [RELEASE.md](RELEASE.md).
 
 ## Welche Meldung wir unterscheiden müssen
 
@@ -18,7 +18,7 @@ Wir können eine vollständig warnungsfreie Installation für jede Android-Versi
 
 Für unseren kleinen Testkreis empfehlen wir einen **internen Test in Google Play**. Wir verteilen dabei über den Play Store an bis zu 100 eingeladene Tester, ohne die App bereits öffentlich anbieten zu müssen. Damit umgehen wir die übliche Freigabe für unbekannte APK-Quellen. Eine Testkennzeichnung oder normale Kameraberechtigungsabfrage ist weiterhin möglich; daraus folgt keine Sicherheitswarnung.
 
-Dafür würden wir folgende Schritte umsetzen:
+Für die Play-Verteilung gehen wir so vor:
 
 1. Wir richten ein Play-Console-Entwicklerkonto ein beziehungsweise verwenden ein vorhandenes verifiziertes Konto.
 2. Wir legen die dauerhafte Paketidentität und den Übergang von **SeaFrogs Test** fest.
@@ -26,13 +26,15 @@ Dafür würden wir folgende Schritte umsetzen:
 4. Wir bauen ein signiertes Release-App-Bundle, prüfen dessen Kamera-, HID-, Speicher- und JNI-Verhalten und legen einen internen Testrelease an.
 5. Wir tragen die vorgesehenen Tester ein. Sie treten über den Testlink bei und installieren beziehungsweise aktualisieren über Google Play.
 
-Wir haben diesen Verteilungsweg hier dokumentiert, aber noch kein Play-Konto angelegt, keinen Schlüssel gewechselt und keinen Play-Release veröffentlicht.
+Wir haben den Produktionsschlüssel und den signierten Release-Build vorbereitet. Wir behalten in RC2 Ziel-API 35 bei; vor einer neuen Play-Einreichung migrieren und prüfen wir Ziel-API 36 gemäß [Googles aktueller Vorgabe](https://support.google.com/googleplay/android-developer/answer/11926878). Wir haben noch kein Play-Konto eingerichtet und keinen Play-Release veröffentlicht.
 
 ## Wie wir den Übergang von der Test-App behandeln
 
 Android prüft bei Updates die Paketidentität und Signaturkompatibilität. Ein einfaches Neusignieren unserer bisherigen Test-App mit einem unabhängigen neuen Schlüssel ergibt deshalb kein kompatibles Update.
 
 Als übersichtlichen Übergang empfehlen wir unsere Produktionsidentität `de.jce.seafrogs` mit eigener Release-Signierung. Sie kann neben `de.jce.seafrogs.test` installiert werden. Wir übernehmen die gewünschten Einstellungen bewusst; die neue Paketidentität übernimmt App-Daten und Berechtigungen nicht automatisch. Unsere über MediaStore gespeicherten Bilder und Videos liegen weiterhin in Pictures/SeaFrogs und Movies/SeaFrogs; ihre Zugänglichkeit und etwaige appgebundene Referenzen prüfen wir beim Übergang.
+
+Falls auf unserem Gerät ein alter Prototyp mit Paket `de.jce.seafrogs` und einer anderen Signatur installiert ist, sichern wir benötigte App-Daten und entfernen diesen Prototyp vor der Produktionsinstallation. Unsere aktuelle `.test`-App kann parallel bestehen bleiben.
 
 Falls wir stattdessen die Test-Paketidentität dauerhaft behalten möchten, planen wir eine ausdrücklich geprüfte Signaturmigration oder eine Neuinstallation. Wir betrachten den vorhandenen Debug-Schlüssel nicht als dauerhafte Produktionslösung. Für einheitliche Play- und direkte APK-Updates müssten wir auch die App-Signing-Key-Strategie aufeinander abstimmen.
 
